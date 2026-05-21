@@ -1,6 +1,9 @@
 const https = require('https');
 
-exports.handler = async function(event) {
+exports.handler = async function(event, context) {
+  // 延長逾時至 26 秒（Netlify 免費版上限 26s）
+  context.callbackWaitsForEmptyEventLoop = false;
+
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method Not Allowed' };
   }
@@ -18,8 +21,8 @@ exports.handler = async function(event) {
   }
 
   const payload = JSON.stringify({
-    model: 'claude-opus-4-5',
-    max_tokens: 1024,
+    model: 'claude-haiku-4-5-20251001',  // 改用 Haiku，速度快很多
+    max_tokens: 2048,
     messages: body.messages,
   });
 
@@ -36,10 +39,12 @@ exports.handler = async function(event) {
       },
     };
 
+    const chunks = [];
+
     const req = https.request(options, (res) => {
-      let data = '';
-      res.on('data', (chunk) => { data += chunk; });
+      res.on('data', (chunk) => { chunks.push(chunk); });
       res.on('end', () => {
+        const data = Buffer.concat(chunks).toString('utf8');
         resolve({
           statusCode: res.statusCode,
           headers: { 'Content-Type': 'application/json' },
@@ -52,6 +57,14 @@ exports.handler = async function(event) {
       resolve({
         statusCode: 500,
         body: JSON.stringify({ error: err.message }),
+      });
+    });
+
+    req.setTimeout(25000, () => {
+      req.destroy();
+      resolve({
+        statusCode: 504,
+        body: JSON.stringify({ error: '請求逾時，請重試' }),
       });
     });
 
