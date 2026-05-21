@@ -985,8 +985,11 @@ async function aiParse(file){
           {type:'text',text:`請解析這張菜單圖片，回傳純 JSON 陣列，不要有任何其他文字或 markdown：\n[{"restaurant":"店家名稱","emoji":"emoji","name":"品項名稱","price":數字,"description":"描述"}]\n無法辨識則回傳 []。`}
         ]}]})});
       if(!res.ok) throw new Error(`API 錯誤 ${res.status}`);
-      const d=await res.json();
-      parsed=JSON.parse((d.content?.[0]?.text||'[]').replace(/```json?|```/g,'').trim());
+      const text=await res.text();
+      let d;
+      try{ d=JSON.parse(text); }catch(e){ throw new Error('回應格式錯誤：'+text.slice(0,100)); }
+      const raw=(d.content?.[0]?.text||'[]').replace(/```json[\s\S]*?```|```/g,'').trim();
+      parsed=JSON.parse(raw);
     }
     if(!Array.isArray(parsed)||!parsed.length){
       if(statusEl) statusEl.innerHTML=`<div style="font-size:.75rem;color:var(--am);margin-top:7px">⚠️ AI 無法識別，請手動新增品項</div>`;
