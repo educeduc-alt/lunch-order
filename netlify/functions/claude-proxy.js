@@ -5,7 +5,7 @@ exports.handler = async function(event) {
     return { statusCode: 405, body: 'Method Not Allowed' };
   }
 
-  const CLAUDE_KEY = process.env.CLAUDE_API_KEY;
+  const CLAUDE_KEY = (process.env.CLAUDE_API_KEY || '').trim().replace(/[^\x20-\x7E]/g, '');
   if (!CLAUDE_KEY) {
     return { statusCode: 500, body: JSON.stringify({ error: 'API Key 未設定' }) };
   }
