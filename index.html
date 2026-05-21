@@ -765,7 +765,7 @@ function renderAdmin(){
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:13px;align-items:center">
       ${S.events.map(e=>`<button class="btn ${S.adminEid===e.id?'btn-or':'btn-out'} btn-sm"
         onclick="S.adminEid='${e.id}';render()">${esc(e.title)}</button>`).join('')}
-      <button class="btn btn-gr btn-sm" onclick="createEvent()">＋ 新增場次</button>
+      <button class="btn btn-gr btn-sm" onclick="createNewEvent()">＋ 新增場次</button>
     </div>`;
 
   if(!ev){ html+='<div class="empty"><span class="ei">📭</span><p>請先建立場次</p></div>'; return html; }
@@ -866,7 +866,7 @@ function renderEventMgmt(ev){
 }
 
 /* ── ADMIN OPS ── */
-async function createEvent(){
+async function createNewEvent(){
   if(DEMO){toast('示範模式','warn');return;}
   const{data,error}=await sb.from('menus').insert({title:'新場次',deadline:'11:30',organizer:'',store_name:'',date:new Date().toISOString().slice(0,10)}).select().single();
   if(error){toast('建立失敗','err');return;}
