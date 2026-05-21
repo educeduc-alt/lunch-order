@@ -988,7 +988,11 @@ async function aiParse(file){
       const text=await res.text();
       let d;
       try{ d=JSON.parse(text); }catch(e){ throw new Error('回應格式錯誤：'+text.slice(0,100)); }
-      const raw=(d.content?.[0]?.text||'[]').replace(/```json[\s\S]*?```|```/g,'').trim();
+      let raw=(d.content?.[0]?.text||'[]').trim();
+      // 移除 markdown code block（```json ... ``` 或 ``` ... ```）
+      raw=raw.replace(/^```json\s*/i,'').replace(/^```\s*/,'').replace(/\s*```$/,'').trim();
+      // 如果還是以 json 開頭就再去掉
+      if(raw.toLowerCase().startsWith('json')) raw=raw.slice(4).trim();
       parsed=JSON.parse(raw);
     }
     if(!Array.isArray(parsed)||!parsed.length){
