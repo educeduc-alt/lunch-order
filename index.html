@@ -326,6 +326,7 @@ let S = {
   items:{},         // { menuId: [items] }
   orders:{},        // { menuId: [orders] }
   activeEventId:null,
+  pendingItems:[],   // 本次 AI 解析暫存，尚未儲存
   cart:{},
   specItem:null, specSel:{}, specQty:1, specNote:'',
   myName:'', myClass:'',
@@ -418,6 +419,7 @@ function goTab(t){
   }
   S.tab=t; S.delId=null;
   if(t==='admin'&&!S.adminEid&&S.events.length) S.adminEid=S.events[0].id;
+  if(t==='admin') S.pendingItems=[];  // 進後台時清空暫存
   ['home','rec','admin'].forEach(x=>{
     const el=document.getElementById('tab-'+x);
     if(el) el.className='tab-btn'+(x===t?(t==='admin'?' on-admin':' on'):'');
@@ -767,7 +769,7 @@ function renderAdmin(){
     <!-- 場次切換 -->
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:13px;align-items:center">
       ${S.events.map(e=>`<button class="btn ${S.adminEid===e.id?'btn-or':'btn-out'} btn-sm"
-        onclick="S.adminEid='${e.id}';render()">${esc(e.title)}</button>`).join('')}
+        onclick="S.adminEid='${e.id}';S.pendingItems=[];render()">${esc(e.title)}</button>`).join('')}
       <button class="btn btn-gr btn-sm" onclick="createNewEvent()">＋ 新增場次</button>
     </div>`;
 
@@ -823,7 +825,7 @@ function renderAdmin(){
 
 /* 場次 & 菜單管理 */
 function renderEventMgmt(ev){
-  const items=S.items[ev?.id]||[];
+  const items=S.pendingItems; // 後台只顯示本次解析的暫存品項
   return `<div class="panel"><div class="panel-head">
     <div class="panel-title">✏️ 場次設定 & 菜單管理</div>
     <button class="btn btn-or btn-sm" onclick="addItem()">＋ 品項</button>
@@ -854,7 +856,17 @@ function renderEventMgmt(ev){
     </div>
 
     <!-- 品項列表 -->
-    <span class="mg-lbl" style="display:block;margin-bottom:5px">品項列表</span>
+    <!-- 已儲存品項摘要 -->
+    ${(()=>{
+      const saved=S.items[S.adminEid]||[];
+      if(!saved.length) return '';
+      const cats=[...new Set(saved.map(i=>i.category||'其他'))];
+      return `<div style="background:var(--grl);border-radius:var(--rsm);padding:8px 12px;margin-bottom:10px;font-size:.78rem;color:var(--gr)">
+        ✅ 已儲存 ${saved.length} 個品項（${cats.join('、')}）
+        <button onclick="if(confirm('確定清空此場次所有品項？'))clearItems()" style="float:right;font-size:.7rem;color:var(--rd);background:none;border:none;cursor:pointer">清空</button>
+      </div>`;
+    })()}
+    <span class="mg-lbl" style="display:block;margin-bottom:5px">${S.pendingItems.length?'本次解析品項（確認後按儲存）':'尚未解析品項'}</span>
     <div id="mgmtItems">
       ${items.map((it,i)=>`<div class="mgmt-item-row" style="flex-wrap:wrap">
         <input class="mg-inp mi-em" value="${esc(it.emoji)}" id="me-${i}" placeholder="🍱">
@@ -899,6 +911,15 @@ async function delOrder(id,eid){
   if(error){toast('刪除失敗','err');return;}
   toast('已刪除','ok'); render();
 }
+async function clearItems(){
+  const eid=S.adminEid; if(!eid) return;
+  if(DEMO){S.items[eid]=[];toast('已清空','ok');render();return;}
+  const{error}=await sb.from('menu_items').delete().eq('menu_id',eid);
+  if(error){toast('清空失敗','err');return;}
+  S.items[eid]=[];S.pendingItems=[];
+  toast('已清空此場次所有品項','ok');render();
+}
+
 async function clearOrders(){
   const ids=(S.orders[S.adminEid]||[]).map(o=>o.id);
   if(!ids.length) return;
@@ -909,12 +930,10 @@ async function clearOrders(){
 
 /* ── ITEM OPS ── */
 function addItem(){
-  const eid=S.adminEid; if(!eid) return;
-  if(!S.items[eid]) S.items[eid]=[];
-  S.items[eid].push({id:'new-'+Date.now(),menu_id:eid,restaurant:'',emoji:'🍱',name:'',description:'',price:0,specs:[],sort_order:S.items[eid].length,ai_parsed:false});
+  S.pendingItems.push({id:'new-'+Date.now(),menu_id:S.adminEid||'',restaurant:'',emoji:'🍱',name:'',description:'',price:0,specs:[],sort_order:S.pendingItems.length,ai_parsed:false,category:'其他'});
   render();
 }
-function removeItem(i){ const eid=S.adminEid; S.items[eid].splice(i,1); render(); }
+function removeItem(i){ S.pendingItems.splice(i,1); render(); }
 async function saveMenu(){
   const eid=S.adminEid; if(!eid){toast('請先選擇場次','err');return;}
   if(DEMO){toast('示範模式：變更不會寫入','warn');return;}
@@ -933,31 +952,46 @@ async function saveMenu(){
 }
 async function saveAll(){
   const eid=S.adminEid; if(!eid){toast('請先選擇場次','err');return;}
-  // 同時儲存場次資訊 + 菜單品項
+  if(!S.pendingItems.length){toast('請先上傳菜單並等待 AI 解析','warn');return;}
+  if(DEMO){toast('示範模式：變更不會寫入','warn');return;}
+
+  // 儲存場次基本資訊
   const title=document.getElementById('evTitle')?.value.trim();
   const deadline=document.getElementById('evDeadline')?.value||'11:30';
   const organizer=document.getElementById('evOrganizer')?.value.trim()||'';
   const store_name=document.getElementById('evStore')?.value.trim()||'';
   if(!title){toast('請填場次標題','err');return;}
-  if(DEMO){toast('示範模式：變更不會寫入','warn');return;}
-  // 儲存場次基本資訊
+
   const{error:e1}=await sb.from('menus').update({title,deadline,organizer,store_name}).eq('id',eid);
   if(e1){toast('儲存失敗：'+e1.message,'err');return;}
   const ev=S.events.find(e=>e.id===eid);
   if(ev) Object.assign(ev,{title,deadline,organizer,store_name});
-  // 儲存菜單品項
-  await sb.from('menu_items').delete().eq('menu_id',eid);
-  const items=(S.items[eid]||[]).map((it,i)=>({
+
+  // 把 pendingItems 讀取欄位後 append 到資料庫（不刪除既有品項）
+  const existingCount=(S.items[eid]||[]).length;
+  const newItems=S.pendingItems.map((it,i)=>({
     emoji:document.getElementById('me-'+i)?.value||it.emoji,
     category:document.getElementById('mc-'+i)?.value||it.category||'其他',
     restaurant:document.getElementById('mr-'+i)?.value||it.restaurant,
     name:document.getElementById('mn-'+i)?.value||it.name,
     price:+(document.getElementById('mp-'+i)?.value)||it.price,
-    description:it.description||'',specs:it.specs||[],sort_order:i,ai_parsed:it.ai_parsed||false,menu_id:eid
+    description:it.description||'',
+    specs:it.specs||[],
+    sort_order:existingCount+i,
+    ai_parsed:true,
+    menu_id:eid
   }));
-  if(items.length){const{error:e2}=await sb.from('menu_items').insert(items);if(e2){toast('品項儲存失敗：'+e2.message,'err');return;}}
+
+  if(newItems.length){
+    const{error:e2}=await sb.from('menu_items').insert(newItems);
+    if(e2){toast('品項儲存失敗：'+e2.message,'err');return;}
+  }
+
+  // 儲存成功：清空暫存，重新載入完整品項
+  S.pendingItems=[];
   await loadEventDetail(eid);
-  toast('✅ 已儲存','ok');
+  const total=(S.items[eid]||[]).length;
+  toast(`✅ 已儲存！場次共 ${total} 個品項`,'ok');
   render();
 }
 
@@ -967,6 +1001,9 @@ async function handleImg(event){
   const file=event.target.files[0]; if(!file) return;
   const isPdf=file.type==='application/pdf'||file.name.toLowerCase().endsWith('.pdf');
   const zone=document.querySelector('.upload-zone');
+  // 每次上傳前重置狀態
+  const statusEl=document.getElementById('aiStatus');
+  if(statusEl) statusEl.innerHTML='';
   if(zone) zone.innerHTML=`<div class="scan-ldr"><div class="spin"></div>${isPdf?'PDF 轉換中…':'圖片載入中…'}</div>`;
   if(isPdf){
     // PDF 用 PDF.js 轉換第一頁為圖片
@@ -1045,32 +1082,63 @@ async function aiParseBase64(base64,mime){
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({messages:[{role:'user',content:[
         {type:'image',source:{type:'base64',media_type:mime,data:base64}},
-        {type:'text',text:'請解析這張菜單圖片（可能是圖片或PDF截圖），回傳純 JSON 陣列，不要有任何其他文字或 markdown：\n[{"restaurant":"店家名稱","category":"便當","emoji":"最適合的emoji","name":"品項名稱","price":數字或0,"description":"簡短描述或空字串"}]\ncategory 只能填：便當、飲料、點心、其他 其中一種。無法辨識則回傳 []。price 看不清楚填 0。'}
+        {type:'text',text:'請解析這張菜單圖片（可能是圖片或PDF截圖），只回傳純 JSON 陣列，絕對不要有任何其他文字、說明或 markdown code block：\n[{"restaurant":"店家名稱","category":"便當","emoji":"最適合的emoji","name":"品項名稱","price":數字或0,"description":"簡短描述或空字串"}]\ncategory 只能填：便當、飲料、點心、其他 其中一種。無法辨識則回傳 []。price 看不清楚填 0。請確保 JSON 完整，不要截斷。'}
       ]}]})});
     if(!res.ok) throw new Error(`API 錯誤 ${res.status}`);
     const text=await res.text();
     let d;
-    try{ d=JSON.parse(text); }catch(e){ throw new Error('回應格式錯誤：'+text.slice(0,100)); }
+    try{ d=JSON.parse(text); }
+    catch(e){ throw new Error('伺服器回應格式錯誤：'+text.slice(0,120)); }
     let raw=(d.content?.[0]?.text||'[]').trim();
-    raw=raw.replace(/^```json\s*/i,'').replace(/^```\s*/,'').replace(/\s*```$/,'').trim();
+    // 清除所有 markdown 包裝
+    raw=raw.replace(/^```json\s*/i,'').replace(/^```\s*/,'').replace(/\s*```\s*$/,'').trim();
     if(raw.toLowerCase().startsWith('json')) raw=raw.slice(4).trim();
-    const parsed=JSON.parse(raw);
+    // 如果 JSON 被截斷，嘗試修復（補上結尾的 ]）
+    if(!raw.endsWith(']')){
+      const lastComma=raw.lastIndexOf(',');
+      const lastBrace=raw.lastIndexOf('}');
+      if(lastBrace>lastComma){
+        raw=raw.slice(0,lastBrace+1)+']';
+      } else if(lastComma>0){
+        raw=raw.slice(0,lastComma)+']';
+      } else {
+        raw='[]';
+      }
+    }
+    let parsed;
+    try{ parsed=JSON.parse(raw); }
+    catch(e){ throw new Error('菜單解析失敗，品項可能過多，請嘗試分開上傳'); }
     if(!Array.isArray(parsed)||!parsed.length){
       if(statusEl) statusEl.innerHTML=`<div style="font-size:.75rem;color:var(--am);margin-top:7px">⚠️ AI 無法識別，請手動新增品項</div>`;
       return;
     }
     const eid=S.adminEid;
     if(!S.items[eid]) S.items[eid]=[];
-    const newItems=parsed.map((it,i)=>({id:'ai-'+Date.now()+'-'+i,menu_id:eid,restaurant:it.restaurant||'本日菜單',category:it.category||'其他',emoji:it.emoji||'🍱',name:it.name||'未知品項',description:it.description||'',price:Number(it.price)||0,specs:[],sort_order:S.items[eid].length+i,ai_parsed:true}));
-    S.items[eid]=[...S.items[eid],...newItems];
+    const newItems=parsed
+      .filter(it=>it&&it.name)  // 過濾掉不完整的品項
+      .map((it,i)=>({
+        id:'ai-'+Date.now()+'-'+i,
+        menu_id:eid,
+        restaurant:it.restaurant||'本日菜單',
+        category:it.category||'其他',
+        emoji:it.emoji||'🍱',
+        name:it.name||'未知品項',
+        description:it.description||'',
+        price:Number(it.price)||0,
+        specs:[],
+        sort_order:S.items[eid].length+i,
+        ai_parsed:true
+      }));
+    // 每次解析先清空暫存，只顯示本次的
+    S.pendingItems=newItems;
     const cats=[...new Set(newItems.map(i=>i.category))].join('、');
-    if(statusEl) statusEl.innerHTML=`<div style="font-size:.75rem;color:var(--gr);margin-top:7px">✅ AI 成功解析 ${newItems.length} 個品項（${cats}），確認後按儲存菜單</div>`;
+    if(statusEl) statusEl.innerHTML=`<div style="font-size:.75rem;color:var(--gr);margin-top:7px">✅ 解析完成 ${newItems.length} 個品項（${cats}），確認後按「💾 儲存」加入場次</div>`;
     toast(`AI 解析完成！${newItems.length} 個品項`,'ok');
     render();
   }catch(err){
     console.error(err);
     if(statusEl) statusEl.innerHTML=`<div style="font-size:.75rem;color:var(--rd);margin-top:7px">❌ 解析失敗：${err.message}</div>`;
-    toast('AI 解析失敗','err');
+    toast('AI 解析失敗：'+err.message,'err');
   }
 }
 function toBase64(file){
