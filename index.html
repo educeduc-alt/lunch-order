@@ -257,7 +257,6 @@ input,select,textarea{font-family:inherit}
     <input type="password" class="modal-inp" id="adminPwInp" placeholder="••••" maxlength="20" onkeydown="if(event.key==='Enter')doLogin()">
     <button class="btn btn-or btn-full" onclick="doLogin()">進入後台</button>
     <button class="btn btn-out btn-full" style="margin-top:7px" onclick="closeLogin()">取消</button>
-    <p style="margin-top:10px;font-size:.68rem;color:var(--sll)">預設密碼：1234</p>
   </div>
 </div>
 
@@ -275,7 +274,7 @@ input,select,textarea{font-family:inherit}
 <div class="topbar">
   <div class="topbar-inner">
     <div class="brand"><div class="brand-icon">🍱</div>同仁點餐</div>
-    <div class="brand-sub">內部意向蒐集</div>
+    
   </div>
 </div>
 
@@ -536,7 +535,6 @@ function renderOrderPage(){
     </div>`;
 
   if(closed) html+=`<div style="background:var(--rdl);border:1.5px solid #fca5a5;border-radius:var(--rmd);padding:10px 13px;font-size:.8rem;color:var(--rd);font-weight:700;margin-bottom:12px;text-align:center">⛔ 此場次已截止，無法點餐</div>`;
-  else html+=`<div class="notice"><span>💡</span><span>這是<strong>內部意向蒐集</strong>，統計後由承辦人向店家點餐，請填好姓名班級再送出。</span></div>`;
 
   html+=`<div class="id-card">
     <div class="fld"><label>姓名</label><input class="inp" id="uName" placeholder="王小明" value="${esc(S.myName)}"></div>
@@ -811,11 +809,12 @@ function renderAdmin(){
 
   // 設定
   html+=`<div class="panel"><div class="panel-head"><div class="panel-title">⚙️ 設定</div></div><div class="panel-body">
-    <div style="margin-bottom:12px">
-      <div style="font-size:.68rem;font-weight:700;color:var(--sll);margin-bottom:5px;text-transform:uppercase;letter-spacing:.4px">管理員密碼</div>
-      <div style="display:flex;gap:7px;flex-wrap:wrap">
-        <input type="password" class="inp" id="newPwInp" placeholder="輸入新密碼" style="max-width:180px">
-        <button class="btn btn-out" onclick="changePw()">更改</button>
+    <div>
+      <div style="font-size:.68rem;font-weight:700;color:var(--sll);margin-bottom:5px;text-transform:uppercase;letter-spacing:.4px">截止時間</div>
+      <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center">
+        <input type="time" class="inp" id="dlInp" value="${S.activeMenu?.deadline||'11:30'}" style="width:130px">
+        <button class="btn btn-or btn-sm" onclick="saveDl()">儲存</button>
+        <button class="btn ${S.activeMenu?.is_closed?'btn-gr':'btn-rd'} btn-sm" onclick="toggleClose(S.activeMenu?.id)">${S.activeMenu?.is_closed?'重新開放':'立即關閉'}</button>
       </div>
     </div>
   </div></div>`;
@@ -838,7 +837,6 @@ function renderEventMgmt(ev){
       <div><span class="mg-lbl">店家名稱</span><input class="mg-inp" id="evStore" placeholder="例：MaMa手作飯盒" value="${esc(ev.store_name||'')}"></div>
     </div>
     <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:14px">
-      <button class="btn btn-or btn-sm" onclick="saveEventInfo()">💾 儲存場次資訊</button>
       <button class="btn ${ev.is_closed?'btn-gr':'btn-rd'} btn-sm" onclick="toggleClose('${ev.id}')">${ev.is_closed?'重新開放':'立即關閉'}</button>
       <button class="btn btn-rd btn-sm" onclick="if(confirm('確定刪除整個場次？'))deleteEvent('${ev.id}')">🗑️ 刪除場次</button>
     </div>
@@ -869,7 +867,7 @@ function renderEventMgmt(ev){
         <button class="btn btn-rd btn-sm" onclick="removeItem(${i})">刪</button>
       </div>`).join('')}
     </div>
-    <button class="btn btn-or" style="margin-top:9px" onclick="saveMenu()">💾 儲存菜單</button>
+    <button class="btn btn-or" style="margin-top:9px" onclick="saveAll()">💾 儲存</button>
   </div></div>`;
 }
 
@@ -880,19 +878,6 @@ async function createNewEvent(){
   if(error){toast('建立失敗','err');return;}
   S.events.push(data); S.items[data.id]=[]; S.orders[data.id]=[];
   S.adminEid=data.id; render(); toast('場次已建立','ok');
-}
-async function saveEventInfo(){
-  const title=document.getElementById('evTitle')?.value.trim();
-  const deadline=document.getElementById('evDeadline')?.value||'11:30';
-  const organizer=document.getElementById('evOrganizer')?.value.trim()||'';
-  const store_name=document.getElementById('evStore')?.value.trim()||'';
-  if(!title){toast('請填場次標題','err');return;}
-  if(DEMO){const ev=S.events.find(e=>e.id===S.adminEid);if(ev){Object.assign(ev,{title,deadline,organizer,store_name});}toast('示範模式','warn');render();return;}
-  const{error}=await sb.from('menus').update({title,deadline,organizer,store_name}).eq('id',S.adminEid);
-  if(error){toast('儲存失敗','err');return;}
-  const ev=S.events.find(e=>e.id===S.adminEid);
-  if(ev) Object.assign(ev,{title,deadline,organizer,store_name});
-  toast('場次資訊已儲存','ok'); render();
 }
 async function toggleClose(eid){
   const ev=S.events.find(e=>e.id===eid); if(!ev) return;
@@ -946,13 +931,36 @@ async function saveMenu(){
   await loadEventDetail(eid);
   toast('菜單已儲存 ✓','ok'); render();
 }
-function changePw(){
-  const v=document.getElementById('newPwInp')?.value.trim();
-  if(!v){toast('請輸入新密碼','err');return;}
-  localStorage.setItem(ADMIN_PW_KEY,v);
-  document.getElementById('newPwInp').value='';
-  toast('密碼已更新','ok');
+async function saveAll(){
+  const eid=S.adminEid; if(!eid){toast('請先選擇場次','err');return;}
+  // 同時儲存場次資訊 + 菜單品項
+  const title=document.getElementById('evTitle')?.value.trim();
+  const deadline=document.getElementById('evDeadline')?.value||'11:30';
+  const organizer=document.getElementById('evOrganizer')?.value.trim()||'';
+  const store_name=document.getElementById('evStore')?.value.trim()||'';
+  if(!title){toast('請填場次標題','err');return;}
+  if(DEMO){toast('示範模式：變更不會寫入','warn');return;}
+  // 儲存場次基本資訊
+  const{error:e1}=await sb.from('menus').update({title,deadline,organizer,store_name}).eq('id',eid);
+  if(e1){toast('儲存失敗：'+e1.message,'err');return;}
+  const ev=S.events.find(e=>e.id===eid);
+  if(ev) Object.assign(ev,{title,deadline,organizer,store_name});
+  // 儲存菜單品項
+  await sb.from('menu_items').delete().eq('menu_id',eid);
+  const items=(S.items[eid]||[]).map((it,i)=>({
+    emoji:document.getElementById('me-'+i)?.value||it.emoji,
+    category:document.getElementById('mc-'+i)?.value||it.category||'其他',
+    restaurant:document.getElementById('mr-'+i)?.value||it.restaurant,
+    name:document.getElementById('mn-'+i)?.value||it.name,
+    price:+(document.getElementById('mp-'+i)?.value)||it.price,
+    description:it.description||'',specs:it.specs||[],sort_order:i,ai_parsed:it.ai_parsed||false,menu_id:eid
+  }));
+  if(items.length){const{error:e2}=await sb.from('menu_items').insert(items);if(e2){toast('品項儲存失敗：'+e2.message,'err');return;}}
+  await loadEventDetail(eid);
+  toast('✅ 已儲存','ok');
+  render();
 }
+
 
 /* ── IMAGE + AI ── */
 async function handleImg(event){
