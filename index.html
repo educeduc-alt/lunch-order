@@ -1001,7 +1001,8 @@ async function handleImg(event){
   const file=event.target.files[0]; if(!file) return;
   const isPdf=file.type==='application/pdf'||file.name.toLowerCase().endsWith('.pdf');
   const zone=document.querySelector('.upload-zone');
-  // 每次上傳前重置狀態
+  // 每次上傳前完整重置
+  S.pendingItems=[];
   const statusEl=document.getElementById('aiStatus');
   if(statusEl) statusEl.innerHTML='';
   if(zone) zone.innerHTML=`<div class="scan-ldr"><div class="spin"></div>${isPdf?'PDF 轉換中…':'圖片載入中…'}</div>`;
