@@ -6,6 +6,7 @@
 <title>同仁點餐意向系統</title>
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
 :root{
   --or:#f97316;--ord:#ea580c;--orl:#fff7ed;--orll:#ffedd5;
@@ -501,10 +502,7 @@ function renderHome(){
           <div class="ec-title">${esc(ev.title)}</div>
           ${ev.organizer?`<div class="ec-organizer">👤 承辦：${esc(ev.organizer)}</div>`:''}
         </div>
-        <div class="ec-right">
-          <div class="ec-deadline-label">截止時間</div>
-          <div class="ec-deadline">${ev.deadline}</div>
-        </div>
+<!-- 截止時間前台已隱藏 -->
       </div>
       <div class="ec-bot">
         <div class="ec-store">🏪 ${esc(ev.store_name||'（尚未設定店家）')}</div>
@@ -533,7 +531,7 @@ function renderOrderPage(){
       <button class="back-btn" onclick="S.activeEventId=null;S.cart={};render()">← 返回場次</button>
       <div class="event-info-banner">
         <strong>${esc(ev.title)}</strong>
-        ${ev.organizer?`承辦：${esc(ev.organizer)}　`:''}截止：${ev.deadline}　${ev.store_name?`店家：${esc(ev.store_name)}`:''}
+        ${ev.organizer?`承辦：${esc(ev.organizer)}　`:''}${ev.store_name?`店家：${esc(ev.store_name)}`:''}
       </div>
     </div>`;
 
@@ -550,17 +548,23 @@ function renderOrderPage(){
     </div>
   </div>`;
 
-  // 菜單
-  const byRest={};
-  items.forEach(it=>{ if(!byRest[it.restaurant]) byRest[it.restaurant]=[]; byRest[it.restaurant].push(it); });
-  if(!items.length) html+='<div class="empty"><span class="ei">🍽️</span><p>尚無品項，承辦人尚未設定菜單</p></div>';
-  else Object.entries(byRest).forEach(([rest,its])=>{
-    html+=`<div class="rest-block"><div class="rest-name">🏪 ${esc(rest)}</div><div class="menu-grid">`;
-    its.forEach(item=>{
-      const keys=Object.keys(S.cart).filter(k=>k.startsWith(item.id+'__'));
-      const totalQty=keys.reduce((s,k)=>s+(S.cart[k]?.qty||0),0);
-      const hasSpec=item.specs&&item.specs.length>0;
-      html+=`<div class="m-card${totalQty>0?' sel':''}">
+  // 菜單品項 — 按分類顯示
+  const CAT_ORDER=['便當','飲料','點心','其他'];
+  const CAT_ICON={'便當':'🍱','飲料':'🧋','點心':'🍰','其他':'🍽️'};
+  if(!items.length){
+    html+='<div class="empty"><span class="ei">🍽️</span><p>尚無品項，承辦人尚未設定菜單</p></div>';
+  } else {
+    const byCat={};
+    items.forEach(it=>{const cat=it.category||'其他';if(!byCat[cat])byCat[cat]=[];byCat[cat].push(it);});
+    const orderedCats=[...CAT_ORDER,...Object.keys(byCat).filter(c=>!CAT_ORDER.includes(c))].filter(c=>byCat[c]);
+    orderedCats.forEach(cat=>{
+      const its=byCat[cat];
+      html+=`<div class="rest-block"><div class="rest-name">${CAT_ICON[cat]||'🍽️'} ${cat}</div><div class="menu-grid">`;
+      its.forEach(item=>{
+        const keys=Object.keys(S.cart).filter(k=>k.startsWith(item.id+'__'));
+        const totalQty=keys.reduce((s,k)=>s+(S.cart[k]?.qty||0),0);
+        const hasSpec=item.specs&&item.specs.length>0;
+        html+=`<div class="m-card${totalQty>0?' sel':''}">
         <span class="m-emoji">${esc(item.emoji)}</span>
         <div class="m-name">${esc(item.name)}</div>
         ${item.description?`<div class="m-desc">${esc(item.description)}</div>`:''}
@@ -572,9 +576,10 @@ function renderOrderPage(){
           <button class="qb" onclick="event.stopPropagation();${hasSpec?`openSpec('${item.id}')`:`quickAdd('${item.id}')`}">＋</button>
         </div>
       </div>`;
+      });
+      html+='</div></div>';
     });
-    html+='</div></div>';
-  });
+  }
 
   // 購物車預覽
   const cartKeys=Object.keys(S.cart);
@@ -842,10 +847,10 @@ function renderEventMgmt(ev){
     <div style="margin-bottom:13px">
       <span class="mg-lbl">菜單圖片（上傳後 AI 自動解析品項）</span>
       <div class="upload-zone" onclick="document.getElementById('imgInp').click()">
-        <input type="file" id="imgInp" accept="image/*" style="display:none" onchange="handleImg(event)">
+        <input type="file" id="imgInp" accept="image/*,application/pdf" style="display:none" onchange="handleImg(event)">
         ${ev.img_url
-          ?`<img src="${ev.img_url}" class="menu-preview-img" alt="菜單"><div style="margin-top:6px;font-size:.72rem;color:var(--in)">點擊更換圖片</div>`
-          :`<span style="font-size:1.8rem;display:block;margin-bottom:6px">📷</span><div style="font-weight:700;font-size:.88rem;color:var(--slm)">點擊上傳菜單圖片</div><div class="upload-sub">JPG / PNG · AI 自動解析品項</div>`}
+          ?`<img src="${ev.img_url}" class="menu-preview-img" alt="菜單"><div style="margin-top:6px;font-size:.72rem;color:var(--in)">點擊更換圖片/PDF</div>`
+          :`<span style="font-size:1.8rem;display:block;margin-bottom:6px">📎</span><div style="font-weight:700;font-size:.88rem;color:var(--slm)">點擊上傳菜單圖片或 PDF</div><div class="upload-sub">JPG / PNG / PDF · AI 自動解析品項並分類</div>`}
       </div>
       <div id="aiStatus"></div>
     </div>
@@ -853,9 +858,12 @@ function renderEventMgmt(ev){
     <!-- 品項列表 -->
     <span class="mg-lbl" style="display:block;margin-bottom:5px">品項列表</span>
     <div id="mgmtItems">
-      ${items.map((it,i)=>`<div class="mgmt-item-row">
+      ${items.map((it,i)=>`<div class="mgmt-item-row" style="flex-wrap:wrap">
         <input class="mg-inp mi-em" value="${esc(it.emoji)}" id="me-${i}" placeholder="🍱">
-        <input class="mg-inp mi-rest" value="${esc(it.restaurant)}" id="mr-${i}" placeholder="餐廳">
+        <select class="mg-inp" id="mc-${i}" style="width:80px">
+          ${['便當','飲料','點心','其他'].map(c=>`<option value="${c}"${(it.category||'其他')===c?' selected':''}>${c}</option>`).join('')}
+        </select>
+        <input class="mg-inp mi-rest" value="${esc(it.restaurant)}" id="mr-${i}" placeholder="店家">
         <input class="mg-inp mi-name" value="${esc(it.name)}" id="mn-${i}" placeholder="品項名稱">
         <input class="mg-inp mi-price" type="number" value="${it.price}" id="mp-${i}" placeholder="價格">
         <button class="btn btn-rd btn-sm" onclick="removeItem(${i})">刪</button>
@@ -928,6 +936,7 @@ async function saveMenu(){
   await sb.from('menu_items').delete().eq('menu_id',eid);
   const items=(S.items[eid]||[]).map((it,i)=>({
     emoji:document.getElementById('me-'+i)?.value||it.emoji,
+    category:document.getElementById('mc-'+i)?.value||it.category||'其他',
     restaurant:document.getElementById('mr-'+i)?.value||it.restaurant,
     name:document.getElementById('mn-'+i)?.value||it.name,
     price:+(document.getElementById('mp-'+i)?.value)||it.price,
@@ -948,10 +957,17 @@ function changePw(){
 /* ── IMAGE + AI ── */
 async function handleImg(event){
   const file=event.target.files[0]; if(!file) return;
+  const isPdf=file.type==='application/pdf'||file.name.toLowerCase().endsWith('.pdf');
+  const zone=document.querySelector('.upload-zone');
+  if(zone) zone.innerHTML=`<div class="scan-ldr"><div class="spin"></div>${isPdf?'PDF 轉換中…':'圖片載入中…'}</div>`;
+  if(isPdf){
+    // PDF 用 PDF.js 轉換第一頁為圖片
+    await aiParsePdf(file);
+    return;
+  }
   const reader=new FileReader();
   reader.onload=e=>{
-    const zone=document.querySelector('.upload-zone');
-    if(zone) zone.innerHTML=`<img src="${e.target.result}" class="menu-preview-img"><div style="margin-top:6px;font-size:.72rem;color:var(--in)">點擊更換圖片</div><input type="file" id="imgInp" accept="image/*" style="display:none" onchange="handleImg(event)">`;
+    if(zone) zone.innerHTML=`<img src="${e.target.result}" class="menu-preview-img"><div style="margin-top:6px;font-size:.72rem;color:var(--in)">點擊更換圖片/PDF</div><input type="file" id="imgInp" accept="image/*,application/pdf" style="display:none" onchange="handleImg(event)">`;
   };
   reader.readAsDataURL(file);
   if(!DEMO){
@@ -967,44 +983,81 @@ async function handleImg(event){
   }
   await aiParse(file);
 }
-async function aiParse(file){
+async function aiParsePdf(file){
   const statusEl=document.getElementById('aiStatus');
-  if(statusEl) statusEl.innerHTML=`<div class="scan-ldr"><div class="spin"></div>AI 正在解析菜單圖片…</div>`;
+  if(statusEl) statusEl.innerHTML=`<div class="scan-ldr"><div class="spin"></div>PDF 解析中，請稍候…</div>`;
   try{
-    const base64=await toBase64(file); const mime='image/jpeg'; // 壓縮後統一為 jpeg
-    let parsed=[];
-    if(false){  // 由後端 proxy 處理，不需要前端 Key
-      await new Promise(r=>setTimeout(r,1500));
-      parsed=[{restaurant:'AI解析店家',emoji:'🍱',name:'示範品項A',price:80,description:''},{restaurant:'AI解析店家',emoji:'🍜',name:'示範品項B',price:65,description:''}];
-      toast('示範模式：請填入真實 Claude API Key','warn');
+    // 用 PDF.js 把第一頁渲染成 canvas
+    const pdfjsLib=window['pdfjs-dist/build/pdf'];
+    pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    const arrayBuffer=await file.arrayBuffer();
+    const pdf=await pdfjsLib.getDocument({data:arrayBuffer}).promise;
+    const page=await pdf.getPage(1);
+    const viewport=page.getViewport({scale:2.0});
+    const canvas=document.createElement('canvas');
+    canvas.width=viewport.width; canvas.height=viewport.height;
+    await page.render({canvasContext:canvas.getContext('2d'),viewport}).promise;
+    // 壓縮成 jpeg
+    const MAX=1400;
+    let w=canvas.width,h=canvas.height;
+    if(w>MAX||h>MAX){
+      const out=document.createElement('canvas');
+      if(w>h){h=Math.round(h*MAX/w);w=MAX;}else{w=Math.round(w*MAX/h);h=MAX;}
+      out.width=w;out.height=h;
+      out.getContext('2d').drawImage(canvas,0,0,w,h);
+      const base64=out.toDataURL('image/jpeg',0.82).split(',')[1];
+      // 更新預覽
+      const zone=document.querySelector('.upload-zone');
+      if(zone) zone.innerHTML=`<img src="data:image/jpeg;base64,${base64}" class="menu-preview-img"><div style="margin-top:6px;font-size:.72rem;color:var(--in)">點擊更換圖片/PDF</div><input type="file" id="imgInp" accept="image/*,application/pdf" style="display:none" onchange="handleImg(event)">`;
+      await aiParseBase64(base64,'image/jpeg');
     } else {
-      const res=await fetch('/.netlify/functions/claude-proxy',{method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({messages:[{role:'user',content:[
-          {type:'image',source:{type:'base64',media_type:mime,data:base64}},
-          {type:'text',text:`請解析這張菜單圖片，回傳純 JSON 陣列，不要有任何其他文字或 markdown：\n[{"restaurant":"店家名稱","emoji":"emoji","name":"品項名稱","price":數字,"description":"描述"}]\n無法辨識則回傳 []。`}
-        ]}]})});
-      if(!res.ok) throw new Error(`API 錯誤 ${res.status}`);
-      const text=await res.text();
-      let d;
-      try{ d=JSON.parse(text); }catch(e){ throw new Error('回應格式錯誤：'+text.slice(0,100)); }
-      let raw=(d.content?.[0]?.text||'[]').trim();
-      // 移除 markdown code block（```json ... ``` 或 ``` ... ```）
-      raw=raw.replace(/^```json\s*/i,'').replace(/^```\s*/,'').replace(/\s*```$/,'').trim();
-      // 如果還是以 json 開頭就再去掉
-      if(raw.toLowerCase().startsWith('json')) raw=raw.slice(4).trim();
-      parsed=JSON.parse(raw);
+      const base64=canvas.toDataURL('image/jpeg',0.82).split(',')[1];
+      const zone=document.querySelector('.upload-zone');
+      if(zone) zone.innerHTML=`<img src="data:image/jpeg;base64,${base64}" class="menu-preview-img"><div style="margin-top:6px;font-size:.72rem;color:var(--in)">點擊更換圖片/PDF</div><input type="file" id="imgInp" accept="image/*,application/pdf" style="display:none" onchange="handleImg(event)">`;
+      await aiParseBase64(base64,'image/jpeg');
     }
+  }catch(err){
+    console.error(err);
+    const statusEl=document.getElementById('aiStatus');
+    if(statusEl) statusEl.innerHTML=`<div style="font-size:.75rem;color:var(--rd);margin-top:7px">❌ PDF 解析失敗：${err.message}</div>`;
+    toast('PDF 解析失敗，請改用圖片格式','err');
+  }
+}
+
+async function aiParse(file){
+  const base64=await toBase64(file);
+  await aiParseBase64(base64,'image/jpeg');
+}
+
+async function aiParseBase64(base64,mime){
+  const statusEl=document.getElementById('aiStatus');
+  if(statusEl) statusEl.innerHTML=`<div class="scan-ldr"><div class="spin"></div>AI 正在解析菜單，請稍候…</div>`;
+  try{
+    const res=await fetch('/.netlify/functions/claude-proxy',{method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({messages:[{role:'user',content:[
+        {type:'image',source:{type:'base64',media_type:mime,data:base64}},
+        {type:'text',text:'請解析這張菜單圖片（可能是圖片或PDF截圖），回傳純 JSON 陣列，不要有任何其他文字或 markdown：\n[{"restaurant":"店家名稱","category":"便當","emoji":"最適合的emoji","name":"品項名稱","price":數字或0,"description":"簡短描述或空字串"}]\ncategory 只能填：便當、飲料、點心、其他 其中一種。無法辨識則回傳 []。price 看不清楚填 0。'}
+      ]}]})});
+    if(!res.ok) throw new Error(`API 錯誤 ${res.status}`);
+    const text=await res.text();
+    let d;
+    try{ d=JSON.parse(text); }catch(e){ throw new Error('回應格式錯誤：'+text.slice(0,100)); }
+    let raw=(d.content?.[0]?.text||'[]').trim();
+    raw=raw.replace(/^```json\s*/i,'').replace(/^```\s*/,'').replace(/\s*```$/,'').trim();
+    if(raw.toLowerCase().startsWith('json')) raw=raw.slice(4).trim();
+    const parsed=JSON.parse(raw);
     if(!Array.isArray(parsed)||!parsed.length){
       if(statusEl) statusEl.innerHTML=`<div style="font-size:.75rem;color:var(--am);margin-top:7px">⚠️ AI 無法識別，請手動新增品項</div>`;
       return;
     }
     const eid=S.adminEid;
     if(!S.items[eid]) S.items[eid]=[];
-    const newItems=parsed.map((it,i)=>({id:'ai-'+Date.now()+'-'+i,menu_id:eid,restaurant:it.restaurant||'本日菜單',emoji:it.emoji||'🍱',name:it.name||'未知品項',description:it.description||'',price:Number(it.price)||0,specs:[],sort_order:S.items[eid].length+i,ai_parsed:true}));
+    const newItems=parsed.map((it,i)=>({id:'ai-'+Date.now()+'-'+i,menu_id:eid,restaurant:it.restaurant||'本日菜單',category:it.category||'其他',emoji:it.emoji||'🍱',name:it.name||'未知品項',description:it.description||'',price:Number(it.price)||0,specs:[],sort_order:S.items[eid].length+i,ai_parsed:true}));
     S.items[eid]=[...S.items[eid],...newItems];
-    if(statusEl) statusEl.innerHTML=`<div style="font-size:.75rem;color:var(--gr);margin-top:7px">✅ AI 成功解析 ${newItems.length} 個品項，確認後按儲存菜單</div>`;
-    toast(`AI 解析完成！新增了 ${newItems.length} 個品項`,'ok');
+    const cats=[...new Set(newItems.map(i=>i.category))].join('、');
+    if(statusEl) statusEl.innerHTML=`<div style="font-size:.75rem;color:var(--gr);margin-top:7px">✅ AI 成功解析 ${newItems.length} 個品項（${cats}），確認後按儲存菜單</div>`;
+    toast(`AI 解析完成！${newItems.length} 個品項`,'ok');
     render();
   }catch(err){
     console.error(err);
