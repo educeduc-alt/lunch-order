@@ -510,7 +510,6 @@ function renderHome(){
           <div class="ec-title">${esc(ev.title)}</div>
           ${ev.organizer?`<div class="ec-organizer">👤 承辦：${esc(ev.organizer)}</div>`:''}
         </div>
-<!-- 截止時間前台已隱藏 -->
       </div>
       <div class="ec-bot">
         <div class="ec-store">🏪 ${esc(ev.store_name||'（尚未設定店家）')}</div>
@@ -547,12 +546,6 @@ function renderOrderPage(){
 
   html+=`<div class="id-card">
     <div class="fld"><label>姓名</label><input class="inp" id="uName" placeholder="王小明" value="${esc(S.myName)}"></div>
-    <div class="fld"><label>班級</label>
-      <select class="sel" id="uClass">
-        <option value="">請選擇</option>
-        ${CLASSES.map(c=>`<option value="${c}"${S.myClass===c?' selected':''}>${c}</option>`).join('')}
-      </select>
-    </div>
   </div>`;
 
   // 菜單品項 — 按分類顯示
@@ -681,11 +674,10 @@ function closeSpec(){document.getElementById('specOverlay').style.display='none'
 async function submitOrder(){
   const ev=S.events.find(e=>e.id===S.activeEventId);
   if(isEventClosed(ev)){toast('此場次已截止','err');return;}
-  const nameEl=document.getElementById('uName'),clsEl=document.getElementById('uClass');
+  const nameEl=document.getElementById('uName');
   S.myName=nameEl?.value.trim()||S.myName;
-  S.myClass=clsEl?.value||S.myClass;
+  S.myClass='同仁';
   if(!S.myName){toast('請輸入姓名','err');return;}
-  if(!S.myClass){toast('請選擇班級','err');return;}
   const cartKeys=Object.keys(S.cart);
   if(!cartKeys.length){toast('請至少選一項','err');return;}
   const noteEl=document.getElementById('orderNote');
@@ -794,11 +786,6 @@ function renderAdmin(){
       <button class="exp-btn" onclick="exportCSV()">📥 匯出CSV</button>
     </div>
 
-    <!-- 廚房備餐 -->
-    <div class="panel"><div class="panel-head"><div class="panel-title">📦 廚房備餐清單</div><span style="font-size:.72rem;color:var(--sll)">共 ${totPort} 份</span></div>`;
-  if(!krows.length) html+='<div class="empty" style="padding:20px"><span class="ei">🍽️</span><p>尚無點餐</p></div>';
-  else{ const max=krows[0].qty; krows.forEach(r=>{ html+=`<div class="k-row"><div><div class="k-item">${esc(r.emoji)} ${esc(r.name)}</div>${r.specs?`<div class="k-spec">${esc(r.specs)}</div>`:''}<div class="bar-wrap" style="width:100px;margin-top:4px"><div class="bar-fill" style="width:${Math.round(r.qty/max*100)}%"></div></div></div><div style="text-align:right"><div class="k-qty">${r.qty}</div><div class="k-sub">${r.price>0?'$'+r.qty*r.price:'詢價'}</div></div></div>`; }); }
-  html+='</div>';
 
   // 所有點餐
   html+=`<div class="panel"><div class="panel-head"><div class="panel-title">📋 點餐紀錄</div>
@@ -817,16 +804,7 @@ function renderAdmin(){
   html+=renderEventMgmt(ev);
 
   // 設定
-  html+=`<div class="panel"><div class="panel-head"><div class="panel-title">⚙️ 設定</div></div><div class="panel-body">
-    <div>
-      <div style="font-size:.68rem;font-weight:700;color:var(--sll);margin-bottom:5px;text-transform:uppercase;letter-spacing:.4px">截止時間</div>
-      <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center">
-        <input type="time" class="inp" id="dlInp" value="${S.activeMenu?.deadline||'11:30'}" style="width:130px">
-        <button class="btn btn-or btn-sm" onclick="saveDl()">儲存</button>
-        <button class="btn ${S.activeMenu?.is_closed?'btn-gr':'btn-rd'} btn-sm" onclick="toggleClose(S.activeMenu?.id)">${S.activeMenu?.is_closed?'重新開放':'立即關閉'}</button>
-      </div>
-    </div>
-  </div></div>`;
+
   return html;
 }
 
@@ -841,12 +819,16 @@ function renderEventMgmt(ev){
     <!-- 場次基本資訊 -->
     <div class="ev-mgmt-grid" style="margin-bottom:10px">
       <div><span class="mg-lbl">場次標題</span><input class="mg-inp" id="evTitle" value="${esc(ev.title||'')}"></div>
-      <div><span class="mg-lbl">截止時間</span><input type="time" class="mg-inp" id="evDeadline" value="${ev.deadline||'11:30'}"></div>
-      <div><span class="mg-lbl">承辦人</span><input class="mg-inp" id="evOrganizer" placeholder="例：王老師" value="${esc(ev.organizer||'')}"></div>
       <div><span class="mg-lbl">店家名稱</span><input class="mg-inp" id="evStore" placeholder="例：MaMa手作飯盒" value="${esc(ev.store_name||'')}"></div>
     </div>
+    <div style="margin-bottom:10px">
+      <span class="mg-lbl" style="display:block;margin-bottom:6px">承辦人</span>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+        ${['雨欣','微姍','梅青','曉臻','心榆','望謙'].map(n=>`<button class="btn btn-sm${ev.organizer===n?' btn-or':' btn-out'}" onclick="setOrganizer('${ev.id}','${n}');this.closest('.panel-body').querySelector('#evOrganizer').value='';">${n}</button>`).join('')}
+        <input class="mg-inp" id="evOrganizer" placeholder="其他姓名" value="${esc(['雨欣','微姍','梅青','曉臻','心榆','望謙'].includes(ev.organizer)?'':ev.organizer||'')}" style="width:90px" oninput="if(this.value)setOrganizer('${ev.id}',this.value)">
+      </div>
+    </div>
     <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:14px">
-      <button class="btn ${ev.is_closed?'btn-gr':'btn-rd'} btn-sm" onclick="toggleClose('${ev.id}')">${ev.is_closed?'重新開放':'立即關閉'}</button>
       <button class="btn btn-rd btn-sm" onclick="if(confirm('確定刪除整個場次？'))deleteEvent('${ev.id}')">🗑️ 刪除場次</button>
     </div>
 
@@ -898,6 +880,12 @@ async function createNewEvent(){
   S.events.push(data); S.items[data.id]=[]; S.orders[data.id]=[];
   S.adminEid=data.id; render(); toast('場次已建立','ok');
 }
+function setOrganizer(eid, name){
+  const ev=S.events.find(e=>e.id===eid);
+  if(ev) ev.organizer=name;
+  render();
+}
+
 async function toggleClose(eid){
   const ev=S.events.find(e=>e.id===eid); if(!ev) return;
   const next=!ev.is_closed;
@@ -964,15 +952,16 @@ async function saveAll(){
 
   // 儲存場次基本資訊
   const title=document.getElementById('evTitle')?.value.trim();
-  const deadline=document.getElementById('evDeadline')?.value||'11:30';
-  const organizer=document.getElementById('evOrganizer')?.value.trim()||'';
   const store_name=document.getElementById('evStore')?.value.trim()||'';
+  const orgInput=document.getElementById('evOrganizer')?.value.trim()||'';
+  const evNow=S.events.find(e=>e.id===eid);
+  const organizer=orgInput||evNow?.organizer||'';
   if(!title){toast('請填場次標題','err');return;}
 
-  const{error:e1}=await sb.from('menus').update({title,deadline,organizer,store_name}).eq('id',eid);
+  const{error:e1}=await sb.from('menus').update({title,organizer,store_name}).eq('id',eid);
   if(e1){toast('儲存失敗：'+e1.message,'err');return;}
   const ev=S.events.find(e=>e.id===eid);
-  if(ev) Object.assign(ev,{title,deadline,organizer,store_name});
+  if(evNow) Object.assign(evNow,{title,organizer,store_name});
 
   // 把 pendingItems 讀取欄位後 append 到資料庫（不刪除既有品項）
   const existingCount=(S.items[eid]||[]).length;
