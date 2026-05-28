@@ -55,7 +55,6 @@ input,select,textarea{font-family:inherit}
 .badge{display:inline-flex;align-items:center;gap:3px;font-size:.68rem;font-weight:700;padding:2px 8px;border-radius:20px}
 .badge-open{background:var(--grl);color:var(--gr)}
 .badge-closed{background:var(--rdl);color:var(--rd)}
-.badge-soon{background:var(--aml);color:var(--am)}
 .ec-title{font-weight:700;font-size:.95rem;margin-bottom:3px}
 .ec-organizer{font-size:.72rem;color:var(--sll);display:flex;align-items:center;gap:4px}
 .ec-right{text-align:right;flex-shrink:0}
@@ -483,7 +482,6 @@ function fmtDeadline(ev){
   const [h,m]=ev.deadline.split(':').map(Number);
   const dl=new Date(); dl.setHours(h,m,0,0);
   const diff=(dl-new Date())/60000;
-  if(diff<30) return{text:'即將截止',cls:'badge-soon'};
   return{text:'開放中',cls:'badge-open'};
 }
 function renderHome(){
@@ -814,6 +812,7 @@ function renderEventMgmt(ev){
   return `<div class="panel"><div class="panel-head">
     <div class="panel-title">✏️ 場次設定 & 菜單管理</div>
     <button class="btn btn-or btn-sm" onclick="addItem()">＋ 品項</button>
+    <button class="btn btn-out btn-sm" onclick="showMenuCache()">📂 歷史菜單</button>
   </div><div class="panel-body">
 
     <!-- 場次基本資訊 -->
@@ -824,7 +823,7 @@ function renderEventMgmt(ev){
     <div style="margin-bottom:10px">
       <span class="mg-lbl" style="display:block;margin-bottom:6px">承辦人</span>
       <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-        ${['雨欣','微姍','梅青','曉臻','心榆','望謙'].map(n=>'<button class="btn btn-sm '+(ev.organizer===n?'btn-or':'btn-out')+'" onclick="pickOrganizer(this,\''+n+'\')">'+n+'</button>').join('')}
+        ${['雨欣','微姍','梅青','曉臻','心榆','望謙'].map(n=>'<button class="btn '+(ev.organizer===n?'btn-or':'btn-out')+'" style="padding:8px 18px;font-size:.9rem;font-weight:700" onclick="pickOrganizer(this,\''+n+'\')">'+n+'</button>').join('')}
         <input class="mg-inp" id="evOrganizer" placeholder="其他姓名" value="${(['雨欣','微姍','梅青','曉臻','心榆','望謙'].includes(ev.organizer)?'':ev.organizer)||''}" style="width:90px">
       </div>
     </div>
@@ -880,12 +879,53 @@ async function createNewEvent(){
   S.events.push(data); S.items[data.id]=[]; S.orders[data.id]=[];
   S.adminEid=data.id; render(); toast('場次已建立','ok');
 }
+function showMenuCache(){
+  const cached=JSON.parse(localStorage.getItem('menuCache')||'[]');
+  if(!cached.length){toast('尚無歷史菜單紀錄','warn');return;}
+  // 建立選單覆蓋層
+  const overlay=document.createElement('div');
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:300;display:flex;align-items:center;justify-content:center;padding:16px';
+  overlay.innerHTML=`<div style="background:#fff;border-radius:16px;padding:22px;max-width:360px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.2)">
+    <div style="font-family:Nunito,sans-serif;font-weight:800;font-size:1rem;margin-bottom:12px">📂 選擇歷史菜單</div>
+    <div style="display:flex;flex-direction:column;gap:7px;max-height:300px;overflow-y:auto">
+      ${cached.map((c,i)=>`<button onclick="loadCachedMenu(${i})" style="text-align:left;padding:10px 13px;border:1.5px solid #e2e8f0;border-radius:8px;background:#fff;cursor:pointer;font-family:inherit">
+        <div style="font-weight:700;font-size:.88rem">${c.store||'未知店家'}</div>
+        <div style="font-size:.72rem;color:#94a3b8">${c.items.length} 個品項 · ${c.savedAt||''}</div>
+      </button>`).join('')}
+    </div>
+    <button onclick="this.closest('div[style]').remove()" style="margin-top:12px;width:100%;padding:9px;border:1.5px solid #e2e8f0;border-radius:8px;background:#f8f7f4;cursor:pointer;font-family:inherit;font-weight:700">取消</button>
+  </div>`;
+  // 點外層關閉
+  overlay.addEventListener('click', e=>{ if(e.target===overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
+  // 讓 loadCachedMenu 可以關閉 overlay
+  window._cacheOverlay=overlay;
+}
+
+function loadCachedMenu(idx){
+  const cached=JSON.parse(localStorage.getItem('menuCache')||'[]');
+  const entry=cached[idx];
+  if(!entry) return;
+  // 載入到 pendingItems，讓管理員確認後儲存
+  const eid=S.adminEid;
+  S.pendingItems=entry.items.map((it,i)=>({...it,id:'cache-'+Date.now()+'-'+i,menu_id:eid,ai_parsed:false}));
+  if(window._cacheOverlay){ window._cacheOverlay.remove(); window._cacheOverlay=null; }
+  toast('已載入「'+entry.store+'」菜單，確認後按💾儲存','ok');
+  render();
+}
+
 function pickOrganizer(btn, name){
+  // 更新 state
   const ev=S.events.find(e=>e.id===S.adminEid);
   if(ev) ev.organizer=name;
+  // 直接更新 DOM，不 render() 避免重置 input
   const inp=document.getElementById('evOrganizer');
   if(inp) inp.value='';
-  render();
+  // 更新按鈕樣式
+  const btns=btn.parentElement.querySelectorAll('button');
+  btns.forEach(b=>{
+    b.className='btn btn-sm '+(b.textContent.trim()===name?'btn-or':'btn-out');
+  });
 }
 function setOrganizer(eid,name){
   const ev=S.events.find(e=>e.id===eid);
@@ -954,7 +994,6 @@ async function saveMenu(){
 }
 async function saveAll(){
   const eid=S.adminEid; if(!eid){toast('請先選擇場次','err');return;}
-  if(!S.pendingItems.length){toast('請先上傳菜單並等待 AI 解析','warn');return;}
   if(DEMO){toast('示範模式：變更不會寫入','warn');return;}
 
   // 儲存場次基本資訊
@@ -988,13 +1027,21 @@ async function saveAll(){
   if(newItems.length){
     const{error:e2}=await sb.from('menu_items').insert(newItems);
     if(e2){toast('品項儲存失敗：'+e2.message,'err');return;}
+    S.pendingItems=[];
+    await loadEventDetail(eid);
+    const total=(S.items[eid]||[]).length;
+    // 快取到 localStorage
+    try{
+      const cached=JSON.parse(localStorage.getItem('menuCache')||'[]');
+      const existing=cached.findIndex(c=>c.store===evNow?.store_name);
+      const entry={store:evNow?.store_name||'未知店家',items:S.items[eid],savedAt:new Date().toLocaleDateString('zh-TW')};
+      if(existing>=0) cached[existing]=entry; else cached.unshift(entry);
+      localStorage.setItem('menuCache',JSON.stringify(cached.slice(0,10)));
+    }catch(e){}
+    toast('✅ 已儲存！場次共 '+total+' 個品項','ok');
+  } else {
+    toast('✅ 場次資訊已儲存','ok');
   }
-
-  // 儲存成功：清空暫存，重新載入完整品項
-  S.pendingItems=[];
-  await loadEventDetail(eid);
-  const total=(S.items[eid]||[]).length;
-  toast(`✅ 已儲存！場次共 ${total} 個品項`,'ok');
   render();
 }
 
