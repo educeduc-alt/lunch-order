@@ -1267,12 +1267,15 @@ function renderEventMgmt(ev){
       const saved=S.items[S.adminEid]||[];
       if(!saved.length) return '';
       const cats=[...new Set(saved.map(i=>i.category||'其他'))];
-      return `<div style="background:var(--grl);border-radius:var(--rsm);padding:8px 12px;margin-bottom:10px;font-size:.78rem;color:var(--gr)">
-        ✅ 已儲存 ${saved.length} 個品項（${cats.join('、')}）
-        <button onclick="if(confirm('確定清空此場次所有品項？'))clearItems()" style="float:right;font-size:.7rem;color:var(--rd);background:none;border:none;cursor:pointer">清空</button>
-      </div>`;
+      return '<div style="background:var(--grl);border-radius:var(--rsm);padding:8px 12px;margin-bottom:10px;font-size:.78rem;color:var(--gr)">'
+        +'✅ 已儲存 '+saved.length+' 個品項（'+cats.join('、')+'）'
+        +'<button onclick="if(confirm(\'確定清空此場次所有品項？\'))clearItems()" style="float:right;font-size:.7rem;color:var(--rd);background:none;border:none;cursor:pointer">清空</button>'
+        +'</div>';
     })()}
-    <span class="mg-lbl" style="display:block;margin-bottom:5px">${S.pendingItems.length?'本次解析品項（確認後按儲存）':'尚未解析品項'}</span>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
+      <span class="mg-lbl">${S.pendingItems.length?'本次解析品項（確認後按儲存）':'尚未解析品項'}</span>
+      ${S.pendingItems.length?'<button class="btn btn-out btn-sm" onclick="clearPending()">✕ 清除解析</button>':''}
+    </div>
     <div id="mgmtItems">
       ${items.map((it,i)=>`<div class="mgmt-item-row" style="flex-wrap:wrap">
         <input class="mg-inp mi-em" value="${esc(it.emoji)}" id="me-${i}" placeholder="🍱">
@@ -1375,19 +1378,34 @@ async function toggleClose(eid){
   ev.is_closed=next; toast(next?'場次已關閉':'場次已開放',next?'warn':'ok'); render();
 }
 async function deleteEvent(eid){
-  if(DEMO){S.events=S.events.filter(e=>e.id!==eid);delete S.items[eid];delete S.orders[eid];S.adminEid=S.events[0]?.id||null;toast('已刪除','ok');render();return;}
-  // 先刪訂單明細 → 訂單 → 品項 → 場次（避免外鍵衝突）
-  const orderIds=(S.orders[eid]||[]).map(o=>o.id);
-  if(orderIds.length){
-    await sb.from('order_items').delete().in('order_id',orderIds);
-    await sb.from('orders').delete().in('id',orderIds);
+  if(DEMO){S.events=S.events.filter(e=>e.id!==eid);delete S.items[eid];delete S.orders[eid];S.adminEid=S.events[0]?.id||null;S.pendingItems=[];toast('已刪除','ok');render();return;}
+  try{
+    // 抓所有訂單 ID
+    const {data:ords}=await sb.from('orders').select('id').eq('menu_id',eid);
+    const orderIds=(ords||[]).map(o=>o.id);
+    // 逐一刪除（避免空陣列 .in() 報錯）
+    for(const oid of orderIds){
+      await sb.from('order_items').delete().eq('order_id',oid);
+    }
+    if(orderIds.length) await sb.from('orders').delete().eq('menu_id',eid);
+    await sb.from('menu_items').delete().eq('menu_id',eid);
+    const{error}=await sb.from('menus').delete().eq('id',eid);
+    if(error) throw new Error(error.message);
+  }catch(err){
+    toast('刪除失敗：'+err.message,'err'); return;
   }
-  await sb.from('menu_items').delete().eq('menu_id',eid);
-  const{error}=await sb.from('menus').delete().eq('id',eid);
-  if(error){toast('刪除失敗：'+error.message,'err');return;}
-  S.events=S.events.filter(e=>e.id!==eid); delete S.items[eid]; delete S.orders[eid];
+  S.events=S.events.filter(e=>e.id!==eid);
+  delete S.items[eid]; delete S.orders[eid];
+  S.pendingItems=[];
   S.adminEid=S.events[0]?.id||null;
   toast('場次已刪除','ok'); render();
+}
+
+// 清除本次解析資料（不刪資料庫，只清暫存）
+function clearPending(){
+  S.pendingItems=[];
+  toast('已清除解析資料','ok');
+  render();
 }
 async function delOrder(id,eid){
   const{error}=await dbDeleteOrder(id,eid);
