@@ -1,74 +1,65 @@
-const https = require('https');
+// Cloudflare Pages Functions
+// 檔案路徑：functions/claude-proxy.js
 
-exports.handler = async function(event, context) {
-  // 延長逾時至 26 秒（Netlify 免費版上限 26s）
-  context.callbackWaitsForEmptyEventLoop = false;
+export default {
+  async fetch(request, env) {
+    // 只允許 POST
+    if (request.method === 'OPTIONS') {
+      return new Response(null, {
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'POST, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type',
+        },
+      });
+    }
 
-  if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, body: 'Method Not Allowed' };
-  }
+    if (request.method !== 'POST') {
+      return new Response('Method Not Allowed', { status: 405 });
+    }
 
-  const CLAUDE_KEY = (process.env.CLAUDE_API_KEY || '').trim().replace(/[^\x20-\x7E]/g, '');
-  if (!CLAUDE_KEY) {
-    return { statusCode: 500, body: JSON.stringify({ error: 'API Key 未設定' }) };
-  }
+    const CLAUDE_KEY = (env.CLAUDE_API_KEY || '').trim();
+    if (!CLAUDE_KEY) {
+      return new Response(JSON.stringify({ error: 'API Key 未設定' }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
 
-  let body;
-  try {
-    body = JSON.parse(event.body);
-  } catch(e) {
-    return { statusCode: 400, body: JSON.stringify({ error: '無效的請求格式' }) };
-  }
+    let body;
+    try {
+      body = await request.json();
+    } catch(e) {
+      return new Response(JSON.stringify({ error: '無效的請求格式' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
 
-  const payload = JSON.stringify({
-    model: 'claude-haiku-4-5-20251001',  // 改用 Haiku，速度快很多
-    max_tokens: 2048,
-    messages: body.messages,
-  });
+    const payload = JSON.stringify({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 4096,
+      messages: body.messages,
+    });
 
-  return new Promise((resolve) => {
-    const options = {
-      hostname: 'api.anthropic.com',
-      path: '/v1/messages',
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': CLAUDE_KEY,
         'anthropic-version': '2023-06-01',
-        'Content-Length': Buffer.byteLength(payload),
       },
-    };
-
-    const chunks = [];
-
-    const req = https.request(options, (res) => {
-      res.on('data', (chunk) => { chunks.push(chunk); });
-      res.on('end', () => {
-        const data = Buffer.concat(chunks).toString('utf8');
-        resolve({
-          statusCode: res.statusCode,
-          headers: { 'Content-Type': 'application/json' },
-          body: data,
-        });
-      });
+      body: payload,
     });
 
-    req.on('error', (err) => {
-      resolve({
-        statusCode: 500,
-        body: JSON.stringify({ error: err.message }),
-      });
-    });
+    const data = await response.text();
 
-    req.setTimeout(25000, () => {
-      req.destroy();
-      resolve({
-        statusCode: 504,
-        body: JSON.stringify({ error: '請求逾時，請重試' }),
-      });
+    return new Response(data, {
+      status: response.status,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+      },
     });
-
-    req.write(payload);
-    req.end();
-  });
+  }
 };
