@@ -470,10 +470,7 @@ function render(){
 /* ── HOME: 場次列表 ── */
 function isEventClosed(ev){
   if(!ev) return true;
-  if(ev.is_closed) return true;
-  const [h,m]=ev.deadline.split(':').map(Number);
-  const dl=new Date(); dl.setHours(h,m,0,0);
-  return new Date()>=dl;
+  return ev.is_closed===true;
 }
 function fmtDeadline(ev){
   return{text:'開放中',cls:'badge-open'};
