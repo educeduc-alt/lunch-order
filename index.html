@@ -476,12 +476,6 @@ function isEventClosed(ev){
   return new Date()>=dl;
 }
 function fmtDeadline(ev){
-  const closed=isEventClosed(ev);
-  if(ev.is_closed) return{text:'已關閉',cls:'badge-closed'};
-  if(closed) return{text:'已截止',cls:'badge-closed'};
-  const [h,m]=ev.deadline.split(':').map(Number);
-  const dl=new Date(); dl.setHours(h,m,0,0);
-  const diff=(dl-new Date())/60000;
   return{text:'開放中',cls:'badge-open'};
 }
 function renderHome(){
@@ -503,8 +497,6 @@ function renderHome(){
       <div class="ec-top">
         <div class="ec-left">
           <div class="ec-badges">
-            <span class="badge ${status.cls}">${status.text}</span>
-          </div>
           <div class="ec-title">${esc(ev.title)}</div>
           ${ev.organizer?`<div class="ec-organizer">👤 承辦：${esc(ev.organizer)}</div>`:''}
         </div>
@@ -765,7 +757,7 @@ function renderAdmin(){
   let html=`
     <!-- 場次切換 -->
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:13px;align-items:center">
-      ${S.events.map(e=>`<button class="btn ${S.adminEid===e.id?'btn-or':'btn-out'} btn-sm"
+      ${S.events.map(e=>`<button class="btn ${S.adminEid===e.id?'btn-or':'btn-out'}" style="padding:8px 16px;font-size:.85rem"
         onclick="S.adminEid='${e.id}';S.pendingItems=[];render()">${esc(e.title)}</button>`).join('')}
       <button class="btn btn-gr btn-sm" onclick="createNewEvent()">＋ 新增場次</button>
     </div>`;
@@ -1094,20 +1086,20 @@ async function aiParsePdf(file){
     canvas.width=viewport.width; canvas.height=viewport.height;
     await page.render({canvasContext:canvas.getContext('2d'),viewport}).promise;
     // 壓縮成 jpeg
-    const MAX=1400;
+    const MAX=900;
     let w=canvas.width,h=canvas.height;
     if(w>MAX||h>MAX){
       const out=document.createElement('canvas');
       if(w>h){h=Math.round(h*MAX/w);w=MAX;}else{w=Math.round(w*MAX/h);h=MAX;}
       out.width=w;out.height=h;
       out.getContext('2d').drawImage(canvas,0,0,w,h);
-      const base64=out.toDataURL('image/jpeg',0.82).split(',')[1];
+      const base64=out.toDataURL('image/jpeg',0.65).split(',')[1];
       // 更新預覽
       const zone=document.querySelector('.upload-zone');
       if(zone) zone.innerHTML=`<img src="data:image/jpeg;base64,${base64}" class="menu-preview-img"><div style="margin-top:6px;font-size:.72rem;color:var(--in)">點擊更換圖片/PDF</div><input type="file" id="imgInp" accept="image/*,application/pdf" style="display:none" onchange="handleImg(event)">`;
       await aiParseBase64(base64,'image/jpeg');
     } else {
-      const base64=canvas.toDataURL('image/jpeg',0.82).split(',')[1];
+      const base64=canvas.toDataURL('image/jpeg',0.65).split(',')[1];
       const zone=document.querySelector('.upload-zone');
       if(zone) zone.innerHTML=`<img src="data:image/jpeg;base64,${base64}" class="menu-preview-img"><div style="margin-top:6px;font-size:.72rem;color:var(--in)">點擊更換圖片/PDF</div><input type="file" id="imgInp" accept="image/*,application/pdf" style="display:none" onchange="handleImg(event)">`;
       await aiParseBase64(base64,'image/jpeg');
@@ -1200,7 +1192,7 @@ function toBase64(file){
     img.onload=()=>{
       URL.revokeObjectURL(url);
       const canvas=document.createElement('canvas');
-      const MAX=1024;
+      const MAX=800;
       let w=img.width,h=img.height;
       if(w>MAX||h>MAX){
         if(w>h){h=Math.round(h*MAX/w);w=MAX;}
