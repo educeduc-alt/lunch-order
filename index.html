@@ -333,6 +333,7 @@ let S = {
   orders:{},        // { menuId: [orders] }
   activeEventId:null,
   pendingItems:[],   // 本次 AI 解析暫存，尚未儲存
+  menuSearchQ:'',    // 菜單搜尋關鍵字
   cart:{},
   specItem:null, specSel:{}, specQty:1, specNote:'',
   myName:'', myClass:'',
@@ -509,7 +510,7 @@ function renderHome(){
 }
 function openEvent(eid){
   if(isEventClosed(S.events.find(e=>e.id===eid))){ toast('此場次已截止','warn'); return; }
-  S.activeEventId=eid; S.cart={};
+  S.activeEventId=eid; S.cart={}; S.menuSearchQ='';
   render();
 }
 
@@ -535,14 +536,25 @@ function renderOrderPage(){
     <div class="fld"><label>姓名</label><input class="inp" id="uName" placeholder="王小明" value="${esc(S.myName)}"></div>
   </div>`;
 
+  // 搜尋列
+  html+=`<div style="margin-bottom:12px;position:relative">
+    <input class="inp" id="menuSearch" placeholder="🔍 搜尋餐點或飲料…" oninput="filterMenu(this.value)"
+      style="padding-left:14px;font-size:.88rem">
+  </div>`;
+
   // 菜單品項 — 按分類顯示
   const CAT_ORDER=['便當','飲料','點心','其他'];
   const CAT_ICON={'便當':'🍱','飲料':'🧋','點心':'🍰','其他':'🍽️'};
+  const q=(S.menuSearchQ||'').trim().toLowerCase();
+  const filteredItems=q ? items.filter(it=>(it.name||'').toLowerCase().includes(q)||(it.description||'').toLowerCase().includes(q)||(it.restaurant||'').toLowerCase().includes(q)) : items;
+
   if(!items.length){
     html+='<div class="empty"><span class="ei">🍽️</span><p>尚無品項，承辦人尚未設定菜單</p></div>';
+  } else if(filteredItems.length===0){
+    html+='<div class="empty"><span class="ei">🔍</span><p>找不到「'+q+'」相關餐點</p></div>';
   } else {
     const byCat={};
-    items.forEach(it=>{const cat=it.category||'其他';if(!byCat[cat])byCat[cat]=[];byCat[cat].push(it);});
+    filteredItems.forEach(it=>{const cat=it.category||'其他';if(!byCat[cat])byCat[cat]=[];byCat[cat].push(it);});
     const orderedCats=[...CAT_ORDER,...Object.keys(byCat).filter(c=>!CAT_ORDER.includes(c))].filter(c=>byCat[c]);
     orderedCats.forEach(cat=>{
       const its=byCat[cat];
@@ -598,6 +610,19 @@ function renderOrderPage(){
 }
 
 /* ── CART OPS ── */
+function filterMenu(val){
+  S.menuSearchQ=val||'';
+  // 只重繪菜單區塊，不重繪整頁，保留已填的姓名
+  const savedName=document.getElementById('uName')?.value||S.myName;
+  render();
+  // 恢復姓名
+  const inp=document.getElementById('uName');
+  if(inp) inp.value=savedName;
+  // 恢復搜尋框焦點和值
+  const search=document.getElementById('menuSearch');
+  if(search){ search.value=val; search.focus(); }
+}
+
 function quickAdd(id){
   const ev=S.events.find(e=>e.id===S.activeEventId);
   if(isEventClosed(ev)){toast('此場次已截止','err');return;}
