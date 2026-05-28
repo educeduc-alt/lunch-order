@@ -990,6 +990,7 @@ function toggleComboItem(type, id){
 function confirmCombo(){
   const ev=S.events.find(e=>e.id===S.activeEventId);
   if(isEventClosed(ev)){toast('此場次已截止','err');return;}
+  if(!S.comboMain){toast('請先選擇主餐','warn');return;}
   // 加入主餐
   const mainKey=S.comboMain.item.id+'__'+S.comboMain.specsStr+'__'+Date.now();
   S.cart[mainKey]={itemId:S.comboMain.item.id,name:S.comboMain.item.name,emoji:S.comboMain.item.emoji,
@@ -1246,9 +1247,7 @@ function renderEventMgmt(ev){
         <input class="mg-inp" id="evOrganizer" placeholder="其他姓名" value="${(['雨欣','微姍','梅青','曉臻','心榆','望謙'].includes(ev.organizer)?'':ev.organizer)||''}" style="width:90px">
       </div>
     </div>
-    <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:14px">
-      <button class="btn btn-rd btn-sm" onclick="if(confirm('確定刪除整個場次？'))deleteEvent('${ev.id}')">🗑️ 刪除場次</button>
-    </div>
+
 
     <!-- 圖片 + AI -->
     <div style="margin-bottom:13px">
@@ -1286,7 +1285,10 @@ function renderEventMgmt(ev){
         <button class="btn btn-rd btn-sm" onclick="removeItem(${i})">刪</button>
       </div>`).join('')}
     </div>
-    <button class="btn btn-or" style="margin-top:9px" onclick="saveAll()">💾 儲存</button>
+    <div style="display:flex;gap:7px;margin-top:9px;flex-wrap:wrap">
+      <button class="btn btn-or" onclick="saveAll()">💾 儲存</button>
+      <button class="btn btn-rd btn-sm" onclick="if(confirm('確定刪除整個場次？所有訂單和品項也會一併刪除。'))deleteEvent('${ev.id}')">🗑️ 刪除場次</button>
+    </div>
   </div></div>`;
 }
 
@@ -1374,8 +1376,15 @@ async function toggleClose(eid){
 }
 async function deleteEvent(eid){
   if(DEMO){S.events=S.events.filter(e=>e.id!==eid);delete S.items[eid];delete S.orders[eid];S.adminEid=S.events[0]?.id||null;toast('已刪除','ok');render();return;}
+  // 先刪訂單明細 → 訂單 → 品項 → 場次（避免外鍵衝突）
+  const orderIds=(S.orders[eid]||[]).map(o=>o.id);
+  if(orderIds.length){
+    await sb.from('order_items').delete().in('order_id',orderIds);
+    await sb.from('orders').delete().in('id',orderIds);
+  }
+  await sb.from('menu_items').delete().eq('menu_id',eid);
   const{error}=await sb.from('menus').delete().eq('id',eid);
-  if(error){toast('刪除失敗','err');return;}
+  if(error){toast('刪除失敗：'+error.message,'err');return;}
   S.events=S.events.filter(e=>e.id!==eid); delete S.items[eid]; delete S.orders[eid];
   S.adminEid=S.events[0]?.id||null;
   toast('場次已刪除','ok'); render();
