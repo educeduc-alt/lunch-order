@@ -1602,20 +1602,20 @@ async function aiParsePdf(file){
     canvas.width=viewport.width; canvas.height=viewport.height;
     await page.render({canvasContext:canvas.getContext('2d'),viewport}).promise;
     // 壓縮成 jpeg
-    const MAX=750;
+    const MAX=1000;
     let w=canvas.width,h=canvas.height;
     if(w>MAX||h>MAX){
       const out=document.createElement('canvas');
       if(w>h){h=Math.round(h*MAX/w);w=MAX;}else{w=Math.round(w*MAX/h);h=MAX;}
       out.width=w;out.height=h;
       out.getContext('2d').drawImage(canvas,0,0,w,h);
-      const base64=out.toDataURL('image/jpeg',0.55).split(',')[1];
+      const base64=out.toDataURL('image/jpeg',0.72).split(',')[1];
       // 更新預覽
       const zone=document.querySelector('.upload-zone');
       if(zone) zone.innerHTML=`<img src="data:image/jpeg;base64,${base64}" class="menu-preview-img"><div style="margin-top:6px;font-size:.72rem;color:var(--in)">點擊更換圖片/PDF</div><input type="file" id="imgInp" accept="image/*,application/pdf" style="display:none" onchange="handleImg(event)">`;
       await aiParseBase64(base64,'image/jpeg');
     } else {
-      const base64=canvas.toDataURL('image/jpeg',0.55).split(',')[1];
+      const base64=canvas.toDataURL('image/jpeg',0.72).split(',')[1];
       const zone=document.querySelector('.upload-zone');
       if(zone) zone.innerHTML=`<img src="data:image/jpeg;base64,${base64}" class="menu-preview-img"><div style="margin-top:6px;font-size:.72rem;color:var(--in)">點擊更換圖片/PDF</div><input type="file" id="imgInp" accept="image/*,application/pdf" style="display:none" onchange="handleImg(event)">`;
       await aiParseBase64(base64,'image/jpeg');
@@ -1642,7 +1642,7 @@ async function aiParseBase64(base64,mime){
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({messages:[{role:'user',content:[
         {type:'image',source:{type:'base64',media_type:mime,data:base64}},
-        {type:'text',text:'請解析這張菜單圖片（可能是圖片或PDF截圖），只回傳純 JSON 陣列，絕對不要有任何其他文字、說明或 markdown code block：\n[{"restaurant":"店家名稱","category":"便當","emoji":"最適合的emoji","name":"品項名稱","price":數字或0,"description":"簡短描述或空字串"}]\ncategory 只能填：便當、飲料、點心、其他。飲料品項請合併中杯/大杯為同一筆，price 填中杯價格，specs 填 [{"cat":"杯型","opts":["中杯","大杯"]}]，description 填中杯價/大杯價（例如 "40/45"）。忽略加料區和優惠說明，其餘全部品項都要列出，確保 JSON 完整不截斷。price 看不清楚填 0。無法辨識回傳 []。'}
+        {type:'text',text:'請解析這張菜單圖片（可能是圖片或PDF截圖），只回傳純 JSON 陣列，絕對不要有任何其他文字、說明或 markdown code block：\n[{"restaurant":"店家名稱","category":"便當","emoji":"最適合的emoji","name":"品項名稱","price":數字或0,"description":"簡短描述或空字串"}]\ncategory 只能填：便當、飲料、點心、其他。飲料品項請合併中杯/大杯為同一筆，price 填中杯價格，specs 填 [{"cat":"杯型","opts":["中杯","大杯"]}]，description 填中杯價/大杯價（例如 "40/45"）。嚴格要求：只列出菜單圖片上明確可見的品項，看不清楚的文字絕對不要猜測或自行補充，寧可少列也不要列出菜單上沒有的品項。忽略加料區和優惠說明。確保 JSON 完整不截斷。price 看不清楚填 0。無法辨識回傳 []。'}
       ]}]})});
     if(!res.ok) throw new Error(`API 錯誤 ${res.status}`);
     const text=await res.text();
@@ -1708,7 +1708,7 @@ function toBase64(file){
     img.onload=()=>{
       URL.revokeObjectURL(url);
       const canvas=document.createElement('canvas');
-      const MAX=700;
+      const MAX=850;
       let w=img.width,h=img.height;
       if(w>MAX||h>MAX){
         if(w>h){h=Math.round(h*MAX/w);w=MAX;}
