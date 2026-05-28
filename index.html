@@ -18,8 +18,8 @@
   --shsm:0 1px 4px rgba(0,0,0,.07);--shmd:0 4px 16px rgba(0,0,0,.10);--shlg:0 12px 40px rgba(0,0,0,.14);
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-html{font-size:15px}
-body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--sl);min-height:100vh;-webkit-font-smoothing:antialiased}
+html{font-size:15px!important}
+body{font-family:'Noto Sans TC',sans-serif!important;background:var(--bg);color:var(--sl);min-height:100vh;-webkit-font-smoothing:antialiased;font-size:1rem!important}
 button{font-family:inherit;cursor:pointer;border:none;background:none}
 input,select,textarea{font-family:inherit}
 
@@ -1234,20 +1234,25 @@ function showMenuCache(){
   // 建立選單覆蓋層
   const overlay=document.createElement('div');
   overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:300;display:flex;align-items:center;justify-content:center;padding:16px';
-  overlay.innerHTML=`<div style="background:#fff;border-radius:16px;padding:22px;max-width:360px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.2)">
-    <div style="font-family:Nunito,sans-serif;font-weight:800;font-size:1rem;margin-bottom:12px">📂 選擇歷史菜單</div>
-    <div style="display:flex;flex-direction:column;gap:7px;max-height:300px;overflow-y:auto">
-      ${cached.map((c,i)=>`<button onclick="loadCachedMenu(${i})" style="text-align:left;padding:10px 13px;border:1.5px solid #e2e8f0;border-radius:8px;background:#fff;cursor:pointer;font-family:inherit">
-        <div style="font-weight:700;font-size:.88rem">${c.store||'未知店家'}</div>
-        <div style="font-size:.72rem;color:#94a3b8">${c.items.length} 個品項 · ${c.savedAt||''}</div>
-      </button>`).join('')}
-    </div>
-    <button onclick="this.closest('div[style]').remove()" style="margin-top:12px;width:100%;padding:9px;border:1.5px solid #e2e8f0;border-radius:8px;background:#f8f7f4;cursor:pointer;font-family:inherit;font-weight:700">取消</button>
-  </div>`;
-  // 點外層關閉
-  overlay.addEventListener('click', e=>{ if(e.target===overlay) overlay.remove(); });
+  const inner=document.createElement('div');
+  inner.style.cssText='background:#fff;border-radius:16px;padding:22px;max-width:360px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.2)';
+  inner.innerHTML='<div style="font-family:Nunito,sans-serif;font-weight:800;font-size:1rem;margin-bottom:12px">📂 選擇歷史菜單</div>'
+    +'<div id="cacheList" style="display:flex;flex-direction:column;gap:7px;max-height:300px;overflow-y:auto">'
+    +cached.map((c,i)=>'<button data-idx="'+i+'" style="text-align:left;padding:10px 13px;border:1.5px solid #e2e8f0;border-radius:8px;background:#fff;cursor:pointer;font-family:inherit;width:100%">'
+      +'<div style="font-weight:700;font-size:.88rem">'+(c.store||'未知店家')+'</div>'
+      +'<div style="font-size:.72rem;color:#94a3b8">'+c.items.length+' 個品項 · '+(c.savedAt||'')+'</div>'
+      +'</button>').join('')
+    +'</div>'
+    +'<button id="cacheCancelBtn" style="margin-top:12px;width:100%;padding:9px;border:1.5px solid #e2e8f0;border-radius:8px;background:#f8f7f4;cursor:pointer;font-family:inherit;font-weight:700">取消</button>';
+  overlay.appendChild(inner);
+  // 事件委派
+  inner.querySelector('#cacheList').addEventListener('click',e=>{
+    const btn=e.target.closest('button[data-idx]');
+    if(btn){ loadCachedMenu(Number(btn.dataset.idx)); }
+  });
+  inner.querySelector('#cacheCancelBtn').addEventListener('click',()=>overlay.remove());
+  overlay.addEventListener('click',e=>{ if(e.target===overlay) overlay.remove(); });
   document.body.appendChild(overlay);
-  // 讓 loadCachedMenu 可以關閉 overlay
   window._cacheOverlay=overlay;
 }
 
