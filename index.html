@@ -544,6 +544,11 @@ function renderOrderPage(){
       oncompositionend="this._composing=false;filterMenu(this.value)"
       style="padding-left:14px;font-size:.88rem">
   </div>`;
+  // 搜尋框初始值在 render 後補入（避免 template literal 問題）
+  setTimeout(()=>{
+    const ms=document.getElementById('menuSearch');
+    if(ms && S.menuSearchQ){ ms.value=S.menuSearchQ; filterMenu(S.menuSearchQ); }
+  },0);
 
   // 菜單品項 — 按分類顯示
   const CAT_ORDER=['便當','飲料','點心','其他'];
@@ -615,7 +620,7 @@ function renderOrderPage(){
 /* ── CART OPS ── */
 function filterMenu(val){
   S.menuSearchQ=val||'';
-  const q=val.trim().toLowerCase();
+  const q=(val||'').trim().toLowerCase();
   // 直接操控 DOM，不重繪頁面，不打斷輸入法
   document.querySelectorAll('.m-card').forEach(card=>{
     const name=(card.querySelector('.m-name')?.textContent||'').toLowerCase();
@@ -635,8 +640,9 @@ function filterMenu(val){
       noResult=document.createElement('div');
       noResult.id='searchEmpty';
       noResult.className='empty';
-      noResult.innerHTML='<span class="ei">🔍</span><p>找不到「'+val+'」相關餐點</p>';
-      document.querySelector('.menu-grid')?.closest('.rest-block')?.parentNode?.appendChild(noResult);
+      noResult.innerHTML='<span class="ei">🔍</span><p>找不到「'+(S.menuSearchQ||q)+'」相關餐點</p>';
+      const menuArea=document.querySelector('.rest-block')?.parentNode||document.getElementById('main');
+      if(menuArea) menuArea.appendChild(noResult);
     }
   } else {
     noResult?.remove();
