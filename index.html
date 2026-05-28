@@ -496,7 +496,7 @@ function renderHome(){
     html+=`<div class="event-card${closed?' closed-card':''}" onclick="openEvent('${ev.id}')">
       <div class="ec-top">
         <div class="ec-left">
-          <div class="ec-badges">
+          <div class="ec-badges"></div>
           <div class="ec-title">${esc(ev.title)}</div>
           ${ev.organizer?`<div class="ec-organizer">👤 承辦：${esc(ev.organizer)}</div>`:''}
         </div>
