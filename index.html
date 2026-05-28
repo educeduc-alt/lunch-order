@@ -1257,7 +1257,11 @@ function showMenuCache(){
 }
 
 function loadCachedMenu(idx){
-  const cached=JSON.parse(localStorage.getItem('menuCache')||'[]');
+  // 與 showMenuCache 相同邏輯：合併預設菜單 + localStorage
+  const stored=JSON.parse(localStorage.getItem('menuCache')||'[]');
+  const presetStores=PRESET_MENUS.map(p=>p.store);
+  const extra=stored.filter(s=>!presetStores.includes(s.store));
+  const cached=[...PRESET_MENUS,...extra];
   const entry=cached[idx];
   if(!entry) return;
   // 載入到 pendingItems，讓管理員確認後儲存
