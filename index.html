@@ -1642,7 +1642,7 @@ async function aiParseBase64(base64,mime){
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({messages:[{role:'user',content:[
         {type:'image',source:{type:'base64',media_type:mime,data:base64}},
-        {type:'text',text:'請解析這張菜單圖片（可能是圖片或PDF截圖），只回傳純 JSON 陣列，絕對不要有任何其他文字、說明或 markdown code block：\n[{"restaurant":"店家名稱","category":"便當","emoji":"最適合的emoji","name":"品項名稱","price":數字或0,"description":"簡短描述或空字串"}]\ncategory 只能填：便當、飲料、點心、其他。飲料品項請合併 M/L 為同一筆，price 填 M 杯價格，specs 填 [{"cat":"杯型","opts":["中杯","大杯"]}]，description 填 中杯價/大杯價（例如 "40/45"）。忽略加料區、優惠說明、備註。只保留主力常態品項，最多 35 項，確保 JSON 完整不截斷。price 看不清楚填 0。無法辨識回傳 []。'}
+        {type:'text',text:'請解析這張菜單圖片（可能是圖片或PDF截圖），只回傳純 JSON 陣列，絕對不要有任何其他文字、說明或 markdown code block：\n[{"restaurant":"店家名稱","category":"便當","emoji":"最適合的emoji","name":"品項名稱","price":數字或0,"description":"簡短描述或空字串"}]\ncategory 只能填：便當、飲料、點心、其他。飲料品項請合併中杯/大杯為同一筆，price 填中杯價格，specs 填 [{"cat":"杯型","opts":["中杯","大杯"]}]，description 填中杯價/大杯價（例如 "40/45"）。忽略加料區和優惠說明，其餘全部品項都要列出，確保 JSON 完整不截斷。price 看不清楚填 0。無法辨識回傳 []。'}
       ]}]})});
     if(!res.ok) throw new Error(`API 錯誤 ${res.status}`);
     const text=await res.text();
