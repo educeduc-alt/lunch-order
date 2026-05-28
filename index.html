@@ -785,7 +785,7 @@ function renderAdmin(){
       <button class="exp-btn" onclick="copyKitchen()">📋 複製廚房清單</button>
       <button class="exp-btn" onclick="exportCSV()">📥 匯出CSV</button>
     </div>
-
+  `;
 
   // 所有點餐
   html+=`<div class="panel"><div class="panel-head"><div class="panel-title">📋 點餐紀錄</div>
@@ -824,8 +824,8 @@ function renderEventMgmt(ev){
     <div style="margin-bottom:10px">
       <span class="mg-lbl" style="display:block;margin-bottom:6px">承辦人</span>
       <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-        ${['雨欣','微姍','梅青','曉臻','心榆','望謙'].map(n=>`<button class="btn btn-sm${ev.organizer===n?' btn-or':' btn-out'}" onclick="setOrganizer('${ev.id}','${n}');this.closest('.panel-body').querySelector('#evOrganizer').value='';">${n}</button>`).join('')}
-        <input class="mg-inp" id="evOrganizer" placeholder="其他姓名" value="${esc(['雨欣','微姍','梅青','曉臻','心榆','望謙'].includes(ev.organizer)?'':ev.organizer||'')}" style="width:90px" oninput="if(this.value)setOrganizer('${ev.id}',this.value)">
+        ${['雨欣','微姍','梅青','曉臻','心榆','望謙'].map(n=>'<button class="btn btn-sm '+(ev.organizer===n?'btn-or':'btn-out')+'" onclick="pickOrganizer(this,\''+n+'\')">'+n+'</button>').join('')}
+        <input class="mg-inp" id="evOrganizer" placeholder="其他姓名" value="${(['雨欣','微姍','梅青','曉臻','心榆','望謙'].includes(ev.organizer)?'':ev.organizer)||''}" style="width:90px">
       </div>
     </div>
     <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:14px">
@@ -880,7 +880,14 @@ async function createNewEvent(){
   S.events.push(data); S.items[data.id]=[]; S.orders[data.id]=[];
   S.adminEid=data.id; render(); toast('場次已建立','ok');
 }
-function setOrganizer(eid, name){
+function pickOrganizer(btn, name){
+  const ev=S.events.find(e=>e.id===S.adminEid);
+  if(ev) ev.organizer=name;
+  const inp=document.getElementById('evOrganizer');
+  if(inp) inp.value='';
+  render();
+}
+function setOrganizer(eid,name){
   const ev=S.events.find(e=>e.id===eid);
   if(ev) ev.organizer=name;
   render();
