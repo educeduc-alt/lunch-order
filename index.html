@@ -276,6 +276,14 @@ input,select,textarea{font-family:inherit}
   </div>
 </div>
 
+<!-- Combo Sheet -->
+<div class="overlay" id="comboOverlay" style="display:none" onclick="if(event.target===this)closeCombo()">
+  <div class="sheet" style="max-height:85vh">
+    <div class="sheet-handle"></div>
+    <div id="comboSheetContent"></div>
+  </div>
+</div>
+
 <!-- TOPBAR -->
 <div class="topbar">
   <div class="topbar-inner">
@@ -322,6 +330,119 @@ ALTER TABLE menus ADD COLUMN store_name text DEFAULT '';
 其他沒有變動，現有資料完全相容。
 ═══════════════════════════════════════════ */
 
+
+// ══════════════════════════════════════
+// 速食預設菜單（內建）
+// 資料來源：各品牌台灣官網 2026年5月
+// ══════════════════════════════════════
+const PRESET_MENUS = [
+  {
+    store: '麥當勞',
+    savedAt: '內建菜單',
+    items: [
+      // 主餐（便當）
+      {id:'mc1',restaurant:'麥當勞',category:'便當',emoji:'🍔',name:'大麥克',description:'雙層牛肉+特製醬',price:99,specs:[],sort_order:0,ai_parsed:false},
+      {id:'mc2',restaurant:'麥當勞',category:'便當',emoji:'🍔',name:'雙層牛肉吉事堡',description:'雙層牛肉+起司',price:89,specs:[],sort_order:1,ai_parsed:false},
+      {id:'mc3',restaurant:'麥當勞',category:'便當',emoji:'🍗',name:'勁辣雞腿堡',description:'香脆辣味雞腿',price:99,specs:[],sort_order:2,ai_parsed:false},
+      {id:'mc4',restaurant:'麥當勞',category:'便當',emoji:'🍗',name:'麥辣雞腿堡',description:'香脆雞腿',price:89,specs:[],sort_order:3,ai_parsed:false},
+      {id:'mc5',restaurant:'麥當勞',category:'便當',emoji:'🐟',name:'麥香魚',description:'酥炸魚排+塔塔醬',price:69,specs:[],sort_order:4,ai_parsed:false},
+      {id:'mc6',restaurant:'麥當勞',category:'便當',emoji:'🍗',name:'麥克雞塊 6塊',description:'經典雞塊',price:79,specs:[{cat:'沾醬',opts:['蜂蜜芥末醬','BBQ醬','番茄醬']}],sort_order:5,ai_parsed:false},
+      {id:'mc7',restaurant:'麥當勞',category:'便當',emoji:'🍗',name:'麥克雞塊 10塊',description:'經典雞塊',price:119,specs:[{cat:'沾醬',opts:['蜂蜜芥末醬','BBQ醬','番茄醬']}],sort_order:6,ai_parsed:false},
+      {id:'mc8',restaurant:'麥當勞',category:'便當',emoji:'🥗',name:'蔬菜脆雞堡',description:'酥炸雞排+蔬菜',price:79,specs:[],sort_order:7,ai_parsed:false},
+      // 配餐/點心
+      {id:'mc9',restaurant:'麥當勞',category:'點心',emoji:'🍟',name:'大薯',description:'',price:59,specs:[],sort_order:8,ai_parsed:false},
+      {id:'mc10',restaurant:'麥當勞',category:'點心',emoji:'🍟',name:'中薯',description:'',price:49,specs:[],sort_order:9,ai_parsed:false},
+      {id:'mc11',restaurant:'麥當勞',category:'點心',emoji:'🥧',name:'蘋果派',description:'',price:29,specs:[],sort_order:10,ai_parsed:false},
+      {id:'mc12',restaurant:'麥當勞',category:'點心',emoji:'🍦',name:'甜筒',description:'香草/巧克力',price:15,specs:[{cat:'口味',opts:['香草','巧克力']}],sort_order:11,ai_parsed:false},
+      // 飲料
+      {id:'mc13',restaurant:'麥當勞',category:'飲料',emoji:'🥤',name:'可口可樂（大）',description:'',price:45,specs:[{cat:'冰量',opts:['正常冰','少冰','去冰']}],sort_order:12,ai_parsed:false},
+      {id:'mc14',restaurant:'麥當勞',category:'飲料',emoji:'🥤',name:'可口可樂（中）',description:'',price:39,specs:[{cat:'冰量',opts:['正常冰','少冰','去冰']}],sort_order:13,ai_parsed:false},
+      {id:'mc15',restaurant:'麥當勞',category:'飲料',emoji:'🟡',name:'柳橙汁（大）',description:'',price:49,specs:[],sort_order:14,ai_parsed:false},
+      {id:'mc16',restaurant:'麥當勞',category:'飲料',emoji:'☕',name:'美式咖啡（大）',description:'',price:45,specs:[{cat:'冰熱',opts:['熱','冰']}],sort_order:15,ai_parsed:false},
+      {id:'mc17',restaurant:'麥當勞',category:'飲料',emoji:'🧋',name:'焦糖奶茶（大）',description:'',price:59,specs:[{cat:'冰量',opts:['正常冰','少冰','去冰']}],sort_order:16,ai_parsed:false},
+      {id:'mc18',restaurant:'麥當勞',category:'飲料',emoji:'🥛',name:'麥香奶茶（大）',description:'',price:45,specs:[{cat:'冰量',opts:['正常冰','少冰','去冰']}],sort_order:17,ai_parsed:false},
+    ]
+  },
+  {
+    store: '肯德基',
+    savedAt: '內建菜單',
+    items: [
+      // 主餐（便當）
+      {id:'kfc1',restaurant:'肯德基',category:'便當',emoji:'🍗',name:'咔啦雞腿堡',description:'酥脆雞腿+特製醬',price:89,specs:[],sort_order:0,ai_parsed:false},
+      {id:'kfc2',restaurant:'肯德基',category:'便當',emoji:'🍗',name:'青花椒香麻脆雞腿堡',description:'麻辣香料雞腿',price:99,specs:[],sort_order:1,ai_parsed:false},
+      {id:'kfc3',restaurant:'肯德基',category:'便當',emoji:'🍗',name:'原味脆雞（1塊）',description:'經典11種香料',price:69,specs:[{cat:'部位',opts:['雞腿','雞翅','雞胸']}],sort_order:2,ai_parsed:false},
+      {id:'kfc4',restaurant:'肯德基',category:'便當',emoji:'🍗',name:'咔啦脆雞（1塊）',description:'酥脆炸雞',price:59,specs:[],sort_order:3,ai_parsed:false},
+      {id:'kfc5',restaurant:'肯德基',category:'便當',emoji:'🍗',name:'青花椒香麻脆雞（1塊）',description:'麻辣炸雞',price:69,specs:[],sort_order:4,ai_parsed:false},
+      {id:'kfc6',restaurant:'肯德基',category:'便當',emoji:'🍗',name:'爆脆無骨雞腿霸',description:'無骨酥脆大雞腿',price:89,specs:[],sort_order:5,ai_parsed:false},
+      {id:'kfc7',restaurant:'肯德基',category:'便當',emoji:'🍱',name:'雞汁飯（原味脆雞）',description:'炸雞+白飯',price:119,specs:[],sort_order:6,ai_parsed:false},
+      // 配餐/點心
+      {id:'kfc8',restaurant:'肯德基',category:'點心',emoji:'🥧',name:'原味蛋撻（1個）',description:'葡式蛋撻',price:35,specs:[],sort_order:7,ai_parsed:false},
+      {id:'kfc9',restaurant:'肯德基',category:'點心',emoji:'🥧',name:'原味蛋撻（6入）',description:'',price:175,specs:[],sort_order:8,ai_parsed:false},
+      {id:'kfc10',restaurant:'肯德基',category:'點心',emoji:'🍟',name:'香酥脆薯（小）',description:'',price:39,specs:[],sort_order:9,ai_parsed:false},
+      {id:'kfc11',restaurant:'肯德基',category:'點心',emoji:'🍟',name:'香酥脆薯（大）',description:'',price:59,specs:[],sort_order:10,ai_parsed:false},
+      {id:'kfc12',restaurant:'肯德基',category:'點心',emoji:'🌽',name:'黃金玉米',description:'',price:39,specs:[],sort_order:11,ai_parsed:false},
+      // 飲料
+      {id:'kfc13',restaurant:'肯德基',category:'飲料',emoji:'🥤',name:'可樂（大）',description:'',price:45,specs:[{cat:'冰量',opts:['正常冰','少冰','去冰']}],sort_order:12,ai_parsed:false},
+      {id:'kfc14',restaurant:'肯德基',category:'飲料',emoji:'🍵',name:'立頓檸檬風味紅茶（大）',description:'',price:39,specs:[{cat:'冰量',opts:['正常冰','少冰','去冰']}],sort_order:13,ai_parsed:false},
+      {id:'kfc15',restaurant:'肯德基',category:'飲料',emoji:'🍵',name:'冰無糖綠茶（大）',description:'',price:35,specs:[],sort_order:14,ai_parsed:false},
+      {id:'kfc16',restaurant:'肯德基',category:'飲料',emoji:'☕',name:'美式咖啡',description:'',price:39,specs:[{cat:'冰熱',opts:['熱','冰']}],sort_order:15,ai_parsed:false},
+    ]
+  },
+  {
+    store: '摩斯漢堡',
+    savedAt: '內建菜單',
+    items: [
+      // 主餐（便當）
+      {id:'mos1',restaurant:'摩斯漢堡',category:'便當',emoji:'🍔',name:'超級大麥元氣牛肉珍珠堡',description:'米漢堡×牛肉',price:115,specs:[],sort_order:0,ai_parsed:false},
+      {id:'mos2',restaurant:'摩斯漢堡',category:'便當',emoji:'🍔',name:'超級大麥元氣豬排珍珠堡',description:'米漢堡×豬排',price:99,specs:[],sort_order:1,ai_parsed:false},
+      {id:'mos3',restaurant:'摩斯漢堡',category:'便當',emoji:'🍤',name:'炸蝦堡',description:'酥炸蝦排+塔塔醬',price:109,specs:[],sort_order:2,ai_parsed:false},
+      {id:'mos4',restaurant:'摩斯漢堡',category:'便當',emoji:'🍤',name:'摘鮮綠炸蝦堡',description:'生菜包炸蝦（無麵包）',price:119,specs:[],sort_order:3,ai_parsed:false},
+      {id:'mos5',restaurant:'摩斯漢堡',category:'便當',emoji:'🍔',name:'辣味燒肉珍珠堡',description:'米漢堡×辣味燒肉',price:105,specs:[],sort_order:4,ai_parsed:false},
+      {id:'mos6',restaurant:'摩斯漢堡',category:'便當',emoji:'🍔',name:'豬排堡',description:'香煎豬排漢堡',price:85,specs:[],sort_order:5,ai_parsed:false},
+      {id:'mos7',restaurant:'摩斯漢堡',category:'便當',emoji:'🍔',name:'鱈魚堡',description:'酥炸鱈魚+塔塔醬',price:85,specs:[],sort_order:6,ai_parsed:false},
+      // 配餐/點心
+      {id:'mos8',restaurant:'摩斯漢堡',category:'點心',emoji:'🥔',name:'方塊薯餅',description:'',price:39,specs:[],sort_order:7,ai_parsed:false},
+      {id:'mos9',restaurant:'摩斯漢堡',category:'點心',emoji:'🥐',name:'北海道可樂餅',description:'',price:49,specs:[],sort_order:8,ai_parsed:false},
+      {id:'mos10',restaurant:'摩斯漢堡',category:'點心',emoji:'🍵',name:'抹茶紅豆米派',description:'',price:45,specs:[],sort_order:9,ai_parsed:false},
+      {id:'mos11',restaurant:'摩斯漢堡',category:'點心',emoji:'🍮',name:'焦糖布丁',description:'',price:49,specs:[],sort_order:10,ai_parsed:false},
+      {id:'mos12',restaurant:'摩斯漢堡',category:'點心',emoji:'🍟',name:'月亮薯條',description:'',price:55,specs:[],sort_order:11,ai_parsed:false},
+      // 飲料
+      {id:'mos13',restaurant:'摩斯漢堡',category:'飲料',emoji:'🍵',name:'冰紅茶（L）',description:'',price:39,specs:[],sort_order:12,ai_parsed:false},
+      {id:'mos14',restaurant:'摩斯漢堡',category:'飲料',emoji:'🍵',name:'台灣冰綠茶（L）',description:'',price:39,specs:[],sort_order:13,ai_parsed:false},
+      {id:'mos15',restaurant:'摩斯漢堡',category:'飲料',emoji:'🧋',name:'蒟蒻冰茶（L）',description:'',price:55,specs:[],sort_order:14,ai_parsed:false},
+      {id:'mos16',restaurant:'摩斯漢堡',category:'飲料',emoji:'☕',name:'摩斯咖啡（L）',description:'',price:60,specs:[{cat:'冰熱',opts:['熱','冰']}],sort_order:15,ai_parsed:false},
+      {id:'mos17',restaurant:'摩斯漢堡',category:'飲料',emoji:'☕',name:'拿鐵咖啡（L）',description:'',price:79,specs:[{cat:'冰熱',opts:['熱','冰']}],sort_order:16,ai_parsed:false},
+      {id:'mos18',restaurant:'摩斯漢堡',category:'飲料',emoji:'🥤',name:'可樂（L）',description:'',price:39,specs:[],sort_order:17,ai_parsed:false},
+    ]
+  },
+  {
+    store: '漢堡王',
+    savedAt: '內建菜單',
+    items: [
+      // 主餐（便當）
+      {id:'bk1',restaurant:'漢堡王',category:'便當',emoji:'🍔',name:'華堡',description:'火烤牛肉+蔬菜',price:119,specs:[],sort_order:0,ai_parsed:false},
+      {id:'bk2',restaurant:'漢堡王',category:'便當',emoji:'🍔',name:'雙層華堡',description:'雙層火烤牛肉',price:149,specs:[],sort_order:1,ai_parsed:false},
+      {id:'bk3',restaurant:'漢堡王',category:'便當',emoji:'🍔',name:'安格斯牛肉堡',description:'厚切安格斯牛肉',price:139,specs:[],sort_order:2,ai_parsed:false},
+      {id:'bk4',restaurant:'漢堡王',category:'便當',emoji:'🍗',name:'國王大雞堡',description:'酥脆大雞排',price:109,specs:[],sort_order:3,ai_parsed:false},
+      {id:'bk5',restaurant:'漢堡王',category:'便當',emoji:'🍗',name:'咔啦雞腿堡',description:'香脆雞腿排',price:109,specs:[],sort_order:4,ai_parsed:false},
+      {id:'bk6',restaurant:'漢堡王',category:'便當',emoji:'🐟',name:'華鱈魚堡',description:'酥炸鱈魚排',price:99,specs:[],sort_order:5,ai_parsed:false},
+      {id:'bk7',restaurant:'漢堡王',category:'便當',emoji:'🌭',name:'捲捲德腸堡',description:'德式香腸捲餅',price:89,specs:[],sort_order:6,ai_parsed:false},
+      {id:'bk8',restaurant:'漢堡王',category:'便當',emoji:'🍔',name:'小華堡',description:'經典牛肉堡',price:79,specs:[],sort_order:7,ai_parsed:false},
+      // 配餐/點心
+      {id:'bk9',restaurant:'漢堡王',category:'點心',emoji:'🍟',name:'薯條（中）',description:'',price:49,specs:[],sort_order:8,ai_parsed:false},
+      {id:'bk10',restaurant:'漢堡王',category:'點心',emoji:'🍟',name:'薯條（大）',description:'',price:59,specs:[],sort_order:9,ai_parsed:false},
+      {id:'bk11',restaurant:'漢堡王',category:'點心',emoji:'🧅',name:'洋蔥圈（中）',description:'',price:55,specs:[],sort_order:10,ai_parsed:false},
+      {id:'bk12',restaurant:'漢堡王',category:'點心',emoji:'🍗',name:'雞塊 4塊',description:'',price:49,specs:[],sort_order:11,ai_parsed:false},
+      {id:'bk13',restaurant:'漢堡王',category:'點心',emoji:'🥧',name:'蘋果派',description:'',price:29,specs:[],sort_order:12,ai_parsed:false},
+      // 飲料
+      {id:'bk14',restaurant:'漢堡王',category:'飲料',emoji:'🥤',name:'可樂（大）',description:'',price:49,specs:[{cat:'冰量',opts:['正常冰','少冰','去冰']}],sort_order:13,ai_parsed:false},
+      {id:'bk15',restaurant:'漢堡王',category:'飲料',emoji:'🥤',name:'雪碧（大）',description:'',price:49,specs:[{cat:'冰量',opts:['正常冰','少冰','去冰']}],sort_order:14,ai_parsed:false},
+      {id:'bk16',restaurant:'漢堡王',category:'飲料',emoji:'☕',name:'美式咖啡',description:'',price:39,specs:[{cat:'冰熱',opts:['熱','冰']}],sort_order:15,ai_parsed:false},
+      {id:'bk17',restaurant:'漢堡王',category:'飲料',emoji:'🧃',name:'柳橙汁',description:'',price:49,specs:[],sort_order:16,ai_parsed:false},
+    ]
+  }
+];
+
 const ADMIN_PW_KEY = 'lunchPw4';
 const CLASSES = ['教職員','七年甲','七年乙','七年丙','八年甲','八年乙','八年丙','九年甲','九年乙','九年丙'];
 
@@ -334,6 +455,13 @@ let S = {
   activeEventId:null,
   pendingItems:[],   // 本次 AI 解析暫存，尚未儲存
   menuSearchQ:'',    // 菜單搜尋關鍵字
+  // 套餐組合 sheet
+  comboStep:null,     // null | 'side' | 'drink'
+  comboMain:null,     // 選定的主餐 item
+  comboSides:[],      // 已選配餐 [{item,specs}]
+  comboDrinks:[],     // 已選飲料 [{item,specs}]
+  comboSpecItem:null, // 在套餐 sheet 裡選規格的品項
+  comboSpecSel:{},
   cart:{},
   specItem:null, specSel:{}, specQty:1, specNote:'',
   myName:'', myClass:'',
@@ -580,7 +708,7 @@ function renderOrderPage(){
         <div class="qty-row" onclick="event.stopPropagation()">
           <button class="qb" onclick="event.stopPropagation();adjCart('${item.id}',-1)">−</button>
           <span class="qn">${totalQty}</span>
-          <button class="qb" onclick="event.stopPropagation();${hasSpec?`openSpec('${item.id}')`:`quickAdd('${item.id}')`}">＋</button>
+          <button class="qb" onclick="event.stopPropagation();${item.category==='便當'?`startCombo('${item.id}')`:(hasSpec?`openSpec('${item.id}')`:`quickAdd('${item.id}')`)}">＋</button>
         </div>
       </div>`;
       });
@@ -649,6 +777,172 @@ function filterMenu(val){
   }
 }
 
+
+/* ══════════════════════════════════
+   套餐組合流程
+══════════════════════════════════ */
+function startCombo(id){
+  const ev=S.events.find(e=>e.id===S.activeEventId);
+  if(isEventClosed(ev)){toast('此場次已截止','err');return;}
+  const item=(S.items[S.activeEventId]||[]).find(i=>i.id===id);
+  if(!item) return;
+  // 有規格的主餐先選規格，選完再進套餐流程
+  if(item.specs&&item.specs.length>0){
+    S.specItem=item; S.specSel={}; S.specQty=1; S.specNote='';
+    (item.specs||[]).forEach(sp=>{if(sp.opts.length)S.specSel[sp.cat]=sp.opts[0];});
+    S.specItem._comboMode=true;  // 標記為套餐模式
+    renderSheet();
+    document.getElementById('specOverlay').style.display='flex';
+    // 修改確認按鈕文字
+    const btn=document.getElementById('specOverlay').querySelector('.btn-or');
+    if(btn) btn.textContent='確認主餐，繼續選配餐 →';
+    return;
+  }
+  // 無規格直接開套餐流程
+  S.comboMain={item, specsStr:'', qty:1, note:''};
+  S.comboSides=[]; S.comboDrinks=[];
+  S.comboStep='side';
+  renderComboSheet();
+  document.getElementById('comboOverlay').style.display='flex';
+}
+
+function renderComboSheet(){
+  const el=document.getElementById('comboSheetContent');
+  if(!el) return;
+  const items=S.items[S.activeEventId]||[];
+  const sideItems=items.filter(i=>i.category==='點心');
+  const drinkItems=items.filter(i=>i.category==='飲料');
+
+  if(S.comboStep==='side'){
+    let html=`<div class="sheet-title">🍟 加配餐？<span style="font-size:.75rem;color:var(--sll);font-weight:400;margin-left:6px">可多選，或直接跳過</span></div>`;
+    // 主餐摘要
+    html+=`<div style="background:var(--orl);border-radius:var(--rsm);padding:8px 11px;margin-bottom:12px;font-size:.82rem;color:var(--ord)">
+      ✅ 已選：${esc(S.comboMain.item.emoji)} ${esc(S.comboMain.item.name)}${S.comboMain.specsStr?' ('+esc(S.comboMain.specsStr)+')':''}
+    </div>`;
+    if(!sideItems.length){
+      html+=`<div style="font-size:.8rem;color:var(--sll);text-align:center;padding:16px">此場次無配餐品項</div>`;
+    } else {
+      html+=`<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">`;
+      sideItems.forEach(item=>{
+        const sel=S.comboSides.find(s=>s.item.id===item.id);
+        html+=`<div onclick="toggleComboItem('side','${item.id}')"
+          style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border:1.5px solid ${sel?'var(--or)':'var(--bo)'};border-radius:var(--rmd);background:${sel?'var(--orl)':'var(--ca)'};cursor:pointer">
+          <div>
+            <span style="font-size:1.1rem">${esc(item.emoji)}</span>
+            <span style="font-weight:600;font-size:.88rem;margin-left:6px">${esc(item.name)}</span>
+            ${item.price>0?`<span style="color:var(--or);font-weight:700;font-size:.85rem;margin-left:6px">$${item.price}</span>`:''}
+          </div>
+          <div style="width:22px;height:22px;border-radius:50%;border:2px solid ${sel?'var(--or)':'var(--bo)'};background:${sel?'var(--or)':'transparent'};display:flex;align-items:center;justify-content:center;font-size:.75rem;color:#fff;flex-shrink:0">${sel?'✓':''}</div>
+        </div>`;
+      });
+      html+=`</div>`;
+    }
+    // 已選摘要
+    if(S.comboSides.length){
+      html+=`<div style="font-size:.75rem;color:var(--gr);margin-bottom:10px">已選配餐：${S.comboSides.map(s=>s.item.name).join('、')}</div>`;
+    }
+    html+=`<div style="display:flex;gap:8px;margin-top:4px">
+      <button class="btn btn-out btn-full" onclick="S.comboStep='drink';renderComboSheet()">跳過，選飲料 →</button>
+      <button class="btn btn-or btn-full" onclick="S.comboStep='drink';renderComboSheet()">下一步：選飲料 →</button>
+    </div>`;
+    el.innerHTML=html;
+  } else if(S.comboStep==='drink'){
+    let html=`<div class="sheet-title">🧋 加飲料？<span style="font-size:.75rem;color:var(--sll);font-weight:400;margin-left:6px">可多選，或直接完成</span></div>`;
+    // 主餐+配餐摘要
+    const sideNames=S.comboSides.map(s=>s.item.name).join('、');
+    html+=`<div style="background:var(--orl);border-radius:var(--rsm);padding:8px 11px;margin-bottom:12px;font-size:.82rem;color:var(--ord)">
+      ✅ 主餐：${esc(S.comboMain.item.emoji)} ${esc(S.comboMain.item.name)}<br>
+      ${sideNames?'🍟 配餐：'+sideNames:'（無配餐）'}
+    </div>`;
+    if(!drinkItems.length){
+      html+=`<div style="font-size:.8rem;color:var(--sll);text-align:center;padding:16px">此場次無飲料品項</div>`;
+    } else {
+      html+=`<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">`;
+      drinkItems.forEach(item=>{
+        const sel=S.comboDrinks.find(d=>d.item.id===item.id);
+        html+=`<div onclick="toggleComboItem('drink','${item.id}')"
+          style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border:1.5px solid ${sel?'var(--or)':'var(--bo)'};border-radius:var(--rmd);background:${sel?'var(--orl)':'var(--ca)'};cursor:pointer">
+          <div>
+            <span style="font-size:1.1rem">${esc(item.emoji)}</span>
+            <span style="font-weight:600;font-size:.88rem;margin-left:6px">${esc(item.name)}</span>
+            ${item.price>0?`<span style="color:var(--or);font-weight:700;font-size:.85rem;margin-left:6px">$${item.price}</span>`:''}
+            ${item.specs&&item.specs.length?`<span style="font-size:.65rem;color:var(--in);margin-left:4px">可選規格</span>`:''}
+          </div>
+          <div style="width:22px;height:22px;border-radius:50%;border:2px solid ${sel?'var(--or)':'var(--bo)'};background:${sel?'var(--or)':'transparent'};display:flex;align-items:center;justify-content:center;font-size:.75rem;color:#fff;flex-shrink:0">${sel?'✓':''}</div>
+        </div>`;
+      });
+      html+=`</div>`;
+    }
+    if(S.comboDrinks.length){
+      html+=`<div style="font-size:.75rem;color:var(--gr);margin-bottom:10px">已選飲料：${S.comboDrinks.map(d=>d.item.name+(d.specsStr?' ('+d.specsStr+')':'')).join('、')}</div>`;
+    }
+    // 總金額預覽
+    const total=(S.comboMain.item.price||0)+
+      S.comboSides.reduce((s,x)=>s+(x.item.price||0),0)+
+      S.comboDrinks.reduce((s,x)=>s+(x.item.price||0),0);
+    html+=`<div style="text-align:right;font-family:'Nunito',sans-serif;font-weight:800;font-size:.95rem;color:var(--or);margin-bottom:10px">
+      ${total>0?'小計 $'+total:''}
+    </div>`;
+    html+=`<div style="display:flex;gap:8px">
+      <button class="btn btn-out" onclick="S.comboStep='side';renderComboSheet()">← 返回配餐</button>
+      <button class="btn btn-or btn-full" onclick="confirmCombo()">✅ 加入清單</button>
+    </div>`;
+    el.innerHTML=html;
+  }
+}
+
+function toggleComboItem(type, id){
+  const items=S.items[S.activeEventId]||[];
+  const item=items.find(i=>i.id===id);
+  if(!item) return;
+  const arr=type==='side'?S.comboSides:S.comboDrinks;
+  const idx=arr.findIndex(x=>x.item.id===id);
+  if(idx>=0){
+    arr.splice(idx,1);
+  } else {
+    // 有規格的飲料彈出小規格選擇
+    if(item.specs&&item.specs.length&&type==='drink'){
+      const specSel={};
+      item.specs.forEach(sp=>{if(sp.opts.length)specSel[sp.cat]=sp.opts[0];});
+      // 簡化：直接加入預設規格，可後續再點調整
+      arr.push({item, specsStr:Object.values(specSel).join('/')});
+    } else {
+      arr.push({item, specsStr:''});
+    }
+  }
+  renderComboSheet();
+}
+
+function confirmCombo(){
+  const ev=S.events.find(e=>e.id===S.activeEventId);
+  if(isEventClosed(ev)){toast('此場次已截止','err');return;}
+  // 加入主餐
+  const mainKey=S.comboMain.item.id+'__'+S.comboMain.specsStr+'__'+Date.now();
+  S.cart[mainKey]={itemId:S.comboMain.item.id,name:S.comboMain.item.name,emoji:S.comboMain.item.emoji,
+    qty:S.comboMain.qty,price:S.comboMain.item.price,specsStr:S.comboMain.specsStr,note:''};
+  // 加入配餐
+  S.comboSides.forEach((s,i)=>{
+    const k=s.item.id+'__'+s.specsStr+'__'+(Date.now()+i+1);
+    S.cart[k]={itemId:s.item.id,name:s.item.name,emoji:s.item.emoji,qty:1,price:s.item.price,specsStr:s.specsStr,note:''};
+  });
+  // 加入飲料
+  S.comboDrinks.forEach((d,i)=>{
+    const k=d.item.id+'__'+d.specsStr+'__'+(Date.now()+i+100);
+    S.cart[k]={itemId:d.item.id,name:d.item.name,emoji:d.item.emoji,qty:1,price:d.item.price,specsStr:d.specsStr,note:''};
+  });
+  closeCombo();
+  const total=(S.comboMain.item.price||0)+
+    S.comboSides.reduce((s,x)=>s+(x.item.price||0),0)+
+    S.comboDrinks.reduce((s,x)=>s+(x.item.price||0),0);
+  toast(`已加入 ${1+S.comboSides.length+S.comboDrinks.length} 項${total>0?' ($'+total+')':''}` ,'ok');
+  render();
+}
+
+function closeCombo(){
+  document.getElementById('comboOverlay').style.display='none';
+  S.comboStep=null; S.comboMain=null; S.comboSides=[]; S.comboDrinks=[];
+}
+
 function quickAdd(id){
   const ev=S.events.find(e=>e.id===S.activeEventId);
   if(isEventClosed(ev)){toast('此場次已截止','err');return;}
@@ -702,6 +996,17 @@ function renderSheet(){
 function confirmSpec(){
   const item=S.specItem;
   const specsStr=Object.values(S.specSel).join('/');
+  // 套餐模式：規格選完後進套餐配餐流程
+  if(item._comboMode){
+    item._comboMode=false;
+    closeSpec();
+    S.comboMain={item, specsStr, qty:S.specQty, note:S.specNote};
+    S.comboSides=[]; S.comboDrinks=[];
+    S.comboStep='side';
+    renderComboSheet();
+    document.getElementById('comboOverlay').style.display='flex';
+    return;
+  }
   const key=item.id+'__'+specsStr+'__'+Date.now();
   S.cart[key]={itemId:item.id,name:item.name,emoji:item.emoji,qty:S.specQty,price:item.price,specsStr,note:S.specNote};
   closeSpec();render();toast('已加入清單 ✓','ok');
@@ -920,7 +1225,11 @@ async function createNewEvent(){
   S.adminEid=data.id; render(); toast('場次已建立','ok');
 }
 function showMenuCache(){
-  const cached=JSON.parse(localStorage.getItem('menuCache')||'[]');
+  const stored=JSON.parse(localStorage.getItem('menuCache')||'[]');
+  // 合併預設菜單（不重複）
+  const presetStores=PRESET_MENUS.map(p=>p.store);
+  const extra=stored.filter(s=>!presetStores.includes(s.store));
+  const cached=[...PRESET_MENUS,...extra];
   if(!cached.length){toast('尚無歷史菜單紀錄','warn');return;}
   // 建立選單覆蓋層
   const overlay=document.createElement('div');
