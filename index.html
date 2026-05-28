@@ -538,7 +538,10 @@ function renderOrderPage(){
 
   // 搜尋列
   html+=`<div style="margin-bottom:12px;position:relative">
-    <input class="inp" id="menuSearch" placeholder="🔍 搜尋餐點或飲料…" oninput="filterMenu(this.value)"
+    <input class="inp" id="menuSearch" placeholder="🔍 搜尋餐點或飲料…"
+      oninput="if(!this._composing)filterMenu(this.value)"
+      oncompositionstart="this._composing=true"
+      oncompositionend="this._composing=false;filterMenu(this.value)"
       style="padding-left:14px;font-size:.88rem">
   </div>`;
 
@@ -612,15 +615,32 @@ function renderOrderPage(){
 /* ── CART OPS ── */
 function filterMenu(val){
   S.menuSearchQ=val||'';
-  // 只重繪菜單區塊，不重繪整頁，保留已填的姓名
-  const savedName=document.getElementById('uName')?.value||S.myName;
-  render();
-  // 恢復姓名
-  const inp=document.getElementById('uName');
-  if(inp) inp.value=savedName;
-  // 恢復搜尋框焦點和值
-  const search=document.getElementById('menuSearch');
-  if(search){ search.value=val; search.focus(); }
+  const q=val.trim().toLowerCase();
+  // 直接操控 DOM，不重繪頁面，不打斷輸入法
+  document.querySelectorAll('.m-card').forEach(card=>{
+    const name=(card.querySelector('.m-name')?.textContent||'').toLowerCase();
+    const desc=(card.querySelector('.m-desc')?.textContent||'').toLowerCase();
+    card.style.display=(!q||name.includes(q)||desc.includes(q))?'':'none';
+  });
+  // 隱藏空分類
+  document.querySelectorAll('.rest-block').forEach(block=>{
+    const visible=[...block.querySelectorAll('.m-card')].some(c=>c.style.display!=='none');
+    block.style.display=visible?'':'none';
+  });
+  // 空結果提示
+  let noResult=document.getElementById('searchEmpty');
+  const anyVisible=[...document.querySelectorAll('.m-card')].some(c=>c.style.display!=='none');
+  if(q && !anyVisible){
+    if(!noResult){
+      noResult=document.createElement('div');
+      noResult.id='searchEmpty';
+      noResult.className='empty';
+      noResult.innerHTML='<span class="ei">🔍</span><p>找不到「'+val+'」相關餐點</p>';
+      document.querySelector('.menu-grid')?.closest('.rest-block')?.parentNode?.appendChild(noResult);
+    }
+  } else {
+    noResult?.remove();
+  }
 }
 
 function quickAdd(id){
