@@ -1,60 +1,73 @@
-export const onRequest = async (context) => {
-  const request = context.request;
-  const env = context.env;
+const https = require('https');
 
-  if (request.method === 'OPTIONS') {
-    return new Response(null, {
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type',
-      },
-    });
+exports.handler = async function(event, context) {
+  context.callbackWaitsForEmptyEventLoop = false;
+
+  if (event.httpMethod !== 'POST') {
+    return { statusCode: 405, body: 'Method Not Allowed' };
   }
 
-  if (request.method !== 'POST') {
-    return new Response('Method Not Allowed', { status: 405 });
-  }
-
-  const CLAUDE_KEY = (env.CLAUDE_API_KEY || '').trim();
+  const CLAUDE_KEY = (process.env.CLAUDE_API_KEY || '').trim().replace(/[^\x20-\x7E]/g, '');
   if (!CLAUDE_KEY) {
-    return new Response(JSON.stringify({ error: 'API Key 未設定' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return { statusCode: 500, body: JSON.stringify({ error: 'API Key 未設定' }) };
   }
 
   let body;
   try {
-    body = await request.json();
-  } catch (e) {
-    return new Response(JSON.stringify({ error: '無效的請求格式' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    body = JSON.parse(event.body);
+  } catch(e) {
+    return { statusCode: 400, body: JSON.stringify({ error: '無效的請求格式' }) };
   }
 
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': CLAUDE_KEY,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 8192,
-      messages: body.messages,
-    }),
+  const payload = JSON.stringify({
+    model: 'claude-opus-4-5',
+    max_tokens: 8192,
+    messages: body.messages,
   });
 
-  const data = await response.text();
+  return new Promise((resolve) => {
+    const options = {
+      hostname: 'api.anthropic.com',
+      path: '/v1/messages',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': CLAUDE_KEY,
+        'anthropic-version': '2023-06-01',
+        'Content-Length': Buffer.byteLength(payload),
+      },
+    };
 
-  return new Response(data, {
-    status: response.status,
-    headers: {
-      'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
-    },
+    const chunks = [];
+
+    const req = https.request(options, (res) => {
+      res.on('data', (chunk) => { chunks.push(chunk); });
+      res.on('end', () => {
+        const data = Buffer.concat(chunks).toString('utf8');
+        resolve({
+          statusCode: res.statusCode,
+          headers: { 'Content-Type': 'application/json' },
+          body: data,
+        });
+      });
+    });
+
+    req.on('error', (err) => {
+      resolve({
+        statusCode: 500,
+        body: JSON.stringify({ error: err.message }),
+      });
+    });
+
+    req.setTimeout(25000, () => {
+      req.destroy();
+      resolve({
+        statusCode: 504,
+        body: JSON.stringify({ error: '請求逾時，請重試' }),
+      });
+    });
+
+    req.write(payload);
+    req.end();
   });
 };
