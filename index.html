@@ -244,6 +244,13 @@ input,select,textarea{font-family:inherit}
 @keyframes spin{to{transform:rotate(360deg)}}
 .menu-preview-img{max-height:180px;border-radius:var(--rmd);margin:8px auto 0;object-fit:cover;display:block}
 </style>
+<script>
+  // 偵測部署環境，決定 proxy 路徑
+  // pages.dev 或自訂域名 → Cloudflare Pages
+  // netlify.app → Netlify
+  const host = window.location.hostname;
+  window._cfPages = host.includes('pages.dev') || (!host.includes('netlify') && !host.includes('localhost'));
+</script>
 </head>
 <body>
 <div class="toast-wrap" id="toastWrap"></div>
@@ -1079,7 +1086,8 @@ async function aiParseBase64(base64,mime){
   const statusEl=document.getElementById('aiStatus');
   if(statusEl) statusEl.innerHTML=`<div class="scan-ldr"><div class="spin"></div>AI 正在解析菜單，請稍候…</div>`;
   try{
-    const res=await fetch('/.netlify/functions/claude-proxy',{method:'POST',
+    const proxyUrl=window._cfPages?'/claude-proxy':'/.netlify/functions/claude-proxy';
+    const res=await fetch(proxyUrl,{method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({messages:[{role:'user',content:[
         {type:'image',source:{type:'base64',media_type:mime,data:base64}},
