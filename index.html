@@ -296,7 +296,7 @@ input,select,textarea{font-family:inherit}
 <div class="tab-bar">
   <div class="tab-bar-inner">
     <button class="tab-btn on" id="tab-home" onclick="goTab('home')">🏠 場次列表</button>
-    <button class="tab-btn" id="tab-rec" onclick="goTab('rec')">📋 點餐紀錄</button>
+    <button class="tab-btn" id="tab-menu" onclick="goTab('menu')">📋 菜單上傳和點餐</button>
     <button class="tab-btn" id="tab-admin" onclick="goTab('admin')">⚙️ 後台</button>
   </div>
 </div>
@@ -561,15 +561,15 @@ function goTab(t){
     document.getElementById('adminModal').style.display='flex';
     setTimeout(()=>document.getElementById('adminPwInp').focus(),80); return;
   }
+  if(t==='menu'&&!S.adminEid&&S.events.length) S.adminEid=S.events[0].id;
   S.tab=t; S.delId=null;
   if(t==='admin'&&!S.adminEid&&S.events.length) S.adminEid=S.events[0].id;
-  if(t==='admin') S.pendingItems=[];  // 進後台時清空暫存
-  ['home','rec','admin'].forEach(x=>{
+  if(t==='admin') S.pendingItems=[];
+  ['home','menu','admin'].forEach(x=>{
     const el=document.getElementById('tab-'+x);
     if(el) el.className='tab-btn'+(x===t?(t==='admin'?' on-admin':' on'):'');
   });
-  // 離開點餐頁
-  if(t!=='home') S.activeEventId=null;
+  if(t!=='home'&&t!=='menu') S.activeEventId=null;
   render();
 }
 function doLogin(){
@@ -598,8 +598,8 @@ function render(){
     sb2.style.display=(hasCart&&S.activeEventId)?'block':'none';
     const btn=document.getElementById('subBtn');
     if(btn){ const ev=S.events.find(e=>e.id===S.activeEventId); btn.disabled=isEventClosed(ev); }
-  } else if(S.tab==='rec'){
-    mc.innerHTML=renderRec(); sb2.style.display='none';
+  } else if(S.tab==='menu'){
+    mc.innerHTML=renderMenuTab(); sb2.style.display='none';
   } else {
     mc.innerHTML=renderAdmin(); sb2.style.display='none';
   }
@@ -717,7 +717,7 @@ function renderOrderPage(){
         <div class="qty-row" onclick="event.stopPropagation()">
           <button class="qb" onclick="event.stopPropagation();adjCart('${item.id}',-1)">−</button>
           <span class="qn">${totalQty}</span>
-          <button class="qb" onclick="event.stopPropagation();${item.category==='便當'?`startCombo('${item.id}')`:(hasSpec?`openSpec('${item.id}')`:`quickAdd('${item.id}')`)}">＋</button>
+          <button class="qb" onclick="event.stopPropagation();${hasSpec?`openSpec('${item.id}')`:`quickAdd('${item.id}')`}">＋</button>
         </div>
       </div>`;
       });
@@ -1233,8 +1233,7 @@ function renderAdmin(){
     <!-- 場次切換 -->
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:13px;align-items:center">
       ${S.events.map(e=>`<button class="btn ${S.adminEid===e.id?'btn-or':'btn-out'}" style="padding:8px 16px;font-size:.85rem"
-        onclick="S.adminEid='${e.id}';S.pendingItems=[];render()">${esc(e.title)}</button>`).join('')}
-      <button class="btn btn-gr btn-sm" onclick="createNewEvent()">＋ 新增場次</button>
+        onclick="S.adminEid='${e.id}';render()">${esc(e.title)}</button>`).join('')}
     </div>`;
 
   if(!ev){ html+='<div class="empty"><span class="ei">📭</span><p>請先建立場次</p></div>'; return html; }
@@ -1247,7 +1246,6 @@ function renderAdmin(){
       <div class="stat-box"><div class="stat-n" style="color:var(--slm)">${new Set(ords.map(o=>o.class_name)).size}</div><div class="stat-l">班級數</div></div>
     </div>
     <div class="exp-row">
-      <button class="exp-btn" onclick="copyKitchen()">📋 複製廚房清單</button>
       <button class="exp-btn" onclick="exportCSV()">📥 匯出CSV</button>
     </div>
   `;
@@ -1266,7 +1264,6 @@ function renderAdmin(){
   html+='</tbody></table></div></div>';
 
   // 場次 + 菜單管理
-  html+=renderEventMgmt(ev);
 
   // 設定
 
@@ -1274,6 +1271,28 @@ function renderAdmin(){
 }
 
 /* 場次 & 菜單管理 */
+
+function renderMenuTab(){
+  if(!S.adminEid&&S.events.length) S.adminEid=S.events[0].id;
+  const ev=S.events.find(e=>e.id===S.adminEid);
+
+  let html=`
+    <!-- 場次切換 -->
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:13px;align-items:center">
+      ${S.events.map(e=>`<button class="btn ${S.adminEid===e.id?'btn-or':'btn-out'}" style="padding:8px 16px;font-size:.85rem"
+        onclick="S.adminEid='${e.id}';S.pendingItems=[];render()">${esc(e.title)}</button>`).join('')}
+      <button class="btn btn-out btn-sm" onclick="createNewEvent()">＋ 新增場次</button>
+    </div>`;
+
+  if(!ev){
+    html+='<div class="empty"><span class="ei">📭</span><p>請先建立場次</p></div>';
+    return html;
+  }
+
+  html+=renderEventMgmt(ev);
+  return html;
+}
+
 function renderEventMgmt(ev){
   const items=S.pendingItems; // 後台只顯示本次解析的暫存品項
   return `<div class="panel"><div class="panel-head">
