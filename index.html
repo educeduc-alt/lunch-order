@@ -1373,16 +1373,35 @@ function renderEventMgmt(ev){
       ${S.pendingItems.length?'<button class="btn btn-out btn-sm" onclick="clearPending()">✕ 清除解析</button>':''}
     </div>
     <div id="mgmtItems">
-      ${items.map((it,i)=>`<div class="mgmt-item-row" style="flex-wrap:wrap">
-        <input class="mg-inp mi-em" value="${esc(it.emoji)}" id="me-${i}" placeholder="🍱">
-        <select class="mg-inp" id="mc-${i}" style="width:80px">
-          ${['便當','飲料','點心','其他'].map(c=>`<option value="${c}"${(it.category||'其他')===c?' selected':''}>${c}</option>`).join('')}
-        </select>
-        <input class="mg-inp mi-rest" value="${esc(it.restaurant)}" id="mr-${i}" placeholder="店家">
-        <input class="mg-inp mi-name" value="${esc(it.name)}" id="mn-${i}" placeholder="品項名稱">
-        <input class="mg-inp mi-price" type="number" value="${it.price}" id="mp-${i}" placeholder="價格">
-        <button class="btn btn-rd btn-sm" onclick="removeItem(${i})">刪</button>
-      </div>`).join('')}
+      ${items.map((it,i)=>{
+        const specsHtml=(it.specs&&it.specs.length)
+          ? it.specs.map((s,si)=>`
+            <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;padding:4px 0;border-top:1px dashed var(--bos)">
+              <span style="font-size:.68rem;font-weight:700;color:var(--in);min-width:40px">⚙️ ${esc(s.cat)}</span>
+              ${s.opts.map((o,oi)=>`<input class="mg-inp" value="${esc(o)}"
+                oninput="updateSpecOpt(${i},${si},${oi},this.value)"
+                style="width:72px;font-size:.72rem;padding:3px 6px">`).join('')}
+              <button onclick="addSpecOpt(${i},${si})" style="font-size:.7rem;padding:2px 7px;border:1.5px solid var(--bo);border-radius:5px;background:var(--bos);cursor:pointer">＋</button>
+              <button onclick="removeSpecCat(${i},${si})" style="font-size:.7rem;padding:2px 6px;border:none;background:var(--rdl);color:var(--rd);border-radius:5px;cursor:pointer">✕</button>
+            </div>`).join('')
+          : '';
+        return `<div class="mgmt-item-row" style="flex-wrap:wrap;flex-direction:column;align-items:stretch;padding:9px 8px">
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+            <input class="mg-inp mi-em" value="${esc(it.emoji)}" id="me-${i}" placeholder="🍱" style="width:44px;text-align:center">
+            <select class="mg-inp" id="mc-${i}" style="width:78px">
+              ${['便當','飲料','點心','其他'].map(c=>`<option value="${c}"${(it.category||'其他')===c?' selected':''}>${c}</option>`).join('')}
+            </select>
+            <input class="mg-inp mi-rest" value="${esc(it.restaurant)}" id="mr-${i}" placeholder="店家" style="width:110px">
+            <input class="mg-inp" value="${esc(it.name)}" id="mn-${i}" placeholder="品項名稱" style="flex:1;min-width:90px">
+            <input class="mg-inp mi-price" type="number" value="${it.price}" id="mp-${i}" placeholder="價格" style="width:62px">
+            <button class="btn btn-rd btn-sm" onclick="removeItem(${i})">刪</button>
+          </div>
+          ${specsHtml}
+          <div style="padding-top:4px">
+            <button onclick="addSpecCat(${i})" style="font-size:.68rem;padding:2px 9px;border:1.5px dashed var(--in);border-radius:5px;background:var(--inl);color:var(--in);cursor:pointer">＋ 新增規格類別</button>
+          </div>
+        </div>`;
+      }).join('')}
     </div>
     <div style="display:flex;gap:7px;margin-top:9px;flex-wrap:wrap">
       <button class="btn btn-or" onclick="saveAll()">💾 儲存</button>
@@ -1526,6 +1545,34 @@ async function clearOrders(){
 }
 
 /* ── ITEM OPS ── */
+
+/* ══ 規格編輯函數 ══ */
+function updateSpecOpt(itemIdx, specIdx, optIdx, val){
+  if(S.pendingItems[itemIdx]&&S.pendingItems[itemIdx].specs[specIdx])
+    S.pendingItems[itemIdx].specs[specIdx].opts[optIdx]=val;
+}
+function addSpecOpt(itemIdx, specIdx){
+  if(S.pendingItems[itemIdx]&&S.pendingItems[itemIdx].specs[specIdx]){
+    S.pendingItems[itemIdx].specs[specIdx].opts.push('新選項');
+    render();
+  }
+}
+function removeSpecCat(itemIdx, specIdx){
+  if(S.pendingItems[itemIdx]){
+    S.pendingItems[itemIdx].specs.splice(specIdx,1);
+    render();
+  }
+}
+function addSpecCat(itemIdx){
+  if(S.pendingItems[itemIdx]){
+    const catName=prompt('規格類別名稱（例：杯型、加料、主食）');
+    if(!catName) return;
+    if(!S.pendingItems[itemIdx].specs) S.pendingItems[itemIdx].specs=[];
+    S.pendingItems[itemIdx].specs.push({cat:catName, opts:['選項1','選項2']});
+    render();
+  }
+}
+
 function addItem(){
   S.pendingItems.push({id:'new-'+Date.now(),menu_id:S.adminEid||'',restaurant:'',emoji:'🍱',name:'',description:'',price:0,specs:[],sort_order:S.pendingItems.length,ai_parsed:false,category:'其他'});
   render();
@@ -1573,7 +1620,7 @@ async function saveAll(){
     name:document.getElementById('mn-'+i)?.value||it.name,
     price:+(document.getElementById('mp-'+i)?.value)||it.price,
     description:it.description||'',
-    specs:it.specs||[],
+    specs:it.specs||[],          // specs 直接從 state 讀取（已即時更新）
     sort_order:existingCount+i,
     ai_parsed:true,
     menu_id:eid
@@ -1691,7 +1738,15 @@ async function aiParseBase64(base64,mime){
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({messages:[{role:'user',content:[
         {type:'image',source:{type:'base64',media_type:mime,data:base64}},
-        {type:'text',text:'請解析這張菜單圖片（可能是圖片或PDF截圖），只回傳純 JSON 陣列，絕對不要有任何其他文字、說明或 markdown code block：\n[{"restaurant":"店家名稱","category":"便當","emoji":"最適合的emoji","name":"品項名稱","price":數字或0,"description":"簡短描述或空字串"}]\ncategory 只能填：便當、飲料、點心、其他。飲料品項請合併中杯/大杯為同一筆，price 填中杯價格，specs 填 [{"cat":"杯型","opts":["中杯","大杯"]}]，description 填中杯價/大杯價（例如 "40/45"）。嚴格要求：只列出菜單圖片上明確可見的品項，看不清楚的文字絕對不要猜測或自行補充，寧可少列也不要列出菜單上沒有的品項。忽略加料區和優惠說明。確保 JSON 完整不截斷。price 看不清楚填 0。無法辨識回傳 []。'}
+        {type:'text',text:'請解析這張菜單圖片（可能是圖片或PDF截圖），只回傳純 JSON 陣列，絕對不要有任何其他文字、說明或 markdown code block：\n[{"restaurant":"店家名稱","category":"便當","emoji":"最適合的emoji","name":"品項名稱","price":數字或0,"description":"簡短描述或空字串"}]\ncategory 只能填：便當、飲料、點心、其他。飲料品項請合併中杯/大杯為同一筆，price 填中杯價格，specs 填 [{"cat":"杯型","opts":["中杯","大杯"]}]，description 填中杯價/大杯價（例如 "40/45"）。嚴格要求：只列出菜單圖片上明確可見的品項，看不清楚的文字絕對不要猜測。\n\
+回傳格式：[{"restaurant":"店家","category":"便當/飲料/點心/其他","emoji":"emoji","name":"品項名稱","price":數字,"description":"描述","specs":[]}]\n\
+specs 規格判斷規則（只加菜單上真實存在的選項）：\n\
+1. 便當主食若有主食種類選擇（飯/麵/焗烤/麥流/稻米飯等），加 {"cat":"主食","opts":["白飯","麵","焗烤",...]}\n\
+2. 飲料若有 M/L 或中杯/大杯或瓶裝，加 {"cat":"杯型","opts":["中杯","大杯"]} 或 {"cat":"規格","opts":["瓶裝",...]}\n\
+3. 飲料若菜單有加料區（珍珠/椰果/仙草凍/波霸等），加 {"cat":"加料","opts":["珍珠","椰果","仙草凍","波霸","西米露"]} 只列菜單上有的料\n\
+4. 品項若有大/中/小份，加 {"cat":"份量","opts":["小","中","大"]}\n\
+5. 沒有對應規格就保留 specs:[]\n\
+忽略優惠說明。確保 JSON 完整不截斷。price 看不清楚填 0。無法辨識回傳 []。'}
       ]}]})});
     if(!res.ok) throw new Error(`API 錯誤 ${res.status}`);
     const text=await res.text();
@@ -1734,7 +1789,7 @@ async function aiParseBase64(base64,mime){
         name:it.name||'未知品項',
         description:it.description||'',
         price:Number(it.price)||0,
-        specs:[],
+        specs:Array.isArray(it.specs)?it.specs.filter(s=>s.cat&&Array.isArray(s.opts)&&s.opts.length):[],
         sort_order:S.items[eid].length+i,
         ai_parsed:true
       }));
