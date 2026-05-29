@@ -1746,15 +1746,7 @@ async function aiParseBase64(base64,mime){
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({messages:[{role:'user',content:[
         {type:'image',source:{type:'base64',media_type:mime,data:base64}},
-        {type:'text',text:'請解析這張菜單圖片（可能是圖片或PDF截圖），只回傳純 JSON 陣列，絕對不要有任何其他文字、說明或 markdown code block：\n[{"restaurant":"店家名稱","category":"便當","emoji":"最適合的emoji","name":"品項名稱","price":數字或0,"description":"簡短描述或空字串"}]\ncategory 只能填：便當、飲料、點心、其他。飲料品項請合併中杯/大杯為同一筆，price 填中杯價格，specs 填 [{"cat":"杯型","opts":["中杯","大杯"]}]，description 填中杯價/大杯價（例如 "40/45"）。嚴格要求：只列出菜單圖片上明確可見的品項，看不清楚的文字絕對不要猜測。\n\
-回傳格式：[{"restaurant":"店家","category":"便當/飲料/點心/其他","emoji":"emoji","name":"品項名稱","price":數字,"description":"描述","specs":[]}]\n\
-specs 規格判斷規則（只加菜單上真實存在的選項）：\n\
-1. 便當主食若有主食種類選擇（飯/麵/焗烤/麥流/稻米飯等），加 {"cat":"主食","opts":["白飯","麵","焗烤",...]}\n\
-2. 飲料若有 M/L 或中杯/大杯或瓶裝，加 {"cat":"杯型","opts":["中杯","大杯"]} 或 {"cat":"規格","opts":["瓶裝",...]}\n\
-3. 飲料若菜單有加料區（珍珠/椰果/仙草凍/波霸等），加 {"cat":"加料","opts":["珍珠","椰果","仙草凍","波霸","西米露"]} 只列菜單上有的料\n\
-4. 品項若有大/中/小份，加 {"cat":"份量","opts":["小","中","大"]}\n\
-5. 沒有對應規格就保留 specs:[]\n\
-忽略優惠說明。確保 JSON 完整不截斷。price 看不清楚填 0。無法辨識回傳 []。'}
+        {type:'text',text:'請解析這張菜單圖片，只回傳純 JSON 陣列，不要有任何其他文字或 markdown：\\n[{"restaurant":"店家名稱","category":"便當","emoji":"emoji","name":"品項名稱","price":數字或0,"description":"描述","specs":[]}]\\nspecs 規格判斷規則（只加菜單上真實存在的）：\\n1. 若有多個價格欄（如八角飯盒/圓飯盒），price 填最小值，specs 加 {"cat":"飯盒","opts":["八角飯盒 $110","圓飯盒 $125"]} 把價格標在選項裡\\n2. 若有加量/加飯/加菜選項，specs 加 {"cat":"份量","opts":["正常","加量"]}\\n3. 飲料若有加料區，specs 加 {"cat":"加料","opts":["珍珠","椰果",...]} 只列菜單上有的料\\n4. 飲料若有杯型，specs 加 {"cat":"杯型","opts":["中杯","大杯"]}\\n5. 便當若有主食選擇（飯/麵/焗烤），specs 加 {"cat":"主食","opts":["白飯","麵",...]}\\n6. 沒有對應規格就保留 specs:[]\\n只列出清楚可見的品項，看不清楚不要猜。忽略優惠說明。確保 JSON 完整不截斷。price 看不清楚填 0。無法辨識回傳 []。'}
       ]}]})});
     if(!res.ok) throw new Error(`API 錯誤 ${res.status}`);
     const text=await res.text();
