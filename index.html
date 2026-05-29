@@ -669,23 +669,40 @@ function renderOrderPage(){
 
   if(closed) html+=`<div style="background:var(--rdl);border:1.5px solid #fca5a5;border-radius:var(--rmd);padding:10px 13px;font-size:.8rem;color:var(--rd);font-weight:700;margin-bottom:12px;text-align:center">⛔ 此場次已截止，無法點餐</div>`;
 
+  // 三步驟點餐指導
+  html+=`<div style="background:var(--ca);border:1px solid var(--bo);border-radius:var(--rlg);padding:14px 16px;margin-bottom:14px;box-shadow:var(--shsm)">
+    <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:.85rem;color:var(--slm);margin-bottom:12px;text-align:center;letter-spacing:.3px">📖 點餐步驟</div>
+    <div style="display:flex;align-items:flex-start;justify-content:center;gap:0">
+      <!-- 步驟1 -->
+      <div style="flex:1;text-align:center;padding:0 6px">
+        <div style="width:44px;height:44px;border-radius:50%;background:var(--orll);display:flex;align-items:center;justify-content:center;font-size:1.4rem;margin:0 auto 7px">✍️</div>
+        <div style="font-size:.72rem;font-weight:700;color:var(--sl);margin-bottom:2px">填寫姓名</div>
+        <div style="font-size:.65rem;color:var(--sll);line-height:1.4">輸入您的姓名</div>
+      </div>
+      <!-- 箭頭 -->
+      <div style="color:var(--or);font-size:1rem;margin-top:14px;flex-shrink:0">›</div>
+      <!-- 步驟2 -->
+      <div style="flex:1;text-align:center;padding:0 6px">
+        <div style="width:44px;height:44px;border-radius:50%;background:var(--orll);display:flex;align-items:center;justify-content:center;font-size:1.4rem;margin:0 auto 7px">🍱</div>
+        <div style="font-size:.72rem;font-weight:700;color:var(--sl);margin-bottom:2px">選擇餐點</div>
+        <div style="font-size:.65rem;color:var(--sll);line-height:1.4">按 ＋ 加入清單</div>
+      </div>
+      <!-- 箭頭 -->
+      <div style="color:var(--or);font-size:1rem;margin-top:14px;flex-shrink:0">›</div>
+      <!-- 步驟3 -->
+      <div style="flex:1;text-align:center;padding:0 6px">
+        <div style="width:44px;height:44px;border-radius:50%;background:var(--orll);display:flex;align-items:center;justify-content:center;font-size:1.4rem;margin:0 auto 7px">✅</div>
+        <div style="font-size:.72rem;font-weight:700;color:var(--sl);margin-bottom:2px">送出意向</div>
+        <div style="font-size:.65rem;color:var(--sll);line-height:1.4">按下方送出鍵</div>
+      </div>
+    </div>
+  </div>`;
+
   html+=`<div class="id-card">
     <div class="fld"><label>姓名</label><input class="inp" id="uName" placeholder="王小明" value="${esc(S.myName)}"></div>
   </div>`;
 
-  // 搜尋列
-  html+=`<div style="margin-bottom:12px;position:relative">
-    <input class="inp" id="menuSearch" placeholder="🔍 搜尋餐點或飲料…"
-      oninput="if(!this._composing)filterMenu(this.value)"
-      oncompositionstart="this._composing=true"
-      oncompositionend="this._composing=false;filterMenu(this.value)"
-      style="padding-left:14px;font-size:.88rem">
-  </div>`;
-  // 搜尋框初始值在 render 後補入（避免 template literal 問題）
-  setTimeout(()=>{
-    const ms=document.getElementById('menuSearch');
-    if(ms && S.menuSearchQ){ ms.value=S.menuSearchQ; filterMenu(S.menuSearchQ); }
-  },0);
+
 
   // 菜單品項 — 按分類顯示
   const CAT_ORDER=['便當','飲料','點心','其他'];
@@ -1276,13 +1293,26 @@ function renderMenuTab(){
   if(!S.adminEid&&S.events.length) S.adminEid=S.events[0].id;
   const ev=S.events.find(e=>e.id===S.adminEid);
 
-  let html=`
-    <!-- 場次切換 -->
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:13px;align-items:center">
-      ${S.events.map(e=>`<button class="btn ${S.adminEid===e.id?'btn-or':'btn-out'}" style="padding:8px 16px;font-size:.85rem"
-        onclick="S.adminEid='${e.id}';S.pendingItems=[];render()">${esc(e.title)}</button>`).join('')}
-      <button class="btn btn-out btn-sm" onclick="createNewEvent()">＋ 新增場次</button>
-    </div>`;
+  // 按承辦人分組
+  const byOrganizer={};
+  S.events.forEach(e=>{
+    const org=e.organizer||'未指定';
+    if(!byOrganizer[org]) byOrganizer[org]=[];
+    byOrganizer[org].push(e);
+  });
+
+  let html='<div style="margin-bottom:14px">';
+  Object.entries(byOrganizer).forEach(([org, evs])=>{
+    html+='<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:8px">'
+      // 人名膠囊
+      +'<span style="background:var(--inl);color:var(--in);border-radius:20px;padding:5px 13px;font-size:.82rem;font-weight:700;flex-shrink:0">👤 '+esc(org)+'</span>'
+      // 該承辦人的場次
+      +evs.map(e=>'<button class="btn '+(S.adminEid===e.id?'btn-or':'btn-out')+'" style="padding:7px 14px;font-size:.82rem" '
+        +'onclick="S.adminEid=\''+e.id+'\';S.pendingItems=[];render()">'+esc(e.title)+'</button>').join('')
+      +'</div>';
+  });
+  html+='<button class="btn btn-out btn-sm" onclick="createNewEvent()">＋ 新增場次</button>';
+  html+='</div>';
 
   if(!ev){
     html+='<div class="empty"><span class="ei">📭</span><p>請先建立場次</p></div>';
