@@ -499,7 +499,7 @@ async function loadEvents(){
       sb.from('menu_items').select('*').eq('menu_id',ev.id).order('sort_order'),
       sb.from('orders').select('*, order_items(*)').eq('menu_id',ev.id).order('created_at',{ascending:false}),
     ]);
-    S.items[ev.id] = its||[];
+    S.items[ev.id] = (its||[]).map(it=>({...it, specs:parseSpecs(it.specs)}));
     S.orders[ev.id] = ords||[];
   }));
 }
@@ -509,7 +509,8 @@ async function loadEventDetail(eid){
     sb.from('menu_items').select('*').eq('menu_id',eid).order('sort_order'),
     sb.from('orders').select('*, order_items(*)').eq('menu_id',eid).order('created_at',{ascending:false}),
   ]);
-  S.items[eid] = its||[];
+  // 確保 specs 是陣列（Supabase jsonb 有時回傳字串）
+  S.items[eid] = (its||[]).map(it=>({...it, specs:parseSpecs(it.specs)}));
   S.orders[eid] = ords||[];
 }
 function subscribeRT(){
@@ -606,6 +607,13 @@ function render(){
 }
 
 /* ── HOME: 場次列表 ── */
+function parseSpecs(specs){
+  if(!specs) return [];
+  if(Array.isArray(specs)) return specs;
+  try{ const p=JSON.parse(specs); return Array.isArray(p)?p:[]; }
+  catch(e){ return []; }
+}
+
 function isEventClosed(ev){
   if(!ev) return true;
   return ev.is_closed===true;
@@ -1587,7 +1595,7 @@ async function saveMenu(){
     category:document.getElementById('mc-'+i)?.value||it.category||'其他',
     restaurant:document.getElementById('mr-'+i)?.value||it.restaurant,
     name:document.getElementById('mn-'+i)?.value||it.name,
-    price:+(document.getElementById('mp-'+i)?.value)||it.price,
+    price:(()=>{const v=document.getElementById('mp-'+i)?.value;return v!==undefined&&v!==''?+v:it.price;})(),
     description:it.description||'',specs:it.specs||[],sort_order:i,ai_parsed:it.ai_parsed||false,menu_id:eid
   }));
   if(items.length){ const{error}=await sb.from('menu_items').insert(items); if(error){toast('儲存失敗：'+error.message,'err');return;} }
@@ -1618,7 +1626,7 @@ async function saveAll(){
     category:document.getElementById('mc-'+i)?.value||it.category||'其他',
     restaurant:document.getElementById('mr-'+i)?.value||it.restaurant,
     name:document.getElementById('mn-'+i)?.value||it.name,
-    price:+(document.getElementById('mp-'+i)?.value)||it.price,
+    price:(()=>{const v=document.getElementById('mp-'+i)?.value;return v!==undefined&&v!==''?+v:it.price;})(),
     description:it.description||'',
     specs:it.specs||[],          // specs 直接從 state 讀取（已即時更新）
     sort_order:existingCount+i,
