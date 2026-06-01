@@ -1176,9 +1176,27 @@ function openSpec(id){
   renderSheet();
   document.getElementById('specOverlay').style.display='flex';
 }
+// 從規格選項名稱解析價格（例：「八角飯盒 $120」→ 120）
+function parseOptPrice(optStr, fallback){
+  const m = optStr.match(/\$\s*(\d+)/);
+  return m ? parseInt(m[1]) : fallback;
+}
+
+// 根據目前選擇的規格計算實際價格
+function calcSpecPrice(item, specSel){
+  let price = item.price;
+  // 遍歷所有規格，如果選項裡有 $ 就取最後一個有價格的規格
+  Object.values(specSel).forEach(optVal=>{
+    const p = parseOptPrice(optVal, -1);
+    if(p >= 0) price = p;
+  });
+  return price;
+}
+
 function renderSheet(){
   const item=S.specItem;
-  document.getElementById('sheetTitle').innerHTML=`${esc(item.emoji)} ${esc(item.name)}${item.price>0?` <span style="color:var(--or);font-size:.9rem">$${item.price}</span>`:''}`;
+  const curPrice=calcSpecPrice(item, S.specSel);
+  document.getElementById('sheetTitle').innerHTML=`${esc(item.emoji)} ${esc(item.name)}${curPrice>0?` <span style="color:var(--or);font-size:.9rem">$${curPrice}</span>`:''}`;
   let html='';
   (item.specs||[]).forEach(sp=>{
     html+=`<div class="spec-sec"><div class="spec-lbl">${esc(sp.cat)}</div><div class="spec-opts">
@@ -1190,7 +1208,7 @@ function renderSheet(){
       <button class="sqb" onclick="if(S.specQty>1){S.specQty--;renderSheet()}">−</button>
       <span class="sqn">${S.specQty}</span>
       <button class="sqb" onclick="S.specQty++;renderSheet()">＋</button>
-      ${item.price>0?`<span style="font-family:'Nunito',sans-serif;font-weight:800;color:var(--or);margin-left:6px">$${item.price*S.specQty}</span>`:''}
+      ${curPrice>0?`<span style="font-family:'Nunito',sans-serif;font-weight:800;color:var(--or);margin-left:6px">$${curPrice*S.specQty}</span>`:''}
     </div>
   </div>
   <div class="spec-sec"><div class="spec-lbl">備註</div>
@@ -1201,11 +1219,12 @@ function renderSheet(){
 function confirmSpec(){
   const item=S.specItem;
   const specsStr=Object.values(S.specSel).join('/');
-  // 套餐模式：規格選完後進套餐配餐流程
+  const finalPrice=calcSpecPrice(item, S.specSel);  // 用規格動態價格
+  // 套餐模式
   if(item._comboMode){
     item._comboMode=false;
     closeSpec();
-    S.comboMain={item, specsStr, qty:S.specQty, note:S.specNote};
+    S.comboMain={item:{...item,price:finalPrice}, specsStr, qty:S.specQty, note:S.specNote};
     S.comboSides=[]; S.comboDrinks=[];
     S.comboStep='side';
     renderComboSheet();
@@ -1213,7 +1232,7 @@ function confirmSpec(){
     return;
   }
   const key=item.id+'__'+specsStr+'__'+Date.now();
-  S.cart[key]={itemId:item.id,name:item.name,emoji:item.emoji,qty:S.specQty,price:item.price,specsStr,note:S.specNote};
+  S.cart[key]={itemId:item.id,name:item.name,emoji:item.emoji,qty:S.specQty,price:finalPrice,specsStr,note:S.specNote};
   closeSpec();render();toast('已加入清單 ✓','ok');
 }
 function closeSpec(){document.getElementById('specOverlay').style.display='none';}
@@ -1335,6 +1354,10 @@ function renderAdmin(){
 
   if(!ev){ html+='<div class="empty"><span class="ei">📭</span><p>請先建立場次</p></div>'; return html; }
 
+  html+=`<div class="exp-row" style="margin-top:4px">
+    <button class="exp-btn" onclick="exportCSV()">📥 匯出CSV</button>
+  </div>`;
+
   return html;
 }
 
@@ -1387,9 +1410,6 @@ function renderMenuTab(){
     <div class="stat-box"><div class="stat-n" style="color:var(--or)">${ords.length}</div><div class="stat-l">筆點餐</div></div>
     <div class="stat-box"><div class="stat-n" style="color:var(--gr)">${totPort}</div><div class="stat-l">總份數</div></div>
     <div class="stat-box"><div class="stat-n" style="color:var(--am)">${totAmt>0?'$'+totAmt:'—'}</div><div class="stat-l">總金額</div></div>
-  </div>
-  <div class="exp-row">
-    <button class="exp-btn" onclick="exportCSV()">📥 匯出CSV</button>
   </div>`;
 
   // 點餐紀錄
