@@ -242,6 +242,64 @@ input,select,textarea{font-family:inherit}
 .spin{width:20px;height:20px;border:2.5px solid var(--orll);border-top-color:var(--or);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
 @keyframes spin{to{transform:rotate(360deg)}}
 .menu-preview-img{max-height:180px;border-radius:var(--rmd);margin:8px auto 0;object-fit:cover;display:block}
+
+/* ── 手機版優化 ── */
+@media(max-width:600px){
+  /* 字體調整 */
+  html{font-size:14px!important}
+
+  /* topbar 縮小 */
+  .topbar-inner{padding:0 12px;height:48px}
+  .brand{font-size:1rem}
+  .brand-icon{width:28px;height:28px;font-size:.9rem}
+
+  /* tab 平均分配 */
+  .tab-bar-inner{padding:0}
+  .tab-btn{flex:1;padding:10px 4px;font-size:.72rem;text-align:center}
+
+  /* main 內距縮小 */
+  .main{padding:12px 10px 90px}
+
+  /* 場次卡片全寬 */
+  .event-list{gap:8px}
+  .ec-top{padding:12px 13px}
+  .ec-bot{padding:8px 13px}
+  .ec-title{font-size:.88rem}
+
+  /* 點餐頁 */
+  .order-page-header{gap:7px}
+  .back-btn{padding:5px 9px;font-size:.72rem}
+  .event-info-banner{font-size:.72rem;padding:6px 10px}
+  .id-card{padding:11px 12px;gap:8px}
+  .inp,.sel{padding:7px 9px;font-size:.82rem}
+
+  /* 菜單格子：手機兩欄 */
+  .menu-grid{grid-template-columns:1fr 1fr;gap:7px}
+  .m-card{padding:11px 9px 9px}
+  .m-emoji{font-size:1.5rem}
+  .m-name{font-size:.8rem}
+  .m-price{font-size:.95rem}
+
+  /* 送出按鈕 */
+  .sub-bar{padding:9px 12px}
+  .sub-btn{padding:12px;font-size:.92rem}
+
+  /* 後台 panel */
+  .panel-head{padding:9px 12px;flex-wrap:wrap}
+  .panel-body{padding:11px 12px}
+  .stat-grid{grid-template-columns:1fr 1fr 1fr;gap:7px}
+  .stat-box{padding:10px 8px}
+  .stat-n{font-size:1.3rem}
+
+  /* 品項管理欄位自動換行 */
+  .mgmt-item-row>div:first-child{flex-wrap:wrap}
+
+  /* modal 全寬 */
+  .modal-box{padding:22px 18px}
+
+  /* sheet */
+  .sheet{padding:15px 15px 28px}
+}
 </style>
 <script>
   // 偵測部署環境，決定 proxy 路徑
@@ -1161,6 +1219,25 @@ function confirmSpec(){
 function closeSpec(){document.getElementById('specOverlay').style.display='none';}
 
 /* ── SUBMIT ── */
+function showDuplicateWarning(name, existingOrder){
+  return new Promise(resolve=>{
+    const items=(existingOrder.order_items||[]).map(oi=>oi.item_emoji+oi.item_name+'×'+oi.quantity).join('、');
+    const box=document.createElement('div');
+    box.className='modal-bg';
+    box.innerHTML=`<div class="modal-box">
+      <div class="modal-ico">⚠️</div>
+      <div class="modal-title">${esc(name)} 已點過餐</div>
+      <p class="modal-sub">此場次已有您的點餐紀錄：<br><strong>${esc(items)}</strong></p>
+      <p style="font-size:.75rem;color:var(--sll);margin-bottom:14px">確定要再送出一筆嗎？</p>
+      <button class="btn btn-or btn-full" id="dupConfirm">繼續送出</button>
+      <button class="btn btn-out btn-full" style="margin-top:7px" id="dupCancel">取消，返回修改</button>
+    </div>`;
+    document.body.appendChild(box);
+    box.querySelector('#dupConfirm').onclick=()=>{ box.remove(); resolve(true); };
+    box.querySelector('#dupCancel').onclick=()=>{ box.remove(); resolve(false); };
+  });
+}
+
 async function submitOrder(){
   const ev=S.events.find(e=>e.id===S.activeEventId);
   if(isEventClosed(ev)){toast('此場次已截止','err');return;}
@@ -1170,6 +1247,13 @@ async function submitOrder(){
   if(!S.myName){toast('請輸入姓名','err');return;}
   const cartKeys=Object.keys(S.cart);
   if(!cartKeys.length){toast('請至少選一項','err');return;}
+  // 防止重複點餐：檢查同場次是否已有相同姓名
+  const existingOrder=(S.orders[S.activeEventId]||[]).find(o=>o.user_name===S.myName);
+  if(existingOrder){
+    // 顯示確認對話框
+    const confirmed=await showDuplicateWarning(S.myName, existingOrder);
+    if(!confirmed) return;
+  }
   const noteEl=document.getElementById('orderNote');
   const total=cartKeys.reduce((s,k)=>s+S.cart[k].price*S.cart[k].qty,0);
   const orderPayload={menu_id:S.activeEventId,user_name:S.myName,class_name:S.myClass,note:noteEl?.value.trim()||'',total};
