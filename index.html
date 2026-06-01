@@ -1241,18 +1241,6 @@ async function doDelete(id,menuId){
 function renderAdmin(){
   if(!S.adminEid&&S.events.length) S.adminEid=S.events[0].id;
   const ev=S.events.find(e=>e.id===S.adminEid);
-  const ords=S.orders[S.adminEid]||[];
-
-  // kitchen
-  const kitch={};
-  ords.forEach(o=>(o.order_items||[]).forEach(oi=>{
-    const k=oi.item_name+(oi.specs_str?'__'+oi.specs_str:'');
-    if(!kitch[k])kitch[k]={emoji:oi.item_emoji,name:oi.item_name,specs:oi.specs_str,qty:0,price:oi.unit_price};
-    kitch[k].qty+=oi.quantity;
-  }));
-  const krows=Object.values(kitch).sort((a,b)=>b.qty-a.qty);
-  const totPort=krows.reduce((s,r)=>s+r.qty,0);
-  const totAmt=krows.reduce((s,r)=>s+r.qty*r.price,0);
 
   let html=`
     <!-- 場次切換 -->
@@ -1262,35 +1250,6 @@ function renderAdmin(){
     </div>`;
 
   if(!ev){ html+='<div class="empty"><span class="ei">📭</span><p>請先建立場次</p></div>'; return html; }
-
-  html+=`
-    <div class="stat-grid">
-      <div class="stat-box"><div class="stat-n" style="color:var(--or)">${ords.length}</div><div class="stat-l">筆點餐</div></div>
-      <div class="stat-box"><div class="stat-n" style="color:var(--gr)">${totPort}</div><div class="stat-l">總份數</div></div>
-      <div class="stat-box"><div class="stat-n" style="color:var(--am)">${totAmt>0?'$'+totAmt:'—'}</div><div class="stat-l">總金額</div></div>
-      <div class="stat-box"><div class="stat-n" style="color:var(--slm)">${new Set(ords.map(o=>o.class_name)).size}</div><div class="stat-l">班級數</div></div>
-    </div>
-    <div class="exp-row">
-      <button class="exp-btn" onclick="exportCSV()">📥 匯出CSV</button>
-    </div>
-  `;
-
-  // 所有點餐
-  html+=`<div class="panel"><div class="panel-head"><div class="panel-title">📋 點餐紀錄</div>
-    <button class="btn btn-rd btn-sm" onclick="if(confirm('確定清空所有訂單？'))clearOrders()">清空</button>
-  </div><div style="overflow-x:auto"><table class="atbl">
-    <thead><tr><th>時間</th><th>班級</th><th>姓名</th><th>品項</th><th>合計</th><th></th></tr></thead><tbody>`;
-  if(!ords.length) html+='<tr><td colspan="6" style="text-align:center;color:var(--sll);padding:20px">尚無紀錄</td></tr>';
-  else ords.forEach(o=>{
-    const summ=(o.order_items||[]).map(oi=>`${oi.item_emoji}${oi.item_name}×${oi.quantity}`).join('、');
-    html+=`<tr><td>${fmtTime(o.created_at)}</td><td>${esc(o.class_name)}</td><td><strong>${esc(o.user_name)}</strong></td><td style="font-size:.75rem">${esc(summ)}</td><td style="font-weight:700;color:var(--or)">${o.total>0?'$'+o.total:'—'}</td>
-      <td><button class="btn btn-rd btn-sm" onclick="if(confirm('刪除？'))delOrder('${o.id}','${ev.id}')">刪</button></td></tr>`;
-  });
-  html+='</tbody></table></div></div>';
-
-  // 場次 + 菜單管理
-
-  // 設定
 
   return html;
 }
@@ -1328,6 +1287,40 @@ function renderMenuTab(){
   }
 
   html+=renderEventMgmt(ev);
+
+  // 統計
+  const ords=S.orders[S.adminEid]||[];
+  const kitch={};
+  ords.forEach(o=>(o.order_items||[]).forEach(oi=>{
+    const k=oi.item_name+(oi.specs_str?'__'+oi.specs_str:'');
+    if(!kitch[k])kitch[k]={qty:0,price:oi.unit_price};
+    kitch[k].qty+=oi.quantity;
+  }));
+  const totPort=Object.values(kitch).reduce((s,r)=>s+r.qty,0);
+  const totAmt=Object.values(kitch).reduce((s,r)=>s+r.qty*r.price,0);
+
+  html+=`<div class="stat-grid" style="margin-top:13px">
+    <div class="stat-box"><div class="stat-n" style="color:var(--or)">${ords.length}</div><div class="stat-l">筆點餐</div></div>
+    <div class="stat-box"><div class="stat-n" style="color:var(--gr)">${totPort}</div><div class="stat-l">總份數</div></div>
+    <div class="stat-box"><div class="stat-n" style="color:var(--am)">${totAmt>0?'$'+totAmt:'—'}</div><div class="stat-l">總金額</div></div>
+  </div>
+  <div class="exp-row">
+    <button class="exp-btn" onclick="exportCSV()">📥 匯出CSV</button>
+  </div>`;
+
+  // 點餐紀錄
+  html+=`<div class="panel"><div class="panel-head"><div class="panel-title">📋 點餐紀錄</div>
+    <button class="btn btn-rd btn-sm" onclick="if(confirm('確定清空所有訂單？'))clearOrders()">清空</button>
+  </div><div style="overflow-x:auto"><table class="atbl">
+    <thead><tr><th>時間</th><th>姓名</th><th>品項</th><th>合計</th><th></th></tr></thead><tbody>`;
+  if(!ords.length) html+='<tr><td colspan="5" style="text-align:center;color:var(--sll);padding:20px">尚無紀錄</td></tr>';
+  else ords.forEach(o=>{
+    const summ=(o.order_items||[]).map(oi=>`${oi.item_emoji}${oi.item_name}×${oi.quantity}`).join('、');
+    html+=`<tr><td>${fmtTime(o.created_at)}</td><td><strong>${esc(o.user_name)}</strong></td><td style="font-size:.75rem">${esc(summ)}</td><td style="font-weight:700;color:var(--or)">${o.total>0?'$'+o.total:'—'}</td>
+      <td><button class="btn btn-rd btn-sm" onclick="if(confirm('刪除？'))delOrder('${o.id}','${ev.id}')">刪</button></td></tr>`;
+  });
+  html+='</tbody></table></div></div>';
+
   return html;
 }
 
