@@ -393,122 +393,7 @@ ALTER TABLE menus ADD COLUMN store_name text DEFAULT '';
 // 速食預設菜單（內建）
 // 資料來源：各品牌台灣官網 2026年5月
 // ══════════════════════════════════════
-const PRESET_MENUS = [
-  {
-    store: '麥當勞',
-    savedAt: '內建菜單',
-    items: [
-      // 主餐
-      {id:'mc1',restaurant:'麥當勞',category:'便當',emoji:'🍔',name:'大麥克',description:'雙層牛肉+生菜+特製醬',price:99,specs:[],sort_order:0,ai_parsed:false},
-      {id:'mc2',restaurant:'麥當勞',category:'便當',emoji:'🍔',name:'雙層牛肉吉事堡',description:'雙層牛肉+起司',price:89,specs:[],sort_order:1,ai_parsed:false},
-      {id:'mc3',restaurant:'麥當勞',category:'便當',emoji:'🍗',name:'勁辣雞腿堡',description:'香脆辣味雞腿',price:99,specs:[],sort_order:2,ai_parsed:false},
-      {id:'mc4',restaurant:'麥當勞',category:'便當',emoji:'🍗',name:'麥辣雞腿堡',description:'香脆雞腿排',price:89,specs:[],sort_order:3,ai_parsed:false},
-      {id:'mc5',restaurant:'麥當勞',category:'便當',emoji:'🐟',name:'麥香魚',description:'酥炸魚排+塔塔醬',price:69,specs:[],sort_order:4,ai_parsed:false},
-      {id:'mc6',restaurant:'麥當勞',category:'便當',emoji:'🍗',name:'麥脆雞腿（單件）',description:'現點現炸香脆雞腿',price:79,specs:[],sort_order:5,ai_parsed:false},
-      {id:'mc7',restaurant:'麥當勞',category:'便當',emoji:'🥗',name:'蔬菜麥香魚',description:'炸魚排+生菜',price:79,specs:[],sort_order:6,ai_parsed:false},
-      // 配餐
-      {id:'mc8',restaurant:'麥當勞',category:'點心',emoji:'🍟',name:'大薯',description:'',price:59,specs:[],sort_order:7,ai_parsed:false},
-      {id:'mc9',restaurant:'麥當勞',category:'點心',emoji:'🍟',name:'中薯',description:'',price:49,specs:[],sort_order:8,ai_parsed:false},
-      {id:'mc10',restaurant:'麥當勞',category:'點心',emoji:'🍗',name:'麥克雞塊 6塊',description:'',price:79,specs:[{cat:'沾醬',opts:['蜂蜜芥末','BBQ醬','番茄醬']}],sort_order:9,ai_parsed:false},
-      {id:'mc11',restaurant:'麥當勞',category:'點心',emoji:'🍗',name:'麥克雞塊 10塊',description:'',price:119,specs:[{cat:'沾醬',opts:['蜂蜜芥末','BBQ醬','番茄醬']}],sort_order:10,ai_parsed:false},
-      {id:'mc12',restaurant:'麥當勞',category:'點心',emoji:'🥧',name:'蘋果派',description:'',price:29,specs:[],sort_order:11,ai_parsed:false},
-      {id:'mc13',restaurant:'麥當勞',category:'點心',emoji:'🍦',name:'甜筒',description:'',price:15,specs:[{cat:'口味',opts:['香草','巧克力']}],sort_order:12,ai_parsed:false},
-      {id:'mc14',restaurant:'麥當勞',category:'點心',emoji:'🍦',name:'聖代',description:'',price:39,specs:[{cat:'口味',opts:['草莓','巧克力','焦糖']}],sort_order:13,ai_parsed:false},
-      // 飲料
-      {id:'mc15',restaurant:'麥當勞',category:'飲料',emoji:'🥤',name:'可口可樂',description:'',price:45,specs:[{cat:'杯型',opts:['中杯','大杯']},{cat:'冰量',opts:['正常冰','少冰','去冰']}],sort_order:14,ai_parsed:false},
-      {id:'mc17',restaurant:'麥當勞',category:'飲料',emoji:'🟡',name:'柳橙汁',description:'',price:49,specs:[{cat:'杯型',opts:['中杯','大杯']}],sort_order:16,ai_parsed:false},
-      {id:'mc18',restaurant:'麥當勞',category:'飲料',emoji:'☕',name:'美式咖啡',description:'',price:45,specs:[{cat:'杯型',opts:['中杯','大杯']},{cat:'冰熱',opts:['熱','冰']}],sort_order:17,ai_parsed:false},
-      {id:'mc19',restaurant:'麥當勞',category:'飲料',emoji:'🧋',name:'焦糖奶茶',description:'',price:59,specs:[{cat:'杯型',opts:['中杯','大杯']},{cat:'冰量',opts:['正常冰','少冰','去冰']}],sort_order:18,ai_parsed:false},
-      {id:'mc20',restaurant:'麥當勞',category:'飲料',emoji:'🥛',name:'麥香奶茶',description:'',price:45,specs:[{cat:'杯型',opts:['中杯','大杯']},{cat:'冰量',opts:['正常冰','少冰','去冰']}],sort_order:19,ai_parsed:false},
-      {id:'mc21',restaurant:'麥當勞',category:'飲料',emoji:'🍓',name:'草莓奶昔',description:'限定門市供應',price:69,specs:[{cat:'杯型',opts:['中杯','大杯']}],sort_order:20,ai_parsed:false},
-      {id:'mc22',restaurant:'麥當勞',category:'飲料',emoji:'🍦',name:'香草奶昔',description:'限定門市供應',price:69,specs:[{cat:'杯型',opts:['中杯','大杯']}],sort_order:21,ai_parsed:false},
-    ]
-  },
-  {
-    store: '肯德基',
-    savedAt: '內建菜單',
-    items: [
-      // 主餐
-      {id:'kfc1',restaurant:'肯德基',category:'便當',emoji:'🍗',name:'咔啦雞腿堡',description:'酥脆雞腿+特製醬',price:89,specs:[],sort_order:0,ai_parsed:false},
-      {id:'kfc2',restaurant:'肯德基',category:'便當',emoji:'🍗',name:'青花椒香麻脆雞腿堡',description:'台灣限定麻辣風味',price:99,specs:[],sort_order:1,ai_parsed:false},
-      {id:'kfc3',restaurant:'肯德基',category:'便當',emoji:'🍗',name:'原味咔啦脆雞（1塊）',description:'11種香料炸雞',price:69,specs:[{cat:'部位',opts:['雞腿','雞翅','雞胸','雞翅小腿']}],sort_order:2,ai_parsed:false},
-      {id:'kfc4',restaurant:'肯德基',category:'便當',emoji:'🌶',name:'青花椒香麻脆雞（1塊）',description:'台灣限定麻辣炸雞',price:69,specs:[],sort_order:3,ai_parsed:false},
-      {id:'kfc5',restaurant:'肯德基',category:'便當',emoji:'🍗',name:'爆脆無骨雞腿霸',description:'無骨大雞腿酥脆版',price:89,specs:[],sort_order:4,ai_parsed:false},
-      {id:'kfc6',restaurant:'肯德基',category:'便當',emoji:'🍱',name:'雞汁飯（咔啦雞腿）',description:'炸雞腿+白飯',price:129,specs:[],sort_order:5,ai_parsed:false},
-      {id:'kfc7',restaurant:'肯德基',category:'便當',emoji:'🍱',name:'雞汁飯（青花椒香麻）',description:'麻辣炸雞+白飯',price:139,specs:[],sort_order:6,ai_parsed:false},
-      // 配餐
-      {id:'kfc8',restaurant:'肯德基',category:'點心',emoji:'🥧',name:'原味蛋撻（1個）',description:'葡式蛋撻',price:35,specs:[],sort_order:7,ai_parsed:false},
-      {id:'kfc9',restaurant:'肯德基',category:'點心',emoji:'🥧',name:'奇巧可可流心蛋撻（1個）',description:'KitKat聯名限定',price:55,specs:[],sort_order:8,ai_parsed:false},
-      {id:'kfc10',restaurant:'肯德基',category:'點心',emoji:'🍟',name:'香酥脆薯（小）',description:'',price:39,specs:[],sort_order:9,ai_parsed:false},
-      {id:'kfc11',restaurant:'肯德基',category:'點心',emoji:'🍟',name:'香酥脆薯',description:'',price:59,specs:[],sort_order:10,ai_parsed:false},
-      {id:'kfc12',restaurant:'肯德基',category:'點心',emoji:'🌽',name:'黃金玉米',description:'台灣門市限定',price:39,specs:[],sort_order:11,ai_parsed:false},
-      {id:'kfc13',restaurant:'肯德基',category:'點心',emoji:'🥗',name:'田園沙拉',description:'',price:55,specs:[],sort_order:12,ai_parsed:false},
-      // 飲料
-      {id:'kfc14',restaurant:'肯德基',category:'飲料',emoji:'🥤',name:'可樂',description:'',price:45,specs:[{cat:'杯型',opts:['中杯','大杯']},{cat:'冰量',opts:['正常冰','少冰','去冰']}],sort_order:13,ai_parsed:false},
-      {id:'kfc15',restaurant:'肯德基',category:'飲料',emoji:'🍵',name:'立頓檸檬紅茶',description:'',price:39,specs:[{cat:'杯型',opts:['中杯','大杯']},{cat:'冰量',opts:['正常冰','少冰','去冰']}],sort_order:14,ai_parsed:false},
-      {id:'kfc16',restaurant:'肯德基',category:'飲料',emoji:'🍵',name:'冰無糖綠茶',description:'',price:35,specs:[{cat:'杯型',opts:['中杯','大杯']}],sort_order:15,ai_parsed:false},
-      {id:'kfc17',restaurant:'肯德基',category:'飲料',emoji:'☕',name:'美式咖啡',description:'',price:39,specs:[{cat:'杯型',opts:['中杯','大杯']},{cat:'冰熱',opts:['熱','冰']}],sort_order:16,ai_parsed:false},
-      {id:'kfc18',restaurant:'肯德基',category:'飲料',emoji:'🥤',name:'雪碧',description:'',price:45,specs:[{cat:'杯型',opts:['中杯','大杯']},{cat:'冰量',opts:['正常冰','少冰','去冰']}],sort_order:17,ai_parsed:false},
-    ]
-  },
-  {
-    store: '摩斯漢堡',
-    savedAt: '內建菜單',
-    items: [
-      // 主餐（台灣限定米漢堡系列為主）
-      {id:'mos1',restaurant:'摩斯漢堡',category:'便當',emoji:'🍙',name:'超級大麥元氣牛肉珍珠堡',description:'台灣米漢堡×牛肉',price:115,specs:[],sort_order:0,ai_parsed:false},
-      {id:'mos2',restaurant:'摩斯漢堡',category:'便當',emoji:'🍙',name:'超級大麥元氣豬排珍珠堡',description:'台灣米漢堡×豬排',price:99,specs:[],sort_order:1,ai_parsed:false},
-      {id:'mos3',restaurant:'摩斯漢堡',category:'便當',emoji:'🍙',name:'辣味燒肉珍珠堡',description:'台灣米漢堡×辣味燒肉',price:105,specs:[],sort_order:2,ai_parsed:false},
-      {id:'mos4',restaurant:'摩斯漢堡',category:'便當',emoji:'🍤',name:'炸蝦堡',description:'酥炸蝦排+塔塔醬',price:109,specs:[],sort_order:3,ai_parsed:false},
-      {id:'mos5',restaurant:'摩斯漢堡',category:'便當',emoji:'🥬',name:'摘鮮綠炸蝦堡',description:'生菜包炸蝦（無麵包）',price:119,specs:[],sort_order:4,ai_parsed:false},
-      {id:'mos6',restaurant:'摩斯漢堡',category:'便當',emoji:'🍔',name:'豬排堡',description:'香煎豬排漢堡',price:85,specs:[],sort_order:5,ai_parsed:false},
-      {id:'mos7',restaurant:'摩斯漢堡',category:'便當',emoji:'🐟',name:'鱈魚堡',description:'酥炸鱈魚+塔塔醬',price:85,specs:[],sort_order:6,ai_parsed:false},
-      {id:'mos8',restaurant:'摩斯漢堡',category:'便當',emoji:'🍙',name:'極上天丼珍珠堡',description:'台灣限定新品',price:125,specs:[],sort_order:7,ai_parsed:false},
-      // 配餐
-      {id:'mos9',restaurant:'摩斯漢堡',category:'點心',emoji:'🥔',name:'方塊薯餅',description:'',price:39,specs:[],sort_order:8,ai_parsed:false},
-      {id:'mos10',restaurant:'摩斯漢堡',category:'點心',emoji:'🥐',name:'北海道可樂餅',description:'',price:49,specs:[],sort_order:9,ai_parsed:false},
-      {id:'mos11',restaurant:'摩斯漢堡',category:'點心',emoji:'🍵',name:'抹茶紅豆米派',description:'台灣限定',price:45,specs:[],sort_order:10,ai_parsed:false},
-      {id:'mos12',restaurant:'摩斯漢堡',category:'點心',emoji:'🍟',name:'月亮薯條',description:'',price:55,specs:[],sort_order:11,ai_parsed:false},
-      {id:'mos13',restaurant:'摩斯漢堡',category:'點心',emoji:'🍮',name:'焦糖布丁',description:'',price:49,specs:[],sort_order:12,ai_parsed:false},
-      // 飲料
-      {id:'mos14',restaurant:'摩斯漢堡',category:'飲料',emoji:'🍵',name:'冰紅茶',description:'',price:39,specs:[{cat:'杯型',opts:['中杯','大杯']}],sort_order:13,ai_parsed:false},
-      {id:'mos15',restaurant:'摩斯漢堡',category:'飲料',emoji:'🍵',name:'台灣冰綠茶',description:'台灣限定',price:39,specs:[{cat:'杯型',opts:['中杯','大杯']}],sort_order:14,ai_parsed:false},
-      {id:'mos16',restaurant:'摩斯漢堡',category:'飲料',emoji:'🧋',name:'蒟蒻冰茶',description:'',price:55,specs:[{cat:'杯型',opts:['中杯','大杯']}],sort_order:15,ai_parsed:false},
-      {id:'mos17',restaurant:'摩斯漢堡',category:'飲料',emoji:'🧃',name:'紅心芭樂蒟蒻冰茶',description:'台灣限定季節新品',price:65,specs:[{cat:'杯型',opts:['中杯','大杯']}],sort_order:16,ai_parsed:false},
-      {id:'mos18',restaurant:'摩斯漢堡',category:'飲料',emoji:'☕',name:'摩斯咖啡',description:'',price:60,specs:[{cat:'杯型',opts:['中杯','大杯']},{cat:'冰熱',opts:['熱','冰']}],sort_order:17,ai_parsed:false},
-      {id:'mos19',restaurant:'摩斯漢堡',category:'飲料',emoji:'☕',name:'拿鐵咖啡',description:'',price:79,specs:[{cat:'杯型',opts:['中杯','大杯']},{cat:'冰熱',opts:['熱','冰']}],sort_order:18,ai_parsed:false},
-      {id:'mos20',restaurant:'摩斯漢堡',category:'飲料',emoji:'🥤',name:'可樂',description:'',price:39,specs:[{cat:'杯型',opts:['中杯','大杯']}],sort_order:19,ai_parsed:false},
-    ]
-  },
-  {
-    store: '漢堡王',
-    savedAt: '內建菜單',
-    items: [
-      // 主餐（以台灣常態菜單為主）
-      {id:'bk1',restaurant:'漢堡王',category:'便當',emoji:'🍔',name:'華堡',description:'火烤牛肉+生菜+蕃茄',price:119,specs:[],sort_order:0,ai_parsed:false},
-      {id:'bk2',restaurant:'漢堡王',category:'便當',emoji:'🍔',name:'雙層華堡',description:'雙層火烤牛肉',price:149,specs:[],sort_order:1,ai_parsed:false},
-      {id:'bk3',restaurant:'漢堡王',category:'便當',emoji:'🍔',name:'安格斯牛肉堡',description:'厚切安格斯牛肉',price:139,specs:[],sort_order:2,ai_parsed:false},
-      {id:'bk4',restaurant:'漢堡王',category:'便當',emoji:'🍗',name:'國王大雞堡',description:'酥脆大雞排',price:109,specs:[],sort_order:3,ai_parsed:false},
-      {id:'bk5',restaurant:'漢堡王',category:'便當',emoji:'🍗',name:'咔啦雞腿堡',description:'香脆雞腿排',price:109,specs:[],sort_order:4,ai_parsed:false},
-      {id:'bk6',restaurant:'漢堡王',category:'便當',emoji:'🐟',name:'華鱈魚堡',description:'酥炸鱈魚排',price:99,specs:[],sort_order:5,ai_parsed:false},
-      {id:'bk7',restaurant:'漢堡王',category:'便當',emoji:'🌭',name:'捲捲德腸堡',description:'德式香腸捲餅',price:89,specs:[],sort_order:6,ai_parsed:false},
-      {id:'bk8',restaurant:'漢堡王',category:'便當',emoji:'🍔',name:'小華堡',description:'經典牛肉堡',price:79,specs:[],sort_order:7,ai_parsed:false},
-      {id:'bk9',restaurant:'漢堡王',category:'便當',emoji:'🍔',name:'黑醬安格斯牛肉堡',description:'限定黑醬系列',price:158,specs:[],sort_order:8,ai_parsed:false},
-      {id:'bk10',restaurant:'漢堡王',category:'便當',emoji:'🍗',name:'黑醬烤雞堡',description:'限定黑醬系列',price:128,specs:[],sort_order:9,ai_parsed:false},
-      // 配餐
-      {id:'bk11',restaurant:'漢堡王',category:'點心',emoji:'🍟',name:'薯條',description:'',price:49,specs:[],sort_order:10,ai_parsed:false},
-      {id:'bk12',restaurant:'漢堡王',category:'點心',emoji:'🍟',name:'薯條',description:'',price:59,specs:[],sort_order:11,ai_parsed:false},
-      {id:'bk13',restaurant:'漢堡王',category:'點心',emoji:'🧅',name:'洋蔥圈',description:'',price:55,specs:[],sort_order:12,ai_parsed:false},
-      {id:'bk14',restaurant:'漢堡王',category:'點心',emoji:'🍗',name:'雞塊 4塊',description:'',price:49,specs:[],sort_order:13,ai_parsed:false},
-      {id:'bk15',restaurant:'漢堡王',category:'點心',emoji:'🥧',name:'蘋果派',description:'',price:29,specs:[],sort_order:14,ai_parsed:false},
-      // 飲料
-      {id:'bk16',restaurant:'漢堡王',category:'飲料',emoji:'🥤',name:'可樂',description:'',price:49,specs:[{cat:'杯型',opts:['中杯','大杯']},{cat:'冰量',opts:['正常冰','少冰','去冰']}],sort_order:15,ai_parsed:false},
-      {id:'bk17',restaurant:'漢堡王',category:'飲料',emoji:'🥤',name:'雪碧',description:'',price:49,specs:[{cat:'杯型',opts:['中杯','大杯']},{cat:'冰量',opts:['正常冰','少冰','去冰']}],sort_order:16,ai_parsed:false},
-      {id:'bk18',restaurant:'漢堡王',category:'飲料',emoji:'☕',name:'美式咖啡',description:'',price:39,specs:[{cat:'杯型',opts:['中杯','大杯']},{cat:'冰熱',opts:['熱','冰']}],sort_order:17,ai_parsed:false},
-      {id:'bk19',restaurant:'漢堡王',category:'飲料',emoji:'🧃',name:'柳橙汁',description:'',price:49,specs:[{cat:'杯型',opts:['中杯','大杯']}],sort_order:18,ai_parsed:false},
-    ]
-  }
-];
+const PRESET_MENUS = [];
 
 const ADMIN_PW_KEY = 'lunchPw4';
 const CLASSES = ['教職員','七年甲','七年乙','七年丙','八年甲','八年乙','八年丙','九年甲','九年乙','九年丙'];
@@ -1593,12 +1478,23 @@ function showMenuCache(){
   overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:300;display:flex;align-items:center;justify-content:center;padding:16px';
   const inner=document.createElement('div');
   inner.style.cssText='background:#fff;border-radius:16px;padding:22px;max-width:360px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.2)';
+  // 分便當/飲料兩區塊
+  const bentoList=cached.filter(c=>c.type==='便當'||(!c.type&&!c.key));
+  const drinkList=cached.filter(c=>c.type==='飲料');
+  function buildCacheSection(title, icon, list, offset){
+    if(!list.length) return '';
+    return '<div style="margin-bottom:10px">'
+      +'<div style="font-size:.72rem;font-weight:700;color:var(--sll,#94a3b8);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px">'+icon+' '+title+'</div>'
+      +list.map((c,i)=>'<button data-idx="'+(offset+i)+'" style="text-align:left;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;background:#fff;cursor:pointer;font-family:inherit;width:100%;margin-bottom:5px">'
+        +'<div style="font-weight:700;font-size:.86rem">'+(c.store||'未知店家')+'</div>'
+        +'<div style="font-size:.7rem;color:#94a3b8">'+c.items.length+' 個品項'+(c.savedAt&&c.savedAt!=='內建菜單'?' · '+c.savedAt:'')+(c.savedAt==='內建菜單'?' · 內建':'')+'</div>'
+        +'</button>').join('')
+      +'</div>';
+  }
   inner.innerHTML='<div style="font-family:Nunito,sans-serif;font-weight:800;font-size:1rem;margin-bottom:12px">📂 選擇歷史菜單</div>'
-    +'<div id="cacheList" style="display:flex;flex-direction:column;gap:7px;max-height:300px;overflow-y:auto">'
-    +cached.map((c,i)=>'<button data-idx="'+i+'" style="text-align:left;padding:10px 13px;border:1.5px solid #e2e8f0;border-radius:8px;background:#fff;cursor:pointer;font-family:inherit;width:100%">'
-      +'<div style="font-weight:700;font-size:.88rem">'+(c.store||'未知店家')+'</div>'
-      +'<div style="font-size:.72rem;color:#94a3b8">'+c.items.length+' 個品項'+(c.savedAt&&c.savedAt!=='內建菜單'?' · 上次使用：'+c.savedAt:'')+(c.savedAt==='內建菜單'?' · 內建':'')+'</div>'
-      +'</button>').join('')
+    +'<div id="cacheList" style="max-height:340px;overflow-y:auto">'
+    +buildCacheSection('便當 & 點心','🍱',bentoList,0)
+    +buildCacheSection('飲料','🧋',drinkList,bentoList.length)
     +'</div>'
     +'<button id="cacheCancelBtn" style="margin-top:12px;width:100%;padding:9px;border:1.5px solid #e2e8f0;border-radius:8px;background:#f8f7f4;cursor:pointer;font-family:inherit;font-weight:700">取消</button>';
   overlay.appendChild(inner);
@@ -1614,11 +1510,14 @@ function showMenuCache(){
 }
 
 function loadCachedMenu(idx){
-  // 與 showMenuCache 相同邏輯：合併預設菜單 + localStorage
   const stored=JSON.parse(localStorage.getItem('menuCache')||'[]');
   const presetStores=PRESET_MENUS.map(p=>p.store);
   const extra=stored.filter(s=>!presetStores.includes(s.store));
-  const cached=[...PRESET_MENUS,...extra];
+  const allCached=[...PRESET_MENUS,...extra];
+  // 跟 showMenuCache 相同排序：便當在前，飲料在後
+  const bentoList=allCached.filter(c=>c.type==='便當'||(!c.type&&!c.key));
+  const drinkList=allCached.filter(c=>c.type==='飲料');
+  const cached=[...bentoList,...drinkList];
   const entry=cached[idx];
   if(!entry) return;
   // 載入到 pendingItems，讓管理員確認後儲存
@@ -1800,13 +1699,30 @@ async function saveAll(){
     S.pendingItems=[];
     await loadEventDetail(eid);
     const total=(S.items[eid]||[]).length;
-    // 快取到 localStorage
+    // 快取到 localStorage（便當和飲料分開）
     try{
       const cached=JSON.parse(localStorage.getItem('menuCache')||'[]');
-      const existing=cached.findIndex(c=>c.store===evNow?.store_name);
-      const entry={store:evNow?.store_name||'未知店家',items:S.items[eid],savedAt:new Date().toLocaleDateString('zh-TW')};
-      if(existing>=0) cached[existing]=entry; else cached.unshift(entry);
-      localStorage.setItem('menuCache',JSON.stringify(cached.slice(0,10)));
+      const allItems=S.items[eid]||[];
+      const storeName=evNow?.store_name||'未知店家';
+      const date=new Date().toLocaleDateString('zh-TW');
+      // 便當品項
+      const bentoCats=['便當','點心'];
+      const bentoItems=allItems.filter(it=>bentoCats.includes(it.category||'其他'));
+      if(bentoItems.length){
+        const bentoKey=storeName+'__便當';
+        const bi=cached.findIndex(c=>c.key===bentoKey);
+        const be={key:bentoKey,store:storeName,type:'便當',items:bentoItems,savedAt:date};
+        if(bi>=0) cached[bi]=be; else cached.unshift(be);
+      }
+      // 飲料品項
+      const drinkItems=allItems.filter(it=>(it.category||'其他')==='飲料');
+      if(drinkItems.length){
+        const drinkKey=storeName+'__飲料';
+        const di=cached.findIndex(c=>c.key===drinkKey);
+        const de={key:drinkKey,store:storeName,type:'飲料',items:drinkItems,savedAt:date};
+        if(di>=0) cached[di]=de; else cached.unshift(de);
+      }
+      localStorage.setItem('menuCache',JSON.stringify(cached.slice(0,20)));
     }catch(e){}
     toast('✅ 已儲存！場次共 '+total+' 個品項','ok');
   } else {
