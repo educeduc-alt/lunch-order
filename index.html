@@ -548,9 +548,11 @@ let S = {
 /* ═══ DATA ═══ */
 async function loadEvents(){
   if(DEMO){ S.events=demoEvents(); S.items={'e1':demoItems('e1'),'e2':demoItems2('e2')}; S.orders={'e1':demoOrders('e1'),'e2':[]}; return; }
-  const today = new Date().toISOString().slice(0,10);
-  // 只載入今天和未來的場次
-  const {data:evs} = await sb.from('menus').select('*').gte('date', today).order('date').order('created_at');
+  // 取今天台灣時間（UTC+8），往前7天避免時區問題
+  const twNow = new Date(Date.now() + 8*60*60*1000);
+  const today = twNow.toISOString().slice(0,10);
+  const weekAgo = new Date(twNow - 7*24*60*60*1000).toISOString().slice(0,10);
+  const {data:evs} = await sb.from('menus').select('*').gte('date', weekAgo).order('date').order('created_at');
   S.events = evs||[];
   // 批次載入所有場次的品項和訂單
   await Promise.all(S.events.map(async ev=>{
@@ -598,8 +600,8 @@ async function dbDeleteOrder(id, menuId){
 
 /* DEMO */
 function demoEvents(){ return [
-  {id:'e1',title:'5/22 午餐',organizer:'王老師',store_name:'MaMa手作飯盒',deadline:'11:30',is_closed:false,date:new Date().toISOString().slice(0,10),img_url:''},
-  {id:'e2',title:'5/22 下午茶',organizer:'林主任',store_name:'麻古茶坊',deadline:'14:00',is_closed:false,date:new Date().toISOString().slice(0,10),img_url:''},
+  {id:'e1',title:'5/22 午餐',organizer:'王老師',store_name:'MaMa手作飯盒',deadline:'11:30',is_closed:false,date:new Date(Date.now()+8*60*60*1000).toISOString().slice(0,10),img_url:''},
+  {id:'e2',title:'5/22 下午茶',organizer:'林主任',store_name:'麻古茶坊',deadline:'14:00',is_closed:false,date:new Date(Date.now()+8*60*60*1000).toISOString().slice(0,10),img_url:''},
 ];}
 function demoItems(mid){ return [
   {id:'i1',menu_id:mid,restaurant:'MaMa手作飯盒',emoji:'🍖',name:'排骨便當',description:'炸排骨＋三樣配菜',price:70,specs:[{cat:'飯盒種類',opts:['八角飯盒','圓飯盒']}],sort_order:0},
@@ -1574,7 +1576,7 @@ function renderEventMgmt(ev){
 /* ── ADMIN OPS ── */
 async function createNewEvent(){
   if(DEMO){toast('示範模式','warn');return;}
-  const{data,error}=await sb.from('menus').insert({title:'新場次',deadline:'11:30',organizer:'',store_name:'',date:new Date().toISOString().slice(0,10)}).select().single();
+  const{data,error}=await sb.from('menus').insert({title:'新場次',deadline:'11:30',organizer:'',store_name:'',date:new Date(Date.now()+8*60*60*1000).toISOString().slice(0,10)}).select().single();
   if(error){toast('建立失敗','err');return;}
   S.events.push(data); S.items[data.id]=[]; S.orders[data.id]=[];
   S.adminEid=data.id; render(); toast('場次已建立','ok');
@@ -1839,7 +1841,7 @@ async function handleImg(event){
     const ext=file.name.split('.').pop();
     const path=`menus/${eid}_${Date.now()}.${ext}`;
     try{
-      const{error:serr}=await sb.storage.from('menu-images').upload(path,file,{upsert:true});
+      const{error:serr}=await sb.storage.from('menu-images').upload(path,file,{upsert:true,contentType:file.type||'image/jpeg'});
       if(!serr){
         const{data:pub}=sb.storage.from('menu-images').getPublicUrl(path);
         await sb.from('menus').update({img_url:pub.publicUrl}).eq('id',eid);
