@@ -522,6 +522,7 @@ let S = {
   activeEventId:null,
   pendingItems:[],   // 本次 AI 解析暫存，尚未儲存
   menuSearchQ:'',    // 菜單搜尋關鍵字
+  myLastOrderId:null, // 最後送出的訂單 id（用於取消/修改）
   // 套餐組合 sheet
   comboStep:null,     // null | 'side' | 'drink'
   comboMain:null,     // 選定的主餐 item
@@ -734,6 +735,23 @@ function renderOrderPage(){
     </div>`;
 
   if(closed) html+=`<div style="background:var(--rdl);border:1.5px solid #fca5a5;border-radius:var(--rmd);padding:10px 13px;font-size:.8rem;color:var(--rd);font-weight:700;margin-bottom:12px;text-align:center">⛔ 此場次已截止，無法點餐</div>`;
+
+  // 已點餐提示（顯示取消/修改按鈕）
+  const myExisting=(S.orders[S.activeEventId]||[]).find(o=>o.user_name===S.myName);
+  if(myExisting && !isEventClosed(ev)){
+    const myItems=(myExisting.order_items||[]).map(oi=>oi.item_emoji+oi.item_name+'×'+oi.quantity).join('、');
+    html+=`<div style="background:var(--grl);border:1.5px solid #86efac;border-radius:var(--rlg);padding:12px 14px;margin-bottom:12px;display:flex;align-items:flex-start;justify-content:space-between;gap:10px">
+      <div>
+        <div style="font-weight:700;font-size:.85rem;color:var(--gr);margin-bottom:3px">✅ 您已送出點餐</div>
+        <div style="font-size:.75rem;color:var(--slm)">${esc(myItems)}</div>
+        <div style="font-size:.72rem;color:var(--sll);margin-top:2px">合計：${myExisting.total>0?'$'+myExisting.total:'詢價'}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0">
+        <button class="btn btn-rd btn-sm" onclick="cancelMyOrder('${myExisting.id}')">取消點餐</button>
+        <button class="btn btn-out btn-sm" onclick="editMyOrder('${myExisting.id}')">修改</button>
+      </div>
+    </div>`;
+  }
 
   // 三步驟點餐指導
   html+=`<div style="background:var(--ca);border:1px solid var(--bo);border-radius:var(--rlg);padding:14px 16px;margin-bottom:14px;box-shadow:var(--shsm)">
@@ -1238,6 +1256,35 @@ function confirmSpec(){
 function closeSpec(){document.getElementById('specOverlay').style.display='none';}
 
 /* ── SUBMIT ── */
+
+async function cancelMyOrder(orderId){
+  if(!confirm('確定取消此筆點餐？')) return;
+  const eid=S.activeEventId;
+  const{error}=await dbDeleteOrder(orderId, eid);
+  if(error){toast('取消失敗：'+error.message,'err');return;}
+  S.myLastOrderId=null;
+  toast('已取消點餐','ok');
+  render();
+}
+
+async function editMyOrder(orderId){
+  // 取消舊的，讓使用者重新點
+  const eid=S.activeEventId;
+  const oldOrder=(S.orders[eid]||[]).find(o=>o.id===orderId);
+  if(!oldOrder) return;
+  if(!confirm('取消舊點餐並重新選擇？')) return;
+  const{error}=await dbDeleteOrder(orderId, eid);
+  if(error){toast('操作失敗','err');return;}
+  // 把舊的品項預填回購物車
+  S.cart={};
+  (oldOrder.order_items||[]).forEach((oi,i)=>{
+    const k=oi.item_id+'__'+(oi.specs_str||'')+'__'+(Date.now()+i);
+    S.cart[k]={itemId:oi.item_id,name:oi.item_name,emoji:oi.item_emoji,qty:oi.quantity,price:oi.unit_price,specsStr:oi.specs_str||'',note:oi.note||''};
+  });
+  toast('已取消舊點餐，請重新確認清單後送出','warn');
+  render();
+}
+
 function showDuplicateWarning(name, existingOrder){
   return new Promise(resolve=>{
     const items=(existingOrder.order_items||[]).map(oi=>oi.item_emoji+oi.item_name+'×'+oi.quantity).join('、');
@@ -1281,6 +1328,11 @@ async function submitOrder(){
   const{error}=await dbInsertOrder(orderPayload,itemsPayload);
   if(error){toast('送出失敗：'+error.message,'err');document.getElementById('subBtn').disabled=false;return;}
   S.cart={};
+  S.myLastOrderId=null;
+  // 找剛送出的訂單 id
+  await loadEventDetail(S.activeEventId);
+  const myOrder=(S.orders[S.activeEventId]||[]).find(o=>o.user_name===S.myName);
+  if(myOrder) S.myLastOrderId=myOrder.id;
   toast(`✅ ${S.myName} 點餐送出！`,'ok');
   render();
 }
@@ -1502,6 +1554,9 @@ function renderEventMgmt(ev){
             <input class="mg-inp mi-price" type="number" value="${it.price}" id="mp-${i}" placeholder="價格" style="width:62px">
             <button class="btn btn-rd btn-sm" onclick="removeItem(${i})">刪</button>
           </div>
+          <div style="display:flex;gap:5px;align-items:center;padding:3px 0">
+            <input class="mg-inp" value="${esc(it.description||'')}" id="md-${i}" placeholder="備註（例：全糖可調冰量）" style="flex:1;font-size:.75rem;padding:4px 7px">
+          </div>
           ${specsHtml}
           <div style="padding-top:4px">
             <button onclick="addSpecCat(${i})" style="font-size:.68rem;padding:2px 9px;border:1.5px dashed var(--in);border-radius:5px;background:var(--inl);color:var(--in);cursor:pointer">＋ 新增規格類別</button>
@@ -1540,7 +1595,7 @@ function showMenuCache(){
     +'<div id="cacheList" style="display:flex;flex-direction:column;gap:7px;max-height:300px;overflow-y:auto">'
     +cached.map((c,i)=>'<button data-idx="'+i+'" style="text-align:left;padding:10px 13px;border:1.5px solid #e2e8f0;border-radius:8px;background:#fff;cursor:pointer;font-family:inherit;width:100%">'
       +'<div style="font-weight:700;font-size:.88rem">'+(c.store||'未知店家')+'</div>'
-      +'<div style="font-size:.72rem;color:#94a3b8">'+c.items.length+' 個品項 · '+(c.savedAt||'')+'</div>'
+      +'<div style="font-size:.72rem;color:#94a3b8">'+c.items.length+' 個品項'+(c.savedAt&&c.savedAt!=='內建菜單'?' · 上次使用：'+c.savedAt:'')+(c.savedAt==='內建菜單'?' · 內建':'')+'</div>'
       +'</button>').join('')
     +'</div>'
     +'<button id="cacheCancelBtn" style="margin-top:12px;width:100%;padding:9px;border:1.5px solid #e2e8f0;border-radius:8px;background:#f8f7f4;cursor:pointer;font-family:inherit;font-weight:700">取消</button>';
@@ -1653,6 +1708,11 @@ async function clearOrders(){
 /* ── ITEM OPS ── */
 
 /* ══ 規格編輯函數 ══ */
+function setDrinkDesc(i, val){
+  const inp=document.getElementById('md-'+i);
+  if(inp) inp.value=val;
+}
+
 function updateSpecOpt(itemIdx, specIdx, optIdx, val){
   if(S.pendingItems[itemIdx]&&S.pendingItems[itemIdx].specs[specIdx])
     S.pendingItems[itemIdx].specs[specIdx].opts[optIdx]=val;
@@ -1694,7 +1754,7 @@ async function saveMenu(){
     restaurant:document.getElementById('mr-'+i)?.value||it.restaurant,
     name:document.getElementById('mn-'+i)?.value||it.name,
     price:(()=>{const v=document.getElementById('mp-'+i)?.value;return v!==undefined&&v!==''?+v:it.price;})(),
-    description:it.description||'',specs:it.specs||[],sort_order:i,ai_parsed:it.ai_parsed||false,menu_id:eid
+    description:document.getElementById('md-'+i)?.value||it.description||'',specs:it.specs||[],sort_order:i,ai_parsed:it.ai_parsed||false,menu_id:eid
   }));
   if(items.length){ const{error}=await sb.from('menu_items').insert(items); if(error){toast('儲存失敗：'+error.message,'err');return;} }
   await loadEventDetail(eid);
@@ -1725,7 +1785,7 @@ async function saveAll(){
     restaurant:document.getElementById('mr-'+i)?.value||it.restaurant,
     name:document.getElementById('mn-'+i)?.value||it.name,
     price:(()=>{const v=document.getElementById('mp-'+i)?.value;return v!==undefined&&v!==''?+v:it.price;})(),
-    description:it.description||'',
+    description:document.getElementById('md-'+i)?.value||it.description||'',
     specs:it.specs||[],          // specs 直接從 state 讀取（已即時更新）
     sort_order:existingCount+i,
     ai_parsed:true,
@@ -1885,7 +1945,7 @@ async function aiParseBase64(base64,mime){
         category:it.category||'其他',
         emoji:it.emoji||'🍱',
         name:it.name||'未知品項',
-        description:it.description||'',
+        description:document.getElementById('md-'+i)?.value||it.description||'',
         price:Number(it.price)||0,
         specs:Array.isArray(it.specs)?it.specs.filter(s=>s.cat&&Array.isArray(s.opts)&&s.opts.length):[],
         sort_order:S.items[eid].length+i,
