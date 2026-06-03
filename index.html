@@ -18,7 +18,7 @@
   --shsm:0 1px 4px rgba(0,0,0,.07);--shmd:0 4px 16px rgba(0,0,0,.10);--shlg:0 12px 40px rgba(0,0,0,.14);
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-html{font-size:15px!important}
+html{font-size:18.75px!important}
 body{font-family:'Noto Sans TC',sans-serif!important;background:var(--bg);color:var(--sl);min-height:100vh;-webkit-font-smoothing:antialiased;font-size:1rem!important}
 button{font-family:inherit;cursor:pointer;border:none;background:none}
 input,select,textarea{font-family:inherit}
@@ -246,7 +246,7 @@ input,select,textarea{font-family:inherit}
 /* ── 手機版優化 ── */
 @media(max-width:600px){
   /* 字體調整 */
-  html{font-size:14px!important}
+  html{font-size:17.5px!important}
 
   /* topbar 縮小 */
   .topbar-inner{padding:0 12px;height:48px}
@@ -1358,6 +1358,20 @@ function renderAdmin(){
     <button class="exp-btn" onclick="exportCSV()">📥 匯出CSV</button>
   </div>`;
 
+  // 點餐紀錄
+  const ords=S.orders[S.adminEid]||[];
+  html+=`<div class="panel"><div class="panel-head"><div class="panel-title">📋 點餐紀錄</div>
+    <button class="btn btn-rd btn-sm" onclick="if(confirm('確定清空所有訂單？'))clearOrders()">清空</button>
+  </div><div style="overflow-x:auto"><table class="atbl">
+    <thead><tr><th>時間</th><th>姓名</th><th>品項</th><th>合計</th><th></th></tr></thead><tbody>`;
+  if(!ords.length) html+='<tr><td colspan="5" style="text-align:center;color:var(--sll);padding:20px">尚無紀錄</td></tr>';
+  else ords.forEach(o=>{
+    const summ=(o.order_items||[]).map(oi=>`${oi.item_emoji}${oi.item_name}×${oi.quantity}`).join('、');
+    html+=`<tr><td>${fmtTime(o.created_at)}</td><td><strong>${esc(o.user_name)}</strong></td><td style="font-size:.75rem">${esc(summ)}</td><td style="font-weight:700;color:var(--or)">${o.total>0?'$'+o.total:'—'}</td>
+      <td><button class="btn btn-rd btn-sm" onclick="if(confirm('刪除？'))delOrder('${o.id}','${ev.id}')">刪</button></td></tr>`;
+  });
+  html+='</tbody></table></div></div>';
+
   return html;
 }
 
@@ -1411,19 +1425,6 @@ function renderMenuTab(){
     <div class="stat-box"><div class="stat-n" style="color:var(--gr)">${totPort}</div><div class="stat-l">總份數</div></div>
     <div class="stat-box"><div class="stat-n" style="color:var(--am)">${totAmt>0?'$'+totAmt:'—'}</div><div class="stat-l">總金額</div></div>
   </div>`;
-
-  // 點餐紀錄
-  html+=`<div class="panel"><div class="panel-head"><div class="panel-title">📋 點餐紀錄</div>
-    <button class="btn btn-rd btn-sm" onclick="if(confirm('確定清空所有訂單？'))clearOrders()">清空</button>
-  </div><div style="overflow-x:auto"><table class="atbl">
-    <thead><tr><th>時間</th><th>姓名</th><th>品項</th><th>合計</th><th></th></tr></thead><tbody>`;
-  if(!ords.length) html+='<tr><td colspan="5" style="text-align:center;color:var(--sll);padding:20px">尚無紀錄</td></tr>';
-  else ords.forEach(o=>{
-    const summ=(o.order_items||[]).map(oi=>`${oi.item_emoji}${oi.item_name}×${oi.quantity}`).join('、');
-    html+=`<tr><td>${fmtTime(o.created_at)}</td><td><strong>${esc(o.user_name)}</strong></td><td style="font-size:.75rem">${esc(summ)}</td><td style="font-weight:700;color:var(--or)">${o.total>0?'$'+o.total:'—'}</td>
-      <td><button class="btn btn-rd btn-sm" onclick="if(confirm('刪除？'))delOrder('${o.id}','${ev.id}')">刪</button></td></tr>`;
-  });
-  html+='</tbody></table></div></div>';
 
   return html;
 }
@@ -1843,7 +1844,7 @@ async function aiParseBase64(base64,mime){
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({messages:[{role:'user',content:[
         {type:'image',source:{type:'base64',media_type:mime,data:base64}},
-        {type:'text',text:'請解析這張菜單圖片，只回傳純 JSON 陣列，不要有任何其他文字或 markdown：\\n[{"restaurant":"店家名稱","category":"便當","emoji":"emoji","name":"品項名稱","price":數字或0,"description":"描述","specs":[]}]\\nspecs 規格判斷規則（只加菜單上真實存在的）：\\n1. 若有多個價格欄（如八角飯盒/圓飯盒），price 填最小值，specs 加 {"cat":"飯盒","opts":["八角飯盒 $110","圓飯盒 $125"]} 把價格標在選項裡\\n2. 若有加量/加飯/加菜選項，specs 加 {"cat":"份量","opts":["正常","加量"]}\\n3. 飲料若有加料區，specs 加 {"cat":"加料","opts":["珍珠","椰果",...]} 只列菜單上有的料\\n4. 飲料若有杯型，specs 加 {"cat":"杯型","opts":["中杯","大杯"]}\\n5. 便當若有主食選擇（飯/麵/焗烤），specs 加 {"cat":"主食","opts":["白飯","麵",...]}\\n6. 沒有對應規格就保留 specs:[]\\n只列出清楚可見的品項，看不清楚不要猜。忽略優惠說明。確保 JSON 完整不截斷。price 看不清楚填 0。無法辨識回傳 []。'}
+        {type:'text',text:'請解析這張菜單圖片，只回傳純 JSON 陣列，不要有任何其他文字或 markdown：\\n[{"restaurant":"店家名稱","category":"便當","emoji":"emoji","name":"品項名稱","price":數字或0,"description":"描述","specs":[]}]\\nspecs 規格判斷規則（只加菜單上真實存在的）：\\n1. 若有多個價格欄（如八角飯盒/圓飯盒），price 填最小值，specs 加 {"cat":"飯盒","opts":["八角飯盒 $110","圓飯盒 $125"]} 把價格標在選項裡\\n2. 若有加量/加飯/加菜選項，specs 加 {"cat":"份量","opts":["正常","加量"]}\\n3. 飲料若有加料區，specs 加 {"cat":"加料","opts":["珍珠","椰果",...]} 只列菜單上有的料\\n4. 飲料若有杯型，specs 加 {"cat":"杯型","opts":["中杯","大杯"]}\\n5. 飲料若菜單有糖度（全糖/七分/半糖/微糖/無糖等），specs 加 {"cat":"甜度","opts":菜單上的糖度選項}\\n6. 飲料若菜單有冰量（正常冰/少冰/微冰/去冰/熱等），specs 加 {"cat":"冰量","opts":菜單上的冰量選項}\\n7. 便當若有主食選擇（飯/麵/焗烤），specs 加 {"cat":"主食","opts":["白飯","麵",...]}\\n8. 沒有對應規格就保留 specs:[]\\n只列出清楚可見的品項，看不清楚不要猜。忽略優惠說明。確保 JSON 完整不截斷。price 看不清楚填 0。無法辨識回傳 []。'}
       ]}]})});
     if(!res.ok) throw new Error(`API 錯誤 ${res.status}`);
     const text=await res.text();
