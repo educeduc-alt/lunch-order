@@ -587,7 +587,7 @@ function renderHome(){
         <div class="ec-left">
           <div class="ec-badges"></div>
           <div class="ec-title">${esc(ev.title)}</div>
-          ${ev.organizer?`<div class="ec-organizer">👤 承辦：${esc(ev.organizer)}</div>`:''}
+          ${ev.organizer?`<div class="ec-organizer">👤 負責老師：${esc(ev.organizer)}</div>`:''}
         </div>
       </div>
       <div class="ec-bot">
@@ -617,7 +617,7 @@ function renderOrderPage(){
       <button class="back-btn" onclick="S.activeEventId=null;S.cart={};render()">← 返回場次</button>
       <div class="event-info-banner">
         <strong>${esc(ev.title)}</strong>
-        ${ev.organizer?`承辦：${esc(ev.organizer)}　`:''}${ev.store_name?`店家：${esc(ev.store_name)}`:''}
+        ${ev.organizer?`負責老師：${esc(ev.organizer)}　`:''}${ev.store_name?`店家：${esc(ev.store_name)}`:''}
       </div>
     </div>`;
 
@@ -1245,7 +1245,7 @@ function renderRec(){
       <div class="rec-top">
         <div>
           <div class="rec-title">${esc(ev.title)}</div>
-          <div class="rec-organizer">${ev.organizer?`承辦：${esc(ev.organizer)}　`:''}${esc(o.class_name)} · ${fmtTime(o.created_at)}</div>
+          <div class="rec-organizer">${ev.organizer?`負責老師：${esc(ev.organizer)}　`:''}${esc(o.class_name)} · ${fmtTime(o.created_at)}</div>
         </div>
         <span class="rec-badge">已登記</span>
       </div>
@@ -1910,7 +1910,7 @@ function copyKitchen(){
   ords.forEach(o=>(o.order_items||[]).forEach(oi=>{const k=oi.item_name+(oi.specs_str?'('+oi.specs_str+')':'');kitch[k]=(kitch[k]||0)+oi.quantity;}));
   let txt='【廚房備餐清單】\n\n';
   const ev=S.events.find(e=>e.id===S.adminEid);
-  if(ev) txt+=`場次：${ev.title}　承辦：${ev.organizer||'—'}\n\n`;
+  if(ev) txt+=`場次：${ev.title}　負責老師：${ev.organizer||'—'}\n\n`;
   Object.entries(kitch).forEach(([n,q])=>txt+=`${n} × ${q}\n`);
   txt+=`\n合計：${Object.values(kitch).reduce((s,q)=>s+q,0)} 份`;
   copyText(txt);
