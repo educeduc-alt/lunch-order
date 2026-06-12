@@ -1071,9 +1071,12 @@ function closeCombo(){
 function quickAdd(id){
   const ev=S.events.find(e=>e.id===S.activeEventId);
   if(isEventClosed(ev)){toast('此場次已截止','err');return;}
-  // 先儲存姓名
   const nameEl=document.getElementById('uName');
   if(nameEl&&nameEl.value) S.myName=nameEl.value;
+  // 檢查上限 5 份
+  const existKeys=Object.keys(S.cart).filter(k=>k.startsWith(id+'__'));
+  const existQty=existKeys.reduce((s,k)=>s+(S.cart[k]?.qty||0),0);
+  if(existQty>=5){toast('同一品項最多5份','warn');return;}
   const key=id+'__';
   if(!S.cart[key]){const item=(S.items[S.activeEventId]||[]).find(i=>i.id===id);S.cart[key]={itemId:id,name:item.name,emoji:item.emoji,qty:0,price:item.price,specsStr:'',note:''};}
   S.cart[key].qty++;render();
@@ -1081,12 +1084,17 @@ function quickAdd(id){
 function adjCart(id,d){
   const ev=S.events.find(e=>e.id===S.activeEventId);
   if(d>0&&isEventClosed(ev)){toast('此場次已截止','err');return;}
-  // 先儲存姓名避免 render 後消失
   const nameEl=document.getElementById('uName');
   if(nameEl&&nameEl.value) S.myName=nameEl.value;
   const keys=Object.keys(S.cart).filter(k=>k.startsWith(id+'__'));
   if(!keys.length&&d>0){quickAdd(id);return;}
-  if(keys.length){const k=keys[keys.length-1];S.cart[k].qty=Math.max(0,S.cart[k].qty+d);if(!S.cart[k].qty)delete S.cart[k];}
+  if(keys.length){
+    const k=keys[keys.length-1];
+    const newQty=S.cart[k].qty+d;
+    if(d>0&&newQty>5){toast('同一品項最多5份','warn');return;}
+    S.cart[k].qty=Math.max(0,newQty);
+    if(!S.cart[k].qty) delete S.cart[k];
+  }
   render();
 }
 function removeKey(k){delete S.cart[k];render();}
@@ -1133,7 +1141,7 @@ function renderSheet(){
     <div class="sheet-qty">
       <button class="sqb" onclick="if(S.specQty>1){S.specQty--;renderSheet()}">−</button>
       <span class="sqn">${S.specQty}</span>
-      <button class="sqb" onclick="S.specQty++;renderSheet()">＋</button>
+      <button class="sqb" onclick="if(S.specQty<5){S.specQty++;renderSheet()}">＋</button>
       ${curPrice>0?`<span style="font-family:'Nunito',sans-serif;font-weight:800;color:var(--or);margin-left:6px">$${curPrice*S.specQty}</span>`:''}
     </div>
   </div>
@@ -1480,7 +1488,7 @@ function renderEventMgmt(ev){
             <button class="btn btn-rd btn-sm" onclick="removeItem(${i})">刪</button>
           </div>
           <div style="display:flex;gap:5px;align-items:center;padding:3px 0">
-            <input class="mg-inp" value="${esc(it.description||'')}" id="md-${i}" placeholder="備註（例：全糖可調冰量）" style="flex:1;font-size:.75rem;padding:4px 7px">
+            <input class="mg-inp" value="${esc(it.description||'')}" id="md-${i}" placeholder="甜度冰塊（如：微糖微冰）" style="flex:1;font-size:.75rem;padding:4px 7px">
           </div>
           ${specsHtml}
           <div style="padding-top:4px">
