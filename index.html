@@ -1803,6 +1803,21 @@ function startParse(uploadType){
 }
 
 // 一鍵解析：同時觸發主餐和飲料
+
+function showParseSuccess(count, cats){
+  const box=document.createElement('div');
+  box.className='modal-bg';
+  box.innerHTML=`<div class="modal-box" style="text-align:center">
+    <div style="font-size:2.5rem;margin-bottom:10px">✅</div>
+    <div class="modal-title">解析完成！</div>
+    <p class="modal-sub">共解析 <strong>${count}</strong> 個品項</p>
+    <p style="font-size:.78rem;color:var(--sll);margin-bottom:18px">${esc(cats)}</p>
+    <button class="btn btn-or btn-full" onclick="this.closest('.modal-bg').remove()">確認</button>
+    <button class="btn btn-out btn-full" style="margin-top:7px" onclick="this.closest('.modal-bg').remove();saveAll()">確認並立即儲存 💾</button>
+  </div>`;
+  document.body.appendChild(box);
+}
+
 function parseAll(){
   const hasMain=!!window._pendingMainFile;
   const hasDrink=!!window._pendingDrinkFile;
@@ -1954,8 +1969,9 @@ async function aiParseBase64(base64,mime){
     S.pendingItems=newItems;
     const cats=[...new Set(newItems.map(i=>i.category))].join('、');
     if(statusEl) statusEl.innerHTML=`<div style="font-size:.75rem;color:var(--gr);margin-top:7px">✅ 解析完成 ${newItems.length} 個品項（${cats}），確認後按「💾 儲存」加入場次</div>`;
-    toast(`AI 解析完成！${newItems.length} 個品項`,'ok');
     render();
+    // 跳出解析完成視窗
+    showParseSuccess(newItems.length, cats);
   }catch(err){
     console.error(err);
     if(statusEl) statusEl.innerHTML=`<div style="font-size:.75rem;color:var(--rd);margin-top:7px">❌ 解析失敗：${err.message}</div>`;
