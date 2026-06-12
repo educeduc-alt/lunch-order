@@ -1837,6 +1837,12 @@ async function parseAll(){
     }
   }finally{
     overlay.remove();
+    // 統一顯示解析完成視窗
+    if(S.pendingItems.length>0){
+      const allCats=[...new Set(S.pendingItems.map(i=>i.category))].join('、');
+      showParseSuccess(S.pendingItems.length, allCats);
+    }
+    window._lastParseCats='';
   }
 }
 
@@ -1978,13 +1984,13 @@ async function aiParseBase64(base64,mime){
         sort_order:S.items[eid].length+i,
         ai_parsed:true
       }));
-    // 每次解析先清空暫存，只顯示本次的
-    S.pendingItems=newItems;
+    // 累加：把本次解析結果加入 pendingItems（支援主餐+飲料分開上傳）
+    S.pendingItems=[...S.pendingItems, ...newItems];
     const cats=[...new Set(newItems.map(i=>i.category))].join('、');
     if(statusEl) statusEl.innerHTML=`<div style="font-size:.75rem;color:var(--gr);margin-top:7px">✅ 解析完成 ${newItems.length} 個品項（${cats}），確認後按「💾 儲存」加入場次</div>`;
     render();
-    // 跳出解析完成視窗
-    showParseSuccess(newItems.length, cats);
+    // 記錄本次解析結果（parseAll 會統一顯示完成視窗）
+    window._lastParseCats=(window._lastParseCats?window._lastParseCats+'、':'')+cats;
   }catch(err){
     console.error(err);
     if(statusEl) statusEl.innerHTML=`<div style="font-size:.75rem;color:var(--rd);margin-top:7px">❌ 解析失敗：${err.message}</div>`;
