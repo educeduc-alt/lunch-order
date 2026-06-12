@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>同仁點餐意向系統</title>
+<title>資源教室點餐小助手</title>
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -345,7 +345,7 @@ input,select,textarea{font-family:inherit}
 <!-- TOPBAR -->
 <div class="topbar">
   <div class="topbar-inner">
-    <div class="brand"><div class="brand-icon">🍱</div>同仁點餐</div>
+    <div class="brand"><div class="brand-icon">🍱</div>資源教室點餐小助手</div>
     
   </div>
 </div>
@@ -1994,18 +1994,18 @@ async function aiParseBase64(base64,mime){
       }));
     // 累加：把本次解析結果加入 pendingItems（支援主餐+飲料分開上傳）
     S.pendingItems=[...S.pendingItems, ...newItems];
-    // 自動填入店家名稱（如果目前還沒填）
+    // 自動填入／合併店家名稱
     const detectedStore=newItems[0]?.restaurant||'';
     if(detectedStore){
       const ev=S.events.find(e=>e.id===S.adminEid);
       const storeInp=document.getElementById('evStore');
-      if(storeInp&&!storeInp.value&&ev&&!ev.store_name){
-        storeInp.value=detectedStore;
-      } else if(storeInp&&!storeInp.value){
-        storeInp.value=detectedStore;
-      }
-      // 同步更新 state
-      if(ev&&!ev.store_name) ev.store_name=detectedStore;
+      const currentVal=(storeInp?.value||ev?.store_name||'').trim();
+      // 若已有店家名稱且不同，合併（用 / 分隔）
+      const storeNames=currentVal?currentVal.split(' / '):[];
+      if(!storeNames.includes(detectedStore)) storeNames.push(detectedStore);
+      const newVal=storeNames.join(' / ');
+      if(storeInp) storeInp.value=newVal;
+      if(ev) ev.store_name=newVal;
     }
     const cats=[...new Set(newItems.map(i=>i.category))].join('、');
     if(statusEl) statusEl.innerHTML=`<div style="font-size:.75rem;color:var(--gr);margin-top:7px">✅ 解析完成 ${newItems.length} 個品項（${cats}），確認後按「💾 儲存」加入場次</div>`;
