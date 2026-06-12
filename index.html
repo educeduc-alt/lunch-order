@@ -1322,12 +1322,27 @@ function renderAdmin(){
 
   if(!ev){ html+='<div class="empty"><span class="ei">📭</span><p>請先建立場次</p></div>'; return html; }
 
-  html+=`<div class="exp-row" style="margin-top:4px">
+  // 統計
+  const ords=S.orders[S.adminEid]||[];
+  const kitch={};
+  ords.forEach(o=>(o.order_items||[]).forEach(oi=>{
+    const k=oi.item_name+(oi.specs_str?'__'+oi.specs_str:'');
+    if(!kitch[k])kitch[k]={qty:0,price:oi.unit_price};
+    kitch[k].qty+=oi.quantity;
+  }));
+  const totPort=Object.values(kitch).reduce((s,r)=>s+r.qty,0);
+  const totAmt=Object.values(kitch).reduce((s,r)=>s+r.qty*r.price,0);
+
+  html+=`<div class="stat-grid" style="margin-top:4px">
+    <div class="stat-box"><div class="stat-n" style="color:var(--or)">${ords.length}</div><div class="stat-l">筆點餐</div></div>
+    <div class="stat-box"><div class="stat-n" style="color:var(--gr)">${totPort}</div><div class="stat-l">總份數</div></div>
+    <div class="stat-box"><div class="stat-n" style="color:var(--am)">${totAmt>0?'$'+totAmt:'—'}</div><div class="stat-l">總金額</div></div>
+  </div>
+  <div class="exp-row" style="margin-top:4px">
     <button class="exp-btn" onclick="exportCSV()">📥 匯出CSV</button>
   </div>`;
 
   // 點餐紀錄
-  const ords=S.orders[S.adminEid]||[];
   html+=`<div class="panel"><div class="panel-head"><div class="panel-title">📋 點餐紀錄</div>
     <button class="btn btn-rd btn-sm" onclick="if(confirm('確定清空所有訂單？'))clearOrders()">清空</button>
   </div><div style="overflow-x:auto"><table class="atbl">
@@ -1377,22 +1392,7 @@ function renderMenuTab(){
 
   html+=renderEventMgmt(ev);
 
-  // 統計
-  const ords=S.orders[S.adminEid]||[];
-  const kitch={};
-  ords.forEach(o=>(o.order_items||[]).forEach(oi=>{
-    const k=oi.item_name+(oi.specs_str?'__'+oi.specs_str:'');
-    if(!kitch[k])kitch[k]={qty:0,price:oi.unit_price};
-    kitch[k].qty+=oi.quantity;
-  }));
-  const totPort=Object.values(kitch).reduce((s,r)=>s+r.qty,0);
-  const totAmt=Object.values(kitch).reduce((s,r)=>s+r.qty*r.price,0);
 
-  html+=`<div class="stat-grid" style="margin-top:13px">
-    <div class="stat-box"><div class="stat-n" style="color:var(--or)">${ords.length}</div><div class="stat-l">筆點餐</div></div>
-    <div class="stat-box"><div class="stat-n" style="color:var(--gr)">${totPort}</div><div class="stat-l">總份數</div></div>
-    <div class="stat-box"><div class="stat-n" style="color:var(--am)">${totAmt>0?'$'+totAmt:'—'}</div><div class="stat-l">總金額</div></div>
-  </div>`;
 
   return html;
 }
@@ -1994,6 +1994,19 @@ async function aiParseBase64(base64,mime){
       }));
     // 累加：把本次解析結果加入 pendingItems（支援主餐+飲料分開上傳）
     S.pendingItems=[...S.pendingItems, ...newItems];
+    // 自動填入店家名稱（如果目前還沒填）
+    const detectedStore=newItems[0]?.restaurant||'';
+    if(detectedStore){
+      const ev=S.events.find(e=>e.id===S.adminEid);
+      const storeInp=document.getElementById('evStore');
+      if(storeInp&&!storeInp.value&&ev&&!ev.store_name){
+        storeInp.value=detectedStore;
+      } else if(storeInp&&!storeInp.value){
+        storeInp.value=detectedStore;
+      }
+      // 同步更新 state
+      if(ev&&!ev.store_name) ev.store_name=detectedStore;
+    }
     const cats=[...new Set(newItems.map(i=>i.category))].join('、');
     if(statusEl) statusEl.innerHTML=`<div style="font-size:.75rem;color:var(--gr);margin-top:7px">✅ 解析完成 ${newItems.length} 個品項（${cats}），確認後按「💾 儲存」加入場次</div>`;
     render();
