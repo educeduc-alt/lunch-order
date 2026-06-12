@@ -1146,7 +1146,7 @@ function renderSheet(){
     </div>
   </div>
   <div class="spec-sec"><div class="spec-lbl">備註</div>
-    <textarea class="note-inp" rows="2" placeholder="例：不要辣…" oninput="S.specNote=this.value">${esc(S.specNote)}</textarea>
+    <textarea class="note-inp" rows="2" placeholder="${S.specItem&&S.specItem.category==='飲料'?'甜度冰塊（如：微糖微冰）':'例：不要辣…'}" oninput="S.specNote=this.value">${esc(S.specNote)}</textarea>
   </div>`;
   document.getElementById('sheetBody').innerHTML=html;
 }
