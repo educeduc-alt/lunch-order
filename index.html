@@ -1639,10 +1639,22 @@ async function delOrder(id,eid){
 async function clearItems(){
   const eid=S.adminEid; if(!eid) return;
   if(DEMO){S.items[eid]=[];toast('已清空','ok');render();return;}
+  // 先保存目前的 store_name 和 organizer
+  const evNow=S.events.find(e=>e.id===eid);
+  const savedStore=document.getElementById('evStore')?.value||evNow?.store_name||'';
+  const savedOrg=evNow?.organizer||'';
   const{error}=await sb.from('menu_items').delete().eq('menu_id',eid);
   if(error){toast('清空失敗','err');return;}
   S.items[eid]=[];S.pendingItems=[];
-  toast('已清空此場次所有品項','ok');render();
+  // 還原 store_name 和 organizer
+  if(evNow){ evNow.store_name=savedStore; evNow.organizer=savedOrg; }
+  toast('已清空此場次所有品項','ok');
+  render();
+  // render 後補回 input 值
+  setTimeout(()=>{
+    const inp=document.getElementById('evStore');
+    if(inp&&savedStore) inp.value=savedStore;
+  },0);
 }
 
 async function clearOrders(){
