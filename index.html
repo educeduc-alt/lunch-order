@@ -1492,6 +1492,7 @@ function renderEventMgmt(ev){
       }).join('')}
     </div>
     <div style="display:flex;gap:7px;margin-top:9px;flex-wrap:wrap">
+      <button class="btn btn-gr" onclick="parseAll()">🤖 一鍵解析</button>
       <button class="btn btn-or" onclick="saveAll()">💾 儲存</button>
       <button class="btn btn-rd btn-sm" onclick="if(confirm('確定刪除整個場次？所有訂單和品項也會一併刪除。'))deleteEvent('${ev.id}')">🗑️ 刪除場次</button>
     </div>
@@ -1793,9 +1794,21 @@ function previewFile(e, uploadType){
 function startParse(uploadType){
   const file=uploadType==='drink'?window._pendingDrinkFile:window._pendingMainFile;
   if(!file){toast('請先選擇檔案','warn');return;}
-  // 建一個假的 event 物件
+  const btn=document.getElementById(uploadType==='drink'?'parseDrinkBtn':'parseMainBtn');
+  if(btn){ btn.disabled=true; btn.textContent='⏳ 解析中…'; }
   const fakeEvent={target:{files:[file]}};
-  handleImg(fakeEvent, uploadType);
+  handleImg(fakeEvent, uploadType).finally(()=>{
+    if(btn){ btn.disabled=false; btn.textContent='🤖 開始解析'; }
+  });
+}
+
+// 一鍵解析：同時觸發主餐和飲料
+function parseAll(){
+  const hasMain=!!window._pendingMainFile;
+  const hasDrink=!!window._pendingDrinkFile;
+  if(!hasMain&&!hasDrink){toast('請先選擇至少一個菜單檔案','warn');return;}
+  if(hasMain) startParse('main');
+  if(hasDrink) startParse('drink');
 }
 
 async function handleImg(event, uploadType='main'){
