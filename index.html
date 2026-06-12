@@ -1417,24 +1417,26 @@ function renderEventMgmt(ev){
       <!-- 主餐上傳 -->
       <div>
         <span class="mg-lbl" style="display:flex;align-items:center;gap:5px;margin-bottom:6px">🍱 主餐菜單</span>
-        <div class="upload-zone" onclick="document.getElementById('imgInpMain').click()" style="min-height:90px">
-          <input type="file" id="imgInpMain" accept="image/*,application/pdf" style="display:none" onchange="handleImg(event,'main')">
-          <span style="font-size:1.5rem;display:block;margin-bottom:4px">📎</span>
-          <div style="font-weight:700;font-size:.82rem;color:var(--slm)">上傳主餐圖片/PDF</div>
-          <div class="upload-sub">AI 自動解析</div>
+        <div class="upload-zone" onclick="document.getElementById('imgInpMain').click()" style="min-height:90px" id="zoneMain">
+          <input type="file" id="imgInpMain" accept="image/*,application/pdf" style="display:none" onchange="previewFile(event,'main')">
+          <span style="font-size:1.5rem;display:block;margin-bottom:4px" id="iconMain">📎</span>
+          <div style="font-weight:700;font-size:.82rem;color:var(--slm)" id="labelMain">上傳主餐圖片/PDF</div>
+          <div class="upload-sub">JPG / PNG / PDF</div>
         </div>
+        <button id="parseMainBtn" class="btn btn-or btn-full btn-sm" style="margin-top:6px;display:none" onclick="startParse('main')">🤖 開始解析</button>
         <div id="aiStatusMain"></div>
       </div>
 
       <!-- 飲料上傳 -->
       <div>
         <span class="mg-lbl" style="display:flex;align-items:center;gap:5px;margin-bottom:6px">🧋 飲料菜單</span>
-        <div class="upload-zone" onclick="document.getElementById('imgInpDrink').click()" style="min-height:90px">
-          <input type="file" id="imgInpDrink" accept="image/*,application/pdf" style="display:none" onchange="handleImg(event,'drink')">
-          <span style="font-size:1.5rem;display:block;margin-bottom:4px">📎</span>
-          <div style="font-weight:700;font-size:.82rem;color:var(--slm)">上傳飲料圖片/PDF</div>
-          <div class="upload-sub">AI 自動解析</div>
+        <div class="upload-zone" onclick="document.getElementById('imgInpDrink').click()" style="min-height:90px" id="zoneDrink">
+          <input type="file" id="imgInpDrink" accept="image/*,application/pdf" style="display:none" onchange="previewFile(event,'drink')">
+          <span style="font-size:1.5rem;display:block;margin-bottom:4px" id="iconDrink">📎</span>
+          <div style="font-weight:700;font-size:.82rem;color:var(--slm)" id="labelDrink">上傳飲料圖片/PDF</div>
+          <div class="upload-sub">JPG / PNG / PDF</div>
         </div>
+        <button id="parseDrinkBtn" class="btn btn-or btn-full btn-sm" style="margin-top:6px;display:none" onclick="startParse('drink')">🤖 開始解析</button>
         <div id="aiStatusDrink"></div>
       </div>
 
@@ -1771,6 +1773,31 @@ async function saveAll(){
 
 
 /* ── IMAGE + AI ── */
+
+// 選完檔案後預覽，顯示「開始解析」按鈕
+function previewFile(e, uploadType){
+  const file=e.target.files?.[0];
+  if(!file) return;
+  const label=document.getElementById(uploadType==='drink'?'labelDrink':'labelMain');
+  const icon=document.getElementById(uploadType==='drink'?'iconDrink':'iconMain');
+  const btn=document.getElementById(uploadType==='drink'?'parseDrinkBtn':'parseMainBtn');
+  if(label) label.textContent=file.name;
+  if(icon) icon.textContent=file.type==='application/pdf'||file.name.endsWith('.pdf')?'📄':'🖼️';
+  if(btn) btn.style.display='block';
+  // 儲存檔案供之後使用
+  if(uploadType==='drink') window._pendingDrinkFile=file;
+  else window._pendingMainFile=file;
+}
+
+// 開始解析：用之前選好的檔案
+function startParse(uploadType){
+  const file=uploadType==='drink'?window._pendingDrinkFile:window._pendingMainFile;
+  if(!file){toast('請先選擇檔案','warn');return;}
+  // 建一個假的 event 物件
+  const fakeEvent={target:{files:[file]}};
+  handleImg(fakeEvent, uploadType);
+}
+
 async function handleImg(event, uploadType='main'){
   const file=event.target.files[0]; if(!file) return;
   const isPdf=file.type==='application/pdf'||file.name.toLowerCase().endsWith('.pdf');
