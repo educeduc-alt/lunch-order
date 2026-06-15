@@ -434,11 +434,8 @@ let S = {
 /* ═══ DATA ═══ */
 async function loadEvents(){
   if(DEMO){ S.events=demoEvents(); S.items={'e1':demoItems('e1'),'e2':demoItems2('e2')}; S.orders={'e1':demoOrders('e1'),'e2':[]}; return; }
-  // 取今天台灣時間（UTC+8），往前7天避免時區問題
-  const twNow = new Date(Date.now() + 8*60*60*1000);
-  const today = twNow.toISOString().slice(0,10);
-  const weekAgo = new Date(twNow - 7*24*60*60*1000).toISOString().slice(0,10);
-  const {data:evs} = await sb.from('menus').select('*').gte('date', weekAgo).order('date').order('created_at');
+  // 撈全部場次，不限日期（刪除才消失）
+  const {data:evs} = await sb.from('menus').select('*').order('date',{ascending:false}).order('created_at',{ascending:false});
   S.events = evs||[];
   // 批次載入所有場次的品項和訂單
   await Promise.all(S.events.map(async ev=>{
@@ -572,16 +569,15 @@ function fmtDeadline(ev){
   return{text:'開放中',cls:'badge-open'};
 }
 function renderHome(){
-  let html=`<div class="page-title">今日點餐場次</div>
+  let html=`<div class="page-title">點餐場次</div>
     <div class="page-sub">選擇您要參加的場次，即可開始點餐</div>
     <div class="event-list">`;
-  const today=new Date().toISOString().slice(0,10);
-  const todayEvs=S.events.filter(e=>e.date===today||!e.date);
-  if(!todayEvs.length){
-    html+=`</div><div class="empty-events"><span class="ei">📭</span><p>今日尚無點餐場次<br>請等待承辦人建立</p></div>`;
+  const allEvs=S.events;
+  if(!allEvs.length){
+    html+=`</div><div class="empty-events"><span class="ei">📭</span><p>尚無點餐場次<br>請等待承辦人建立</p></div>`;
     return html;
   }
-  todayEvs.forEach(ev=>{
+  allEvs.forEach(ev=>{
     const closed=isEventClosed(ev);
     const status=fmtDeadline(ev);
     const ords=S.orders[ev.id]||[];
