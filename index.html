@@ -476,6 +476,8 @@ async function dbInsertOrder(order, items){
 }
 async function dbDeleteOrder(id, menuId){
   if(DEMO){ S.orders[menuId]=S.orders[menuId].filter(o=>o.id!==id); return{error:null}; }
+  // 先刪 order_items 再刪 orders（避免 409 外鍵衝突）
+  await sb.from('order_items').delete().eq('order_id',id);
   const r=await sb.from('orders').delete().eq('id',id);
   if(!r.error) await loadEventDetail(menuId);
   return r;
@@ -1641,6 +1643,14 @@ async function clearItems(){
   const evNow=S.events.find(e=>e.id===eid);
   const savedStore=document.getElementById('evStore')?.value||evNow?.store_name||'';
   const savedOrg=evNow?.organizer||'';
+  // 先找所有 menu_items 的 id
+  const{data:itemRows}=await sb.from('menu_items').select('id').eq('menu_id',eid);
+  const itemIds=(itemRows||[]).map(r=>r.id);
+  // 找有關聯這些 item 的 order_items，先刪
+  if(itemIds.length){
+    await sb.from('order_items').delete().in('item_id',itemIds);
+  }
+  // 再刪 menu_items
   const{error}=await sb.from('menu_items').delete().eq('menu_id',eid);
   if(error){toast('清空失敗','err');return;}
   S.items[eid]=[];S.pendingItems=[];
@@ -1656,9 +1666,14 @@ async function clearItems(){
 }
 
 async function clearOrders(){
-  const ids=(S.orders[S.adminEid]||[]).map(o=>o.id);
-  if(!ids.length) return;
+  const ords=S.orders[S.adminEid]||[];
+  if(!ords.length) return;
   if(DEMO){S.orders[S.adminEid]=[];toast('已清空','ok');render();return;}
+  // 先刪 order_items，再刪 orders（避免 409 外鍵衝突）
+  const ids=ords.map(o=>o.id);
+  for(const id of ids){
+    await sb.from('order_items').delete().eq('order_id',id);
+  }
   await sb.from('orders').delete().in('id',ids);
   S.orders[S.adminEid]=[]; toast('訂單已清空','ok'); render();
 }
@@ -1731,6 +1746,10 @@ function removeItem(i){ S.pendingItems.splice(i,1); render(); }
 async function saveMenu(){
   const eid=S.adminEid; if(!eid){toast('請先選擇場次','err');return;}
   if(DEMO){toast('示範模式：變更不會寫入','warn');return;}
+  // 先刪關聯的 order_items 再刪 menu_items
+  const{data:_mrows}=await sb.from('menu_items').select('id').eq('menu_id',eid);
+  const _mids=(_mrows||[]).map(r=>r.id);
+  if(_mids.length) await sb.from('order_items').delete().in('item_id',_mids);
   await sb.from('menu_items').delete().eq('menu_id',eid);
   const items=(S.items[eid]||[]).map((it,i)=>({
     emoji:document.getElementById('me-'+i)?.value||it.emoji,
