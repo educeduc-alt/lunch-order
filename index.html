@@ -1687,13 +1687,28 @@ async function clearOrders(){
 
 function renderStoreCapsules(currentStore){
   try{
+    const parsedStores=[...new Set((S.pendingItems||[]).map(it=>it.restaurant).filter(s=>s&&s!=='未知店家'))];
     const cached=JSON.parse(localStorage.getItem('menuCache')||'[]');
-    const stores=[...new Set(cached.map(c=>c.store).filter(s=>s&&s!=='未知店家'))];
-    if(!stores.length) return '';
-    return stores.map(s=>{
-      const active=currentStore&&currentStore.includes(s);
-      return '<button type="button" onclick="pickStore(\'' + s.replace(/'/g,"\\'") + '\')" style="font-size:.72rem;padding:3px 11px;border:1.5px solid '+(active?'var(--or)':'var(--bo)')+';border-radius:20px;background:'+(active?'var(--or)':'var(--bos)')+';color:'+(active?'#fff':'var(--slm)')+';cursor:pointer;font-weight:600">'+esc(s)+'</button>';
-    }).join('');
+    const histStores=[...new Set(cached.map(c=>c.store).filter(s=>s&&s!=='未知店家'))];
+    const extraHist=histStores.filter(s=>!parsedStores.includes(s));
+    if(!parsedStores.length&&!extraHist.length) return '';
+    function makeBtn(s){
+      const active=currentStore===s;
+      const div=document.createElement('button');
+      div.type='button';
+      div.textContent=s;
+      div.onclick=()=>pickStore(s);
+      div.style.cssText='font-size:.72rem;padding:3px 11px;border:1.5px solid '+(active?'var(--or)':'var(--bo)')+';border-radius:20px;background:'+(active?'var(--or)':'var(--bos)')+';color:'+(active?'#fff':'var(--slm)')+';cursor:pointer;font-weight:600;margin:0';
+      return div.outerHTML;
+    }
+    let html='';
+    if(parsedStores.length){
+      html+='<div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-bottom:4px"><span style="font-size:.65rem;color:var(--sll);font-weight:700">本次解析</span>'+parsedStores.map(makeBtn).join('')+'</div>';
+    }
+    if(extraHist.length){
+      html+='<div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center"><span style="font-size:.65rem;color:var(--sll);font-weight:700">歷史</span>'+extraHist.map(makeBtn).join('')+'</div>';
+    }
+    return html;
   }catch(e){return '';}
 }
 
@@ -2057,19 +2072,9 @@ async function aiParseBase64(base64,mime){
       }));
     // 累加：把本次解析結果加入 pendingItems（支援主餐+飲料分開上傳）
     S.pendingItems=[...S.pendingItems, ...newItems];
-    // 自動填入／合併店家名稱
-    const detectedStore=newItems[0]?.restaurant||'';
-    if(detectedStore){
-      const ev=S.events.find(e=>e.id===S.adminEid);
-      const storeInp=document.getElementById('evStore');
-      const currentVal=(storeInp?.value||ev?.store_name||'').trim();
-      // 若已有店家名稱且不同，合併（用 / 分隔）
-      const storeNames=currentVal?currentVal.split(' / '):[];
-      if(!storeNames.includes(detectedStore)) storeNames.push(detectedStore);
-      const newVal=storeNames.join(' / ');
-      if(storeInp) storeInp.value=newVal;
-      if(ev) ev.store_name=newVal;
-    }
+    // 解析完後更新膠囊顯示（讓「本次解析」區塊出現）
+    const capsDiv=document.getElementById('storeCapsules');
+    if(capsDiv) capsDiv.innerHTML=renderStoreCapsules(document.getElementById('evStore')?.value||'');
     const cats=[...new Set(newItems.map(i=>i.category))].join('、');
     if(statusEl) statusEl.innerHTML=`<div style="font-size:.75rem;color:var(--gr);margin-top:7px">✅ 解析完成 ${newItems.length} 個品項（${cats}），確認後按「💾 儲存」加入場次</div>`;
     render();
