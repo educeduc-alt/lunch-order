@@ -670,7 +670,7 @@ function renderOrderPage(){
   </div>`;
 
   html+=`<div class="id-card">
-    <div class="fld"><label>姓名</label><input class="inp" id="uName" placeholder="王小明" value="${esc(S.myName)}"></div>
+    <div class="fld"><label>姓名</label><input class="inp" id="uName" placeholder="王小明" value="${esc(S.myName)}" oninput="S.myName=this.value"></div>
   </div>`;
 
 
@@ -1382,9 +1382,15 @@ function renderMenuTab(){
     return html;
   }
 
+  // 動作按鈕固定在品項列表上方
+  const eid2=S.adminEid;
+  html+=`<div style="display:flex;gap:7px;margin:10px 0 6px;flex-wrap:wrap;position:sticky;top:52px;background:var(--bg);z-index:10;padding:6px 0">
+    <button class="btn btn-gr" onclick="parseAll()">🤖 一鍵解析</button>
+    <button class="btn btn-or" onclick="saveAll()">💾 儲存</button>
+    <button class="btn btn-rd btn-sm" onclick="if(confirm('確定刪除整個場次？所有訂單和品項也會一併刪除。'))deleteEvent('${eid2}')">🗑️ 刪除場次</button>
+  </div>`;
+
   html+=renderEventMgmt(ev);
-
-
 
   return html;
 }
@@ -1399,8 +1405,12 @@ function renderEventMgmt(ev){
 
     <!-- 場次基本資訊 -->
     <div class="ev-mgmt-grid" style="margin-bottom:10px">
-      <div><span class="mg-lbl">場次標題</span><input class="mg-inp" id="evTitle" value="${esc(ev.title||'')}"></div>
-      <div><span class="mg-lbl">店家名稱</span><input class="mg-inp" id="evStore" placeholder="例：MaMa手作飯盒" value="${esc(ev.store_name||'')}"></div>
+      <div><span class="mg-lbl">場次標題</span><input class="mg-inp" id="evTitle" value="${esc(ev.title||'')}" oninput="const _e=S.events.find(x=>x.id===S.adminEid);if(_e)_e.title=this.value"></div>
+      <div><span class="mg-lbl">店家名稱</span>
+      <input type="hidden" id="evStore" value="${esc(ev.store_name||'')}">
+      <div id="storeCapsules" style="display:flex;gap:5px;flex-wrap:wrap;margin-top:6px">
+        ${renderStoreCapsules(ev.store_name||'')}
+      </div></div>
     </div>
     <div style="margin-bottom:10px">
       <span class="mg-lbl" style="display:block;margin-bottom:6px">承辦人</span>
@@ -1489,11 +1499,7 @@ function renderEventMgmt(ev){
         </div>`;
       }).join('')}
     </div>
-    <div style="display:flex;gap:7px;margin-top:9px;flex-wrap:wrap">
-      <button class="btn btn-gr" onclick="parseAll()">🤖 一鍵解析</button>
-      <button class="btn btn-or" onclick="saveAll()">💾 儲存</button>
-      <button class="btn btn-rd btn-sm" onclick="if(confirm('確定刪除整個場次？所有訂單和品項也會一併刪除。'))deleteEvent('${ev.id}')">🗑️ 刪除場次</button>
-    </div>
+
   </div></div>`;
 }
 
@@ -1660,6 +1666,32 @@ async function clearOrders(){
 /* ── ITEM OPS ── */
 
 /* ══ 規格編輯函數 ══ */
+
+function renderStoreCapsules(currentStore){
+  try{
+    const cached=JSON.parse(localStorage.getItem('menuCache')||'[]');
+    const stores=[...new Set(cached.map(c=>c.store).filter(s=>s&&s!=='未知店家'))];
+    if(!stores.length) return '';
+    return stores.map(s=>{
+      const active=currentStore&&currentStore.includes(s);
+      return '<button type="button" onclick="pickStore(\'' + s.replace(/'/g,"\\'") + '\')" style="font-size:.72rem;padding:3px 11px;border:1.5px solid '+(active?'var(--or)':'var(--bo)')+';border-radius:20px;background:'+(active?'var(--or)':'var(--bos)')+';color:'+(active?'#fff':'var(--slm)')+';cursor:pointer;font-weight:600">'+esc(s)+'</button>';
+    }).join('');
+  }catch(e){return '';}
+}
+
+function pickStore(storeName){
+  const inp=document.getElementById('evStore');
+  if(!inp) return;
+  const ev=S.events.find(e=>e.id===S.adminEid);
+  // 獨立選擇：點哪個就是哪個，已選再點則清空
+  const currentVal=(inp.value||'').trim();
+  const newVal=currentVal===storeName?'':storeName;
+  inp.value=newVal;
+  if(ev) ev.store_name=newVal;
+  const capsDiv=document.getElementById('storeCapsules');
+  if(capsDiv) capsDiv.innerHTML=renderStoreCapsules(newVal);
+}
+
 function setDrinkDesc(i, val){
   const inp=document.getElementById('md-'+i);
   if(inp) inp.value=val;
@@ -1754,8 +1786,10 @@ async function saveAll(){
     try{
       const cached=JSON.parse(localStorage.getItem('menuCache')||'[]');
       const allItems=S.items[eid]||[];
-      const storeName=evNow?.store_name||'未知店家';
+      const storeName=(document.getElementById('evStore')?.value.trim()||evNow?.store_name||'').replace('未知店家','').trim()||new Date().toLocaleDateString('zh-TW')+'餐點';
       const date=new Date().toLocaleDateString('zh-TW');
+      // 如果店家名稱是空的就不快取
+      if(!storeName || storeName==='未知店家') return;
       // 便當品項
       const bentoCats=['便當','點心'];
       const bentoItems=allItems.filter(it=>bentoCats.includes(it.category||'其他'));
