@@ -1384,14 +1384,6 @@ function renderMenuTab(){
     return html;
   }
 
-  // 動作按鈕固定在品項列表上方
-  const eid2=S.adminEid;
-  html+=`<div style="display:flex;gap:7px;margin:10px 0 6px;flex-wrap:wrap;position:sticky;top:52px;background:var(--bg);z-index:10;padding:6px 0">
-    <button class="btn btn-gr" onclick="parseAll()">🤖 一鍵解析</button>
-    <button class="btn btn-or" onclick="saveAll()">💾 儲存</button>
-    <button class="btn btn-rd btn-sm" onclick="if(confirm('確定刪除整個場次？所有訂單和品項也會一併刪除。'))deleteEvent('${eid2}')">🗑️ 刪除場次</button>
-  </div>`;
-
   html+=renderEventMgmt(ev);
 
   return html;
@@ -1450,6 +1442,13 @@ function renderEventMgmt(ev){
         <div id="aiStatusDrink"></div>
       </div>
 
+    </div>
+
+    <!-- 動作按鈕 -->
+    <div style="display:flex;gap:7px;margin:12px 0 8px;flex-wrap:wrap">
+      <button class="btn btn-gr" onclick="parseAll()">🤖 一鍵解析</button>
+      <button class="btn btn-or" onclick="saveAll()">💾 儲存</button>
+      <button class="btn btn-rd btn-sm" onclick="if(confirm('確定刪除整個場次？所有訂單和品項也會一併刪除。'))deleteEvent('${ev.id}')">🗑️ 刪除場次</button>
     </div>
 
     <!-- 品項列表 -->
@@ -1643,12 +1642,16 @@ async function clearItems(){
   const evNow=S.events.find(e=>e.id===eid);
   const savedStore=document.getElementById('evStore')?.value||evNow?.store_name||'';
   const savedOrg=evNow?.organizer||'';
-  // 先找所有 menu_items 的 id
-  const{data:itemRows}=await sb.from('menu_items').select('id').eq('menu_id',eid);
-  const itemIds=(itemRows||[]).map(r=>r.id);
-  // 找有關聯這些 item 的 order_items，先刪
-  if(itemIds.length){
-    await sb.from('order_items').delete().in('item_id',itemIds);
+  // 先找此場次所有訂單 id
+  const{data:ordRows}=await sb.from('orders').select('id').eq('menu_id',eid);
+  const ordIds=(ordRows||[]).map(r=>r.id);
+  // 刪 order_items
+  if(ordIds.length){
+    for(const oid of ordIds){
+      await sb.from('order_items').delete().eq('order_id',oid);
+    }
+    // 刪 orders
+    await sb.from('orders').delete().in('id',ordIds);
   }
   // 再刪 menu_items
   const{error}=await sb.from('menu_items').delete().eq('menu_id',eid);
@@ -1746,10 +1749,13 @@ function removeItem(i){ S.pendingItems.splice(i,1); render(); }
 async function saveMenu(){
   const eid=S.adminEid; if(!eid){toast('請先選擇場次','err');return;}
   if(DEMO){toast('示範模式：變更不會寫入','warn');return;}
-  // 先刪關聯的 order_items 再刪 menu_items
-  const{data:_mrows}=await sb.from('menu_items').select('id').eq('menu_id',eid);
-  const _mids=(_mrows||[]).map(r=>r.id);
-  if(_mids.length) await sb.from('order_items').delete().in('item_id',_mids);
+  // 先刪此場次的 order_items → orders → menu_items
+  const{data:_ords}=await sb.from('orders').select('id').eq('menu_id',eid);
+  const _oids=(_ords||[]).map(r=>r.id);
+  if(_oids.length){
+    for(const oid of _oids) await sb.from('order_items').delete().eq('order_id',oid);
+    await sb.from('orders').delete().in('id',_oids);
+  }
   await sb.from('menu_items').delete().eq('menu_id',eid);
   const items=(S.items[eid]||[]).map((it,i)=>({
     emoji:document.getElementById('me-'+i)?.value||it.emoji,
