@@ -1457,10 +1457,27 @@ function renderEventMgmt(ev){
       const saved=S.items[S.adminEid]||[];
       if(!saved.length) return '';
       const cats=[...new Set(saved.map(i=>i.category||'其他'))];
-      return '<div style="background:var(--grl);border-radius:var(--rsm);padding:8px 12px;margin-bottom:10px;font-size:.78rem;color:var(--gr)">'
-        +'✅ 已儲存 '+saved.length+' 個品項（'+cats.join('、')+'）'
-        +'<button onclick="if(confirm(\'確定清空此場次所有品項？\'))clearItems()" style="float:right;font-size:.7rem;color:var(--rd);background:none;border:none;cursor:pointer">清空</button>'
-        +'</div>';
+       const catOrder=['便當','飲料','點心','其他'];
+       const byCat={}; saved.forEach(it=>{ const c=it.category||'其他'; if(!byCat[c])byCat[c]=[]; byCat[c].push(it); });
+       const ordCats=catOrder.filter(c=>byCat[c]);
+       let h='<div style="background:var(--grl);border:1px solid #86efac;border-radius:12px;padding:10px 13px;margin-bottom:10px">';
+       h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">'
+         +'<span style="font-size:.8rem;font-weight:700;color:var(--gr)">✅ 已儲存 '+saved.length+' 個品項</span>'
+         +'<button onclick="if(confirm(\'確定清空此場次所有品項？\'))clearItems()" style="font-size:.7rem;color:var(--rd);background:none;border:none;cursor:pointer;font-weight:700">🗑 清空</button>'
+         +'</div>';
+       ordCats.forEach(cat=>{
+         const icon={'便當':'🍱','飲料':'🧋','點心':'🍰','其他':'🍽️'}[cat]||'🍽️';
+         h+='<div style="font-size:.72rem;font-weight:700;color:var(--sll);margin:5px 0 2px">'+icon+' '+cat+'</div>';
+         byCat[cat].forEach(it=>{
+           h+='<div style="display:flex;align-items:center;gap:6px;padding:3px 0;border-bottom:1px dashed var(--bos);font-size:.8rem">'
+             +'<span>'+esc(it.emoji||'🍱')+'</span>'
+             +'<span style="flex:1">'+esc(it.name)+'</span>'
+             +(it.price>0?'<span style="font-weight:700;color:var(--or)">$'+it.price+'</span>':'')
+             +'</div>';
+         });
+       });
+       h+='</div>';
+       return h;
     })()}
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
       <span class="mg-lbl">${S.pendingItems.length?'本次解析品項（確認後按儲存）':'尚未解析品項'}</span>
@@ -1826,27 +1843,32 @@ async function saveAll(){
     try{
       const cached=JSON.parse(localStorage.getItem('menuCache')||'[]');
       const allItems=S.items[eid]||[];
-      const storeName=(document.getElementById('evStore')?.value.trim()||evNow?.store_name||'').replace('未知店家','').trim()||new Date().toLocaleDateString('zh-TW')+'餐點';
+      const storeRaw=(document.getElementById('evStore')?.value.trim()||evNow?.store_name||'').replace('未知店家','').trim();
+      if(!storeRaw) return;
       const date=new Date().toLocaleDateString('zh-TW');
-      // 如果店家名稱是空的就不快取
-      if(!storeName || storeName==='未知店家') return;
-      // 便當品項
       const bentoCats=['便當','點心'];
-      const bentoItems=allItems.filter(it=>bentoCats.includes(it.category||'其他'));
-      if(bentoItems.length){
-        const bentoKey=storeName+'__便當';
-        const bi=cached.findIndex(c=>c.key===bentoKey);
-        const be={key:bentoKey,store:storeName,type:'便當',items:bentoItems,savedAt:date};
-        if(bi>=0) cached[bi]=be; else cached.unshift(be);
-      }
-      // 飲料品項
-      const drinkItems=allItems.filter(it=>(it.category||'其他')==='飲料');
-      if(drinkItems.length){
-        const drinkKey=storeName+'__飲料';
-        const di=cached.findIndex(c=>c.key===drinkKey);
-        const de={key:drinkKey,store:storeName,type:'飲料',items:drinkItems,savedAt:date};
-        if(di>=0) cached[di]=de; else cached.unshift(de);
-      }
+      // 每個店家獨立存快取（依 restaurant 欄位分組）
+      const storeGroups={};
+      allItems.forEach(it=>{
+        const s=it.restaurant||storeRaw;
+        if(!storeGroups[s]) storeGroups[s]={bento:[],drink:[]};
+        if((it.category||'其他')==='飲料') storeGroups[s].drink.push(it);
+        else if(bentoCats.includes(it.category||'其他')) storeGroups[s].bento.push(it);
+      });
+      Object.entries(storeGroups).forEach(([sName,{bento,drink}])=>{
+        if(bento.length){
+          const k=sName+'__便當';
+          const bi=cached.findIndex(c=>c.key===k);
+          const be={key:k,store:sName,type:'便當',items:bento,savedAt:date};
+          if(bi>=0) cached[bi]=be; else cached.unshift(be);
+        }
+        if(drink.length){
+          const k=sName+'__飲料';
+          const di=cached.findIndex(c=>c.key===k);
+          const de={key:k,store:sName,type:'飲料',items:drink,savedAt:date};
+          if(di>=0) cached[di]=de; else cached.unshift(de);
+        }
+      });
       localStorage.setItem('menuCache',JSON.stringify(cached.slice(0,20)));
     }catch(e){}
     toast('✅ 已儲存！場次共 '+total+' 個品項','ok');
