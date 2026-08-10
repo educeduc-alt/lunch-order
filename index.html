@@ -91,6 +91,16 @@ input,select,textarea{font-family:inherit}
 /* ── MENU ── */
 .rest-block{margin-bottom:20px}
 .rest-name{font-size:.78rem;font-weight:700;color:var(--slm);background:var(--bos);border-radius:var(--rsm);padding:5px 10px;display:inline-flex;align-items:center;gap:5px;margin-bottom:9px}
+.cat-toggle{width:100%;min-height:46px;padding:8px 10px 8px 13px;border:1.5px solid #cbd5e1;border-left:5px solid var(--or);border-radius:var(--rmd);background:linear-gradient(135deg,var(--ca),var(--orl));display:flex;align-items:center;justify-content:space-between;gap:10px;text-align:left;box-shadow:var(--shsm);transition:border-color .18s,box-shadow .18s,transform .18s;background-color:var(--ca)}
+.cat-toggle:hover{border-color:var(--or);box-shadow:var(--shmd);transform:translateY(-1px)}
+.cat-toggle:focus-visible{outline:3px solid rgba(249,115,22,.28);outline-offset:2px}
+.cat-toggle.is-collapsed{background:var(--ca);border-color:var(--bo);border-left-color:var(--sll)}
+.cat-toggle-main{display:flex;align-items:center;gap:7px;font-size:.9rem;font-weight:800;color:var(--sl);min-width:0}
+.cat-toggle-count{background:var(--or);color:#fff;border-radius:20px;padding:2px 8px;font-size:.68rem;font-weight:800;line-height:1.4}
+.cat-toggle-state{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-width:82px;padding:6px 10px;border-radius:20px;background:var(--or);color:#fff;font-size:.73rem;font-weight:800;white-space:nowrap;box-shadow:0 2px 8px rgba(249,115,22,.24)}
+.cat-toggle.is-collapsed .cat-toggle-state{background:var(--sl);box-shadow:none}
+.cat-toggle-arrow{display:inline-block;font-size:.82rem;transition:transform .18s}
+.cat-toggle:not(.is-collapsed) .cat-toggle-arrow{transform:rotate(90deg)}
 .menu-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(158px,1fr));gap:9px}
 @media(max-width:440px){.menu-grid{grid-template-columns:1fr 1fr}}
 .m-card{background:var(--ca);border:1.5px solid var(--bo);border-radius:var(--rlg);padding:13px 11px 11px;cursor:pointer;transition:border-color .18s,transform .18s,box-shadow .18s;position:relative;overflow:hidden;user-select:none}
@@ -696,11 +706,12 @@ function renderOrderPage(){
       const collapsed=S.collapsedCats[cat]||false;
       const catCount=its.reduce((s,item)=>{const keys=Object.keys(S.cart).filter(k=>k.startsWith(item.id+'__'));return s+keys.reduce((ss,k)=>ss+(S.cart[k]?.qty||0),0);},0);
       html+=`<div class="rest-block">
-        <div class="rest-name" style="cursor:pointer;user-select:none;display:flex;align-items:center;justify-content:space-between;width:100%;padding:6px 10px;border-radius:var(--rsm);background:var(--bos)"
+        <button type="button" class="cat-toggle${collapsed?' is-collapsed':''}"
+          aria-expanded="${!collapsed}" aria-label="${collapsed?'展開':'收合'}${esc(cat)}分類"
           onclick="S.collapsedCats['${cat}']=!S.collapsedCats['${cat}'];render()">
-          <span>${CAT_ICON[cat]||'🍽️'} ${cat}${catCount>0?` <span style="background:var(--or);color:#fff;border-radius:20px;padding:1px 7px;font-size:.68rem;font-weight:700;margin-left:5px">${catCount}</span>`:''}</span>
-          <span style="color:var(--sll);font-size:.8rem">${collapsed?'▶ 展開':'▼ 收合'}</span>
-        </div>
+          <span class="cat-toggle-main"><span>${CAT_ICON[cat]||'🍽️'}</span><span>${esc(cat)}</span>${catCount>0?`<span class="cat-toggle-count">已選 ${catCount}</span>`:''}</span>
+          <span class="cat-toggle-state"><span class="cat-toggle-arrow">▶</span>${collapsed?'展開':'收合'}</span>
+        </button>
         ${collapsed?'':`<div class="menu-grid" style="margin-top:8px">`}`;
       if(!collapsed){
         its.forEach(item=>{
