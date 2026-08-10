@@ -317,9 +317,9 @@ input,select,textarea{font-family:inherit}
   const host = window.location.hostname;
   const isLocalPreview = window.location.protocol === 'file:' || host === 'localhost' || host === '127.0.0.1';
   window._cfPages = host.includes('pages.dev') || (!host.includes('netlify') && !isLocalPreview);
-  window._claudeProxyUrl = isLocalPreview
-    ? 'https://lunch-order-2bw.pages.dev/claude-proxy'
-    : (window._cfPages ? '/claude-proxy' : '/.netlify/functions/claude-proxy');
+  window._geminiProxyUrl = isLocalPreview
+    ? 'https://lunch-order-2bw.pages.dev/gemini-proxy'
+    : (window._cfPages ? '/gemini-proxy' : '/.netlify/functions/gemini-proxy');
 </script>
 </head>
 <body>
@@ -2067,7 +2067,7 @@ async function aiParseBase64(base64,mime){
   const statusEl=document.getElementById('aiStatus');
   if(statusEl) statusEl.innerHTML=`<div class="scan-ldr"><div class="spin"></div>AI 正在解析菜單，請稍候…</div>`;
   try{
-    const proxyUrl=window._claudeProxyUrl;
+    const proxyUrl=window._geminiProxyUrl;
     const res=await fetch(proxyUrl,{method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({messages:[{role:'user',content:[
