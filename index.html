@@ -84,6 +84,7 @@ input,select,textarea{font-family:inherit}
 .back-btn:hover{background:var(--orll);color:var(--ord);border-color:var(--or)}
 .event-info-banner{flex:1;background:var(--orl);border:1.5px solid var(--orll);border-radius:var(--rmd);padding:8px 12px;font-size:.78rem;color:var(--ord)}
 .event-info-banner strong{font-size:.85rem;display:block;margin-bottom:1px}
+.event-activity-note{margin-top:5px;padding:6px 8px;border-radius:7px;background:rgba(255,255,255,.72);color:#7c2d12;font-size:.74rem;line-height:1.55;white-space:pre-line}
 .event-order-help{margin-top:6px;padding-top:6px;border-top:1px dashed #fdba74;color:#9a3412;font-size:.72rem;line-height:1.55;font-weight:600}
 
 /* ── NOTICE ── */
@@ -217,6 +218,7 @@ input,select,textarea{font-family:inherit}
 @media(max-width:480px){.ev-mgmt-grid{grid-template-columns:1fr}}
 .mg-inp{border:1.5px solid var(--bo);border-radius:6px;padding:6px 9px;font-size:.82rem;outline:none;background:var(--ca);transition:border-color .18s;width:100%}
 .mg-inp:focus{border-color:var(--or)}
+.mg-textarea{min-height:76px;resize:vertical;line-height:1.55}
 .mg-lbl{font-size:.68rem;font-weight:700;color:var(--sll);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:3px}
 .mgmt-item-row{display:flex;gap:6px;align-items:center;flex-wrap:wrap;background:var(--ca);border-radius:6px;padding:7px 8px;margin-bottom:5px}
 .mi-em{width:46px;text-align:center}
@@ -408,6 +410,7 @@ const DEMO = SUPABASE_URL.includes('YOUR_PROJECT');
 menus 表 = 每一個「場次」，加入承辦人欄位：
 ALTER TABLE menus ADD COLUMN organizer text DEFAULT '';
 ALTER TABLE menus ADD COLUMN store_name text DEFAULT '';
+ALTER TABLE menus ADD COLUMN activity_note text DEFAULT '';
 
 其他沒有變動，現有資料完全相容。
 ═══════════════════════════════════════════ */
@@ -509,8 +512,8 @@ async function dbDeleteOrder(id, menuId){
 
 /* DEMO */
 function demoEvents(){ return [
-  {id:'e1',title:'5/22 午餐',organizer:'王老師',store_name:'MaMa手作飯盒',deadline:'11:30',is_closed:false,date:new Date(Date.now()+8*60*60*1000).toISOString().slice(0,10),img_url:''},
-  {id:'e2',title:'5/22 下午茶',organizer:'林主任',store_name:'麻古茶坊',deadline:'14:00',is_closed:false,date:new Date(Date.now()+8*60*60*1000).toISOString().slice(0,10),img_url:''},
+  {id:'e1',title:'5/22 午餐',activity_note:'資源教室午餐活動，請依個人需求選擇餐點。',organizer:'王老師',store_name:'MaMa手作飯盒',deadline:'11:30',is_closed:false,date:new Date(Date.now()+8*60*60*1000).toISOString().slice(0,10),img_url:''},
+  {id:'e2',title:'5/22 下午茶',activity_note:'活動飲品請於截止時間前完成登記。',organizer:'林主任',store_name:'麻古茶坊',deadline:'14:00',is_closed:false,date:new Date(Date.now()+8*60*60*1000).toISOString().slice(0,10),img_url:''},
 ];}
 function demoItems(mid){ return [
   {id:'i1',menu_id:mid,restaurant:'MaMa手作飯盒',emoji:'🍖',name:'排骨便當',description:'炸排骨＋三樣配菜',price:70,specs:[{cat:'飯盒種類',opts:['八角飯盒','圓飯盒']}],sort_order:0},
@@ -597,14 +600,6 @@ function fmtDeadline(ev){
 function renderHome(){
   let html=`<div class="page-title">點餐場次</div>
     <div class="page-sub">選擇您要參加的場次，即可開始點餐</div>
-    <section class="meal-policy" aria-label="活動餐費補助說明">
-      <div class="meal-policy-title">💡 活動餐費補助與補額提醒</div>
-      <div class="meal-policy-grid">
-        <div class="meal-policy-item"><strong>🍱 便當補助上限 $120</strong>餐點價格超過 120 元時，超出的金額需自行補額。</div>
-        <div class="meal-policy-item"><strong>🧋 飲料補助上限 $40</strong>飲料價格超過 40 元時，超出的金額需自行補額。</div>
-      </div>
-      <div class="meal-policy-foot">請在送出點餐前確認價格；實際補額以餐點標示金額為準。</div>
-    </section>
     <div class="event-list">`;
   const allEvs=S.events;
   if(!allEvs.length){
@@ -651,6 +646,7 @@ function renderOrderPage(){
       <button class="back-btn" onclick="S.activeEventId=null;S.cart={};render()">← 返回場次</button>
       <div class="event-info-banner">
         <strong>${esc(ev.title)}</strong>
+        ${ev.activity_note?`<div class="event-activity-note">📣 ${esc(ev.activity_note)}</div>`:''}
         ${ev.organizer?`負責老師：${esc(ev.organizer)}　`:''}${ev.store_name?`店家：${esc(ev.store_name)}`:''}
         <div class="event-order-help">點餐說明：請先填寫姓名，再選擇餐點與規格；便當超過 $120、飲料超過 $40 的部分需自行補額。</div>
       </div>
@@ -704,9 +700,18 @@ function renderOrderPage(){
     </div>
   </div>`;
 
+  html+=`<section class="meal-policy" aria-label="活動餐費補助說明">
+    <div class="meal-policy-title">💡 本場次活動餐費補助與補額提醒</div>
+    <div class="meal-policy-grid">
+      <div class="meal-policy-item"><strong>🍱 便當補助上限 $120</strong>餐點價格超過 120 元時，超出的金額需自行補額。</div>
+      <div class="meal-policy-item"><strong>🧋 飲料補助上限 $40</strong>飲料價格超過 40 元時，超出的金額需自行補額。</div>
+    </div>
+    <div class="meal-policy-foot">請在送出點餐前確認價格；實際補額以餐點標示金額為準。</div>
+  </section>`;
+
   html+=`<div class="id-card">
     <div class="fld"><label>姓名</label><input class="inp" id="uName" placeholder="王小明" value="${esc(S.myName)}" oninput="S.myName=this.value"></div>
-    <div class="activity-meal-help"><span style="font-size:1.15rem">☀️</span><div><strong>活動餐點說明</strong><br>每人請依需求選擇餐點並確認規格與數量。便當補助上限為 $120、飲料補助上限為 $40，超過上限的差額需自行補繳。</div></div>
+    <div class="activity-meal-help"><span style="font-size:1.15rem">☀️</span><div><strong>活動餐點說明</strong><br>${ev.activity_note?esc(ev.activity_note):'承辦人尚未填寫本場次活動說明。'}<br>請確認餐點規格與數量後再送出。</div></div>
   </div>`;
 
 
@@ -1445,6 +1450,11 @@ function renderEventMgmt(ev){
       </div></div>
     </div>
     <div style="margin-bottom:10px">
+      <span class="mg-lbl">活動說明</span>
+      <textarea class="mg-inp mg-textarea" id="evActivityNote" placeholder="例如：本場次為資源教室研習午餐，請於截止時間前完成點餐。">${esc(ev.activity_note||'')}</textarea>
+      <div style="font-size:.68rem;color:var(--sll);margin-top:4px">此內容會顯示在場次標題下方及姓名欄下方。</div>
+    </div>
+    <div style="margin-bottom:10px">
       <span class="mg-lbl" style="display:block;margin-bottom:6px">承辦人</span>
       <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
         ${['雨欣','微姍','梅青','曉臻','心榆','望謙'].map(n=>'<button class="btn '+(ev.organizer===n?'btn-or':'btn-out')+'" style="padding:8px 18px;font-size:.9rem;font-weight:700" onclick="pickOrganizer(this,\''+n+'\')">'+n+'</button>').join('')}
@@ -1544,7 +1554,7 @@ function renderEventMgmt(ev){
 /* ── ADMIN OPS ── */
 async function createNewEvent(){
   if(DEMO){toast('示範模式','warn');return;}
-  const{data,error}=await sb.from('menus').insert({title:'新場次',deadline:'11:30',organizer:'',store_name:'',date:new Date(Date.now()+8*60*60*1000).toISOString().slice(0,10)}).select().single();
+  const{data,error}=await sb.from('menus').insert({title:'新場次',activity_note:'',deadline:'11:30',organizer:'',store_name:'',date:new Date(Date.now()+8*60*60*1000).toISOString().slice(0,10)}).select().single();
   if(error){toast('建立失敗','err');return;}
   S.events.push(data); S.items[data.id]=[]; S.orders[data.id]=[];
   S.adminEid=data.id; render(); toast('場次已建立','ok');
@@ -1853,16 +1863,17 @@ async function saveAll(){
 
   // 儲存場次基本資訊
   const title=document.getElementById('evTitle')?.value.trim();
+  const activity_note=document.getElementById('evActivityNote')?.value.trim()||'';
   const store_name=document.getElementById('evStore')?.value.trim()||'';
   const orgInput=document.getElementById('evOrganizer')?.value.trim()||'';
   const evNow=S.events.find(e=>e.id===eid);
   const organizer=orgInput||evNow?.organizer||'';
   if(!title){toast('請填場次標題','err');return;}
 
-  const{error:e1}=await sb.from('menus').update({title,organizer,store_name}).eq('id',eid);
+  const{error:e1}=await sb.from('menus').update({title,activity_note,organizer,store_name}).eq('id',eid);
   if(e1){toast('儲存失敗：'+e1.message,'err');return;}
   const ev=S.events.find(e=>e.id===eid);
-  if(evNow) Object.assign(evNow,{title,organizer,store_name});
+  if(evNow) Object.assign(evNow,{title,activity_note,organizer,store_name});
 
   // 把 pendingItems 讀取欄位後 append 到資料庫（不刪除既有品項）
   const existingCount=(S.items[eid]||[]).length;
