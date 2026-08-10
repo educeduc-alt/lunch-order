@@ -1069,6 +1069,11 @@ async function confirmCombo(){
   if(!S.comboMain){toast('請先選擇主餐','warn');return;}
   const comboItems=[S.comboMain.item,...S.comboSides.map(x=>x.item),...S.comboDrinks.map(x=>x.item)];
   const overageLines=comboItems.map(item=>getSubsidyOverage(item,item.price)).filter(Boolean);
+  const comboBentos=comboItems.filter(item=>item.category==='便當');
+  if(comboBentos.length){
+    const qtyNotice=getBentoQuantityNotice(comboBentos.length,comboBentos.reduce((s,item)=>s+(Number(item.price)||0),0));
+    if(qtyNotice) overageLines.push(qtyNotice);
+  }
   if(overageLines.length && !(await showOverageNotice(overageLines))) return;
   // 加入主餐
   const mainKey=S.comboMain.item.id+'__'+S.comboMain.specsStr+'__'+Date.now();
@@ -1103,6 +1108,24 @@ function getSubsidyOverage(item, price){
   return overage?{name:item.name,category:item.category,price:Number(price),limit,overage}:null;
 }
 
+function getCartBentoQty(){
+  const items=S.items[S.activeEventId]||[];
+  return Object.values(S.cart).reduce((sum,cartItem)=>{
+    const item=items.find(x=>x.id===cartItem.itemId);
+    return sum+(item?.category==='便當'?(cartItem.qty||0):0);
+  },0);
+}
+
+function getBentoQuantityNotice(qtyToAdd, addedPriceTotal){
+  const before=getCartBentoQty();
+  const extraBefore=Math.max(0,before-2);
+  const extraAfter=Math.max(0,before+qtyToAdd-2);
+  const newExtra=extraAfter-extraBefore;
+  if(newExtra<=0) return null;
+  const avgPrice=qtyToAdd>0?Math.round((Number(addedPriceTotal)||0)/qtyToAdd):0;
+  return {kind:'quantity',category:'便當',name:`超過 2 個便當（新增第 ${before+1}${qtyToAdd>1?'～'+(before+qtyToAdd):''} 個）`,extraQty:newExtra,overage:avgPrice*newExtra};
+}
+
 function showOverageNotice(lines){
   return new Promise(resolve=>{
     const box=document.createElement('div');
@@ -1112,7 +1135,9 @@ function showOverageNotice(lines){
       <div class="modal-title" style="text-align:center;color:#92400e">本場次活動餐費補助與補額提醒</div>
       <p class="modal-sub" style="text-align:center;line-height:1.6">便當補助上限 $120，飲料補助上限 $40；以下餐點超過補助上限。</p>
       <div style="background:#fffbeb;border:1.5px solid #fbbf24;border-radius:var(--rmd);padding:10px 12px;margin-bottom:14px">
-        ${lines.map(x=>`<div style="font-size:.8rem;color:#78350f;padding:5px 0;border-bottom:1px dashed #fde68a"><strong>${x.category==='飲料'?'🧋':'🍱'} ${esc(x.name)}</strong><br>售價 $${x.price}－補助 $${x.limit}＝<strong style="color:var(--rd)">需補額 $${x.overage}</strong></div>`).join('')}
+        ${lines.map(x=>x.kind==='quantity'
+          ?`<div style="font-size:.8rem;color:#78350f;padding:5px 0;border-bottom:1px dashed #fde68a"><strong>🍱 ${esc(x.name)}</strong><br>每筆點餐補助最多 2 個便當；新增的 ${x.extraQty} 個需自行負擔${x.overage>0?`，預估補額 <strong style="color:var(--rd)">$${x.overage}</strong>`:''}。</div>`
+          :`<div style="font-size:.8rem;color:#78350f;padding:5px 0;border-bottom:1px dashed #fde68a"><strong>${x.category==='飲料'?'🧋':'🍱'} ${esc(x.name)}</strong><br>售價 $${x.price}－補助 $${x.limit}＝<strong style="color:var(--rd)">需補額 $${x.overage}</strong></div>`).join('')}
       </div>
       <button class="btn btn-or btn-full" id="overageConfirm">了解，仍要加入</button>
       <button class="btn btn-out btn-full" style="margin-top:7px" id="overageCancel">返回重新選擇</button>
@@ -1134,12 +1159,18 @@ async function quickAdd(id){
   if(existQty>=5){toast('同一品項最多5份','warn');return;}
   const item=(S.items[S.activeEventId]||[]).find(i=>i.id===id);
   const overage=getSubsidyOverage(item,item?.price);
-  if(existQty===0 && overage && !(await showOverageNotice([overage]))) return;
+  const notices=[];
+  if(existQty===0 && overage) notices.push(overage);
+  if(item?.category==='便當'){
+    const qtyNotice=getBentoQuantityNotice(1,item.price);
+    if(qtyNotice) notices.push(qtyNotice);
+  }
+  if(notices.length && !(await showOverageNotice(notices))) return;
   const key=id+'__';
   if(!S.cart[key]){S.cart[key]={itemId:id,name:item.name,emoji:item.emoji,qty:0,price:item.price,specsStr:'',note:''};}
   S.cart[key].qty++;render();
 }
-function adjCart(id,d){
+async function adjCart(id,d){
   const ev=S.events.find(e=>e.id===S.activeEventId);
   if(d>0&&isEventClosed(ev)){toast('此場次已截止','err');return;}
   const nameEl=document.getElementById('uName');
@@ -1150,6 +1181,13 @@ function adjCart(id,d){
     const k=keys[keys.length-1];
     const newQty=S.cart[k].qty+d;
     if(d>0&&newQty>5){toast('同一品項最多5份','warn');return;}
+    if(d>0){
+      const item=(S.items[S.activeEventId]||[]).find(i=>i.id===id);
+      if(item?.category==='便當'){
+        const qtyNotice=getBentoQuantityNotice(1,S.cart[k].price||item.price);
+        if(qtyNotice && !(await showOverageNotice([qtyNotice]))) return;
+      }
+    }
     S.cart[k].qty=Math.max(0,newQty);
     if(!S.cart[k].qty) delete S.cart[k];
   }
@@ -1224,7 +1262,13 @@ async function confirmSpec(){
     return;
   }
   const overage=getSubsidyOverage(item,finalPrice);
-  if(overage && !(await showOverageNotice([overage]))) return;
+  const notices=[];
+  if(overage) notices.push(overage);
+  if(item.category==='便當'){
+    const qtyNotice=getBentoQuantityNotice(S.specQty,finalPrice*S.specQty);
+    if(qtyNotice) notices.push(qtyNotice);
+  }
+  if(notices.length && !(await showOverageNotice(notices))) return;
   const key=item.id+'__'+specsStr+'__'+Date.now();
   S.cart[key]={itemId:item.id,name:item.name,emoji:item.emoji,qty:S.specQty,price:finalPrice,specsStr,note:S.specNote};
   closeSpec();render();toast('已加入清單 ✓','ok');
