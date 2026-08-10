@@ -698,15 +698,6 @@ function renderOrderPage(){
     </div>
   </div>`;
 
-  html+=`<section class="meal-policy" aria-label="活動餐費補助說明">
-    <div class="meal-policy-title">💡 本場次活動餐費補助與補額提醒</div>
-    <div class="meal-policy-grid">
-      <div class="meal-policy-item"><strong>🍱 便當補助上限 $120</strong>餐點價格超過 120 元時，超出的金額需自行補額。</div>
-      <div class="meal-policy-item"><strong>🧋 飲料補助上限 $40</strong>飲料價格超過 40 元時，超出的金額需自行補額。</div>
-    </div>
-    <div class="meal-policy-foot">請在送出點餐前確認價格；實際補額以餐點標示金額為準。</div>
-  </section>`;
-
   html+=`<div class="id-card">
     <div class="fld"><label>姓名</label><input class="inp" id="uName" placeholder="王小明" value="${esc(S.myName)}" oninput="S.myName=this.value"></div>
     <div class="activity-meal-help"><span style="font-size:1.15rem">☀️</span><div><strong>活動餐點說明</strong><br>${ev.activity_note?esc(ev.activity_note):'承辦人尚未填寫本場次活動說明。'}<br>請確認餐點規格與數量後再送出。</div></div>
@@ -1072,10 +1063,13 @@ function showComboSpecPicker(type, item, arr){
   };
 }
 
-function confirmCombo(){
+async function confirmCombo(){
   const ev=S.events.find(e=>e.id===S.activeEventId);
   if(isEventClosed(ev)){toast('此場次已截止','err');return;}
   if(!S.comboMain){toast('請先選擇主餐','warn');return;}
+  const comboItems=[S.comboMain.item,...S.comboSides.map(x=>x.item),...S.comboDrinks.map(x=>x.item)];
+  const overageLines=comboItems.map(item=>getSubsidyOverage(item,item.price)).filter(Boolean);
+  if(overageLines.length && !(await showOverageNotice(overageLines))) return;
   // 加入主餐
   const mainKey=S.comboMain.item.id+'__'+S.comboMain.specsStr+'__'+Date.now();
   S.cart[mainKey]={itemId:S.comboMain.item.id,name:S.comboMain.item.name,emoji:S.comboMain.item.emoji,
@@ -1103,7 +1097,33 @@ function closeCombo(){
   S.comboStep=null; S.comboMain=null; S.comboSides=[]; S.comboDrinks=[];
 }
 
-function quickAdd(id){
+function getSubsidyOverage(item, price){
+  const limit=item?.category==='便當'?120:(item?.category==='飲料'?40:0);
+  const overage=limit&&Number(price)>limit?Number(price)-limit:0;
+  return overage?{name:item.name,category:item.category,price:Number(price),limit,overage}:null;
+}
+
+function showOverageNotice(lines){
+  return new Promise(resolve=>{
+    const box=document.createElement('div');
+    box.className='modal-bg';
+    box.innerHTML=`<div class="modal-box" style="max-width:380px;text-align:left;border-top:6px solid var(--am)">
+      <div style="text-align:center;font-size:2.35rem;margin-bottom:7px">💡</div>
+      <div class="modal-title" style="text-align:center;color:#92400e">本場次活動餐費補助與補額提醒</div>
+      <p class="modal-sub" style="text-align:center;line-height:1.6">便當補助上限 $120，飲料補助上限 $40；以下餐點超過補助上限。</p>
+      <div style="background:#fffbeb;border:1.5px solid #fbbf24;border-radius:var(--rmd);padding:10px 12px;margin-bottom:14px">
+        ${lines.map(x=>`<div style="font-size:.8rem;color:#78350f;padding:5px 0;border-bottom:1px dashed #fde68a"><strong>${x.category==='飲料'?'🧋':'🍱'} ${esc(x.name)}</strong><br>售價 $${x.price}－補助 $${x.limit}＝<strong style="color:var(--rd)">需補額 $${x.overage}</strong></div>`).join('')}
+      </div>
+      <button class="btn btn-or btn-full" id="overageConfirm">了解，仍要加入</button>
+      <button class="btn btn-out btn-full" style="margin-top:7px" id="overageCancel">返回重新選擇</button>
+    </div>`;
+    document.body.appendChild(box);
+    box.querySelector('#overageConfirm').onclick=()=>{box.remove();resolve(true);};
+    box.querySelector('#overageCancel').onclick=()=>{box.remove();resolve(false);};
+  });
+}
+
+async function quickAdd(id){
   const ev=S.events.find(e=>e.id===S.activeEventId);
   if(isEventClosed(ev)){toast('此場次已截止','err');return;}
   const nameEl=document.getElementById('uName');
@@ -1112,8 +1132,11 @@ function quickAdd(id){
   const existKeys=Object.keys(S.cart).filter(k=>k.startsWith(id+'__'));
   const existQty=existKeys.reduce((s,k)=>s+(S.cart[k]?.qty||0),0);
   if(existQty>=5){toast('同一品項最多5份','warn');return;}
+  const item=(S.items[S.activeEventId]||[]).find(i=>i.id===id);
+  const overage=getSubsidyOverage(item,item?.price);
+  if(existQty===0 && overage && !(await showOverageNotice([overage]))) return;
   const key=id+'__';
-  if(!S.cart[key]){const item=(S.items[S.activeEventId]||[]).find(i=>i.id===id);S.cart[key]={itemId:id,name:item.name,emoji:item.emoji,qty:0,price:item.price,specsStr:'',note:''};}
+  if(!S.cart[key]){S.cart[key]={itemId:id,name:item.name,emoji:item.emoji,qty:0,price:item.price,specsStr:'',note:''};}
   S.cart[key].qty++;render();
 }
 function adjCart(id,d){
@@ -1185,7 +1208,7 @@ function renderSheet(){
   </div>`;
   document.getElementById('sheetBody').innerHTML=html;
 }
-function confirmSpec(){
+async function confirmSpec(){
   const item=S.specItem;
   const specsStr=Object.values(S.specSel).join('/');
   const finalPrice=calcSpecPrice(item, S.specSel);  // 用規格動態價格
@@ -1200,6 +1223,8 @@ function confirmSpec(){
     document.getElementById('comboOverlay').style.display='flex';
     return;
   }
+  const overage=getSubsidyOverage(item,finalPrice);
+  if(overage && !(await showOverageNotice([overage]))) return;
   const key=item.id+'__'+specsStr+'__'+Date.now();
   S.cart[key]={itemId:item.id,name:item.name,emoji:item.emoji,qty:S.specQty,price:finalPrice,specsStr,note:S.specNote};
   closeSpec();render();toast('已加入清單 ✓','ok');
