@@ -312,11 +312,14 @@ input,select,textarea{font-family:inherit}
 }
 </style>
 <script>
-  // 偵測部署環境，決定 proxy 路徑
-  // pages.dev 或自訂域名 → Cloudflare Pages
-  // netlify.app → Netlify
+  // 偵測部署環境，決定 AI proxy 路徑。
+  // file:// 本機預覽沒有 Pages Function，改呼叫正式站代理。
   const host = window.location.hostname;
-  window._cfPages = host.includes('pages.dev') || (!host.includes('netlify') && !host.includes('localhost'));
+  const isLocalPreview = window.location.protocol === 'file:' || host === 'localhost' || host === '127.0.0.1';
+  window._cfPages = host.includes('pages.dev') || (!host.includes('netlify') && !isLocalPreview);
+  window._claudeProxyUrl = isLocalPreview
+    ? 'https://lunch-order-2bw.pages.dev/claude-proxy'
+    : (window._cfPages ? '/claude-proxy' : '/.netlify/functions/claude-proxy');
 </script>
 </head>
 <body>
@@ -2064,15 +2067,22 @@ async function aiParseBase64(base64,mime){
   const statusEl=document.getElementById('aiStatus');
   if(statusEl) statusEl.innerHTML=`<div class="scan-ldr"><div class="spin"></div>AI 正在解析菜單，請稍候…</div>`;
   try{
-    const proxyUrl=window._cfPages?'/claude-proxy':'/.netlify/functions/claude-proxy';
+    const proxyUrl=window._claudeProxyUrl;
     const res=await fetch(proxyUrl,{method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({messages:[{role:'user',content:[
         {type:'image',source:{type:'base64',media_type:mime,data:base64}},
         {type:'text',text:'請解析這張菜單圖片，只回傳純 JSON 陣列，不要有任何其他文字或 markdown：\\n[{"restaurant":"店家名稱","category":"便當","emoji":"emoji","name":"品項名稱","price":數字或0,"description":"描述","specs":[]}]\\nspecs 規格判斷規則（只加菜單上真實存在的）：\\n1. 若有多個價格欄（如八角飯盒/圓飯盒），price 填最小值，specs 加 {"cat":"飯盒","opts":["八角飯盒 $110","圓飯盒 $125"]} 把價格標在選項裡\\n2. 若有加量/加飯/加菜選項，specs 加 {"cat":"份量","opts":["正常","加量"]}\\n3. 飲料若有加料區，specs 加 {"cat":"加料","opts":["珍珠","椰果",...]} 只列菜單上有的料\\n4. 飲料若有杯型，specs 加 {"cat":"杯型","opts":["中杯","大杯"]}\\n5. 便當若有主食選擇（飯/麵/焗烤），specs 加 {"cat":"主食","opts":["白飯","麵",...]}\\n6. 沒有對應規格就保留 specs:[]\\ncategory 判斷規則：若整張菜單都是飲料（如飲料店菜單），所有品項 category 填「飲料」；加料區單獨列出的料也填「飲料」。若是便當/餐盒菜單，主餐填「便當」，湯品小菜填「點心」。只列出清楚可見的品項，看不清楚不要猜。忽略優惠說明。確保 JSON 完整不截斷。price 看不清楚填 0。無法辨識回傳 []。'}
       ]}]})});
-    if(!res.ok) throw new Error(`API 錯誤 ${res.status}`);
     const text=await res.text();
+    if(!res.ok){
+      let detail='';
+      try{
+        const errBody=JSON.parse(text);
+        detail=errBody?.error?.message||errBody?.error||errBody?.message||'';
+      }catch(e){ detail=text.slice(0,160); }
+      throw new Error(`API 錯誤 ${res.status}${detail?'：'+detail:''}`);
+    }
     let d;
     try{ d=JSON.parse(text); }
     catch(e){ throw new Error('伺服器回應格式錯誤：'+text.slice(0,120)); }
