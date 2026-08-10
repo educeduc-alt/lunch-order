@@ -44,6 +44,13 @@ input,select,textarea{font-family:inherit}
 /* ── SESSION LIST (首頁) ── */
 .page-title{font-family:'Nunito',sans-serif;font-weight:900;font-size:1.1rem;margin-bottom:4px}
 .page-sub{font-size:.8rem;color:var(--sll);margin-bottom:18px}
+.meal-policy{background:linear-gradient(135deg,#fffbeb,#fff7ed);border:2px solid #fbbf24;border-radius:var(--rlg);padding:14px 16px;margin-bottom:16px;box-shadow:0 4px 16px rgba(217,119,6,.12)}
+.meal-policy-title{display:flex;align-items:center;gap:7px;font-size:.92rem;font-weight:900;color:#92400e;margin-bottom:8px}
+.meal-policy-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.meal-policy-item{background:rgba(255,255,255,.82);border:1px solid #fde68a;border-radius:var(--rmd);padding:9px 11px;color:#78350f;font-size:.78rem;line-height:1.55}
+.meal-policy-item strong{display:block;font-size:.88rem;color:#b45309;margin-bottom:1px}
+.meal-policy-foot{font-size:.72rem;color:#92400e;font-weight:700;margin-top:8px}
+@media(max-width:440px){.meal-policy-grid{grid-template-columns:1fr}}
 
 .event-list{display:flex;flex-direction:column;gap:10px}
 .event-card{background:var(--ca);border:1.5px solid var(--bo);border-radius:var(--rlg);overflow:hidden;cursor:pointer;transition:border-color .18s,box-shadow .18s,transform .18s}
@@ -77,6 +84,7 @@ input,select,textarea{font-family:inherit}
 .back-btn:hover{background:var(--orll);color:var(--ord);border-color:var(--or)}
 .event-info-banner{flex:1;background:var(--orl);border:1.5px solid var(--orll);border-radius:var(--rmd);padding:8px 12px;font-size:.78rem;color:var(--ord)}
 .event-info-banner strong{font-size:.85rem;display:block;margin-bottom:1px}
+.event-order-help{margin-top:6px;padding-top:6px;border-top:1px dashed #fdba74;color:#9a3412;font-size:.72rem;line-height:1.55;font-weight:600}
 
 /* ── NOTICE ── */
 .notice{background:var(--inl);border:1.5px solid #c7d2fe;border-radius:var(--rmd);padding:10px 13px;font-size:.78rem;color:#3730a3;line-height:1.6;margin-bottom:14px;display:flex;gap:8px}
@@ -85,6 +93,8 @@ input,select,textarea{font-family:inherit}
 .id-card{background:var(--ca);border:1px solid var(--bo);border-radius:var(--rlg);padding:13px 15px;margin-bottom:14px;box-shadow:var(--shsm);display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
 .id-card .fld{flex:1;min-width:120px}
 .id-card label{display:block;font-size:.68rem;font-weight:700;color:var(--sll);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.activity-meal-help{width:100%;display:flex;align-items:flex-start;gap:9px;background:linear-gradient(135deg,#ecfeff,#eff6ff);border:1.5px solid #67e8f9;border-radius:var(--rmd);padding:10px 12px;color:#155e75;font-size:.75rem;line-height:1.65}
+.activity-meal-help strong{color:#0e7490}
 .inp,.sel{width:100%;border:1.5px solid var(--bo);border-radius:var(--rsm);padding:8px 10px;font-size:.85rem;color:var(--sl);background:var(--ca);outline:none;transition:border-color .18s,box-shadow .18s}
 .inp:focus,.sel:focus{border-color:var(--or);box-shadow:0 0 0 3px rgba(249,115,22,.12)}
 
@@ -113,6 +123,7 @@ input,select,textarea{font-family:inherit}
 .m-name{font-weight:700;font-size:.85rem;line-height:1.3;margin-bottom:2px}
 .m-desc{font-size:.68rem;color:var(--sll);line-height:1.4;margin-bottom:7px}
 .m-price{font-family:'Nunito',sans-serif;font-weight:900;font-size:1.05rem;color:var(--or)}
+.overage-tag{display:inline-flex;align-items:center;gap:3px;margin-top:4px;padding:3px 7px;border-radius:20px;background:var(--rdl);color:var(--rd);font-size:.65rem;font-weight:800}
 .m-spec{font-size:.65rem;color:var(--in);margin-top:2px}
 .qty-row{display:flex;align-items:center;gap:7px;margin-top:7px}
 .qb{width:25px;height:25px;border-radius:50%;border:1.5px solid var(--bo);background:var(--ca);display:flex;align-items:center;justify-content:center;font-size:.95rem;font-weight:700;color:var(--slm);transition:all .15s}
@@ -586,6 +597,14 @@ function fmtDeadline(ev){
 function renderHome(){
   let html=`<div class="page-title">點餐場次</div>
     <div class="page-sub">選擇您要參加的場次，即可開始點餐</div>
+    <section class="meal-policy" aria-label="活動餐費補助說明">
+      <div class="meal-policy-title">💡 活動餐費補助與補額提醒</div>
+      <div class="meal-policy-grid">
+        <div class="meal-policy-item"><strong>🍱 便當補助上限 $120</strong>餐點價格超過 120 元時，超出的金額需自行補額。</div>
+        <div class="meal-policy-item"><strong>🧋 飲料補助上限 $40</strong>飲料價格超過 40 元時，超出的金額需自行補額。</div>
+      </div>
+      <div class="meal-policy-foot">請在送出點餐前確認價格；實際補額以餐點標示金額為準。</div>
+    </section>
     <div class="event-list">`;
   const allEvs=S.events;
   if(!allEvs.length){
@@ -633,6 +652,7 @@ function renderOrderPage(){
       <div class="event-info-banner">
         <strong>${esc(ev.title)}</strong>
         ${ev.organizer?`負責老師：${esc(ev.organizer)}　`:''}${ev.store_name?`店家：${esc(ev.store_name)}`:''}
+        <div class="event-order-help">點餐說明：請先填寫姓名，再選擇餐點與規格；便當超過 $120、飲料超過 $40 的部分需自行補額。</div>
       </div>
     </div>`;
 
@@ -686,6 +706,7 @@ function renderOrderPage(){
 
   html+=`<div class="id-card">
     <div class="fld"><label>姓名</label><input class="inp" id="uName" placeholder="王小明" value="${esc(S.myName)}" oninput="S.myName=this.value"></div>
+    <div class="activity-meal-help"><span style="font-size:1.15rem">☀️</span><div><strong>活動餐點說明</strong><br>每人請依需求選擇餐點並確認規格與數量。便當補助上限為 $120、飲料補助上限為 $40，超過上限的差額需自行補繳。</div></div>
   </div>`;
 
 
@@ -721,11 +742,14 @@ function renderOrderPage(){
           const keys=Object.keys(S.cart).filter(k=>k.startsWith(item.id+'__'));
           const totalQty=keys.reduce((s,k)=>s+(S.cart[k]?.qty||0),0);
           const hasSpec=item.specs&&item.specs.length>0;
+          const subsidyLimit=cat==='便當'?120:(cat==='飲料'?40:0);
+          const overage=subsidyLimit&&item.price>subsidyLimit?item.price-subsidyLimit:0;
           html+=`<div class="m-card${totalQty>0?' sel':''}">
           <span class="m-emoji">${esc(item.emoji)}</span>
           <div class="m-name">${esc(item.name)}</div>
           ${item.description?`<div class="m-desc">${esc(item.description)}</div>`:''}
           ${item.price>0?`<div class="m-price">$${item.price}</div>`:'<div class="m-price" style="color:var(--sll)">詢價</div>'}
+          ${overage?`<div class="overage-tag">⚠️ 需補額 $${overage}</div>`:''}
           ${hasSpec?`<div class="m-spec">點擊選規格 ›</div>`:''}
           <div class="qty-row" onclick="event.stopPropagation()">
             <button class="qb" onclick="event.stopPropagation();adjCart('${item.id}',-1)">−</button>
