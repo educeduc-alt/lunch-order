@@ -61,7 +61,7 @@ export const onRequest = async ({ request, env }) => {
     return jsonResponse({ error: '請求必須包含圖片和文字提示' }, 400);
   }
 
-  const model = (env.GEMINI_MODEL || 'gemini-2.5-flash').trim();
+  const model = (env.GEMINI_MODEL || 'gemini-3.6-flash').trim();
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
 
   let geminiResponse;
@@ -116,4 +116,3 @@ export const onRequest = async ({ request, env }) => {
     usage: geminiData.usageMetadata || null,
   });
 };
-
