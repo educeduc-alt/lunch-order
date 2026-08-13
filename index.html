@@ -736,7 +736,7 @@ function renderOrderPage(){
           const keys=Object.keys(S.cart).filter(k=>k.startsWith(item.id+'__'));
           const totalQty=keys.reduce((s,k)=>s+(S.cart[k]?.qty||0),0);
           const hasSpec=item.specs&&item.specs.length>0;
-          const subsidyLimit=cat==='便當'?120:(cat==='飲料'?40:0);
+          const subsidyLimit=cat==='便當'?140:(cat==='飲料'?40:0);
           const overage=subsidyLimit&&item.price>subsidyLimit?item.price-subsidyLimit:0;
           html+=`<div class="m-card${totalQty>0?' sel':''}">
           <span class="m-emoji">${esc(item.emoji)}</span>
@@ -1068,12 +1068,14 @@ async function confirmCombo(){
   if(isEventClosed(ev)){toast('此場次已截止','err');return;}
   if(!S.comboMain){toast('請先選擇主餐','warn');return;}
   const comboItems=[S.comboMain.item,...S.comboSides.map(x=>x.item),...S.comboDrinks.map(x=>x.item)];
-  const overageLines=comboItems.map(item=>getSubsidyOverage(item,item.price)).filter(Boolean);
-  const comboBentos=comboItems.filter(item=>item.category==='便當');
-  if(comboBentos.length){
-    const qtyNotice=getBentoQuantityNotice(comboBentos.length,comboBentos.reduce((s,item)=>s+(Number(item.price)||0),0));
-    if(qtyNotice) overageLines.push(qtyNotice);
-  }
+  const comboGroups={};
+  comboItems.forEach(item=>{
+    if(!getSubsidyLimit(item)) return;
+    const key=getStoreCategoryKey(item);
+    if(!comboGroups[key]) comboGroups[key]={item,addedTotal:0};
+    comboGroups[key].addedTotal+=Number(item.price)||0;
+  });
+  const overageLines=Object.values(comboGroups).map(g=>getStoreTotalNotice(g.item,g.addedTotal)).filter(Boolean);
   if(overageLines.length && !(await showOverageNotice(overageLines))) return;
   // 加入主餐
   const mainKey=S.comboMain.item.id+'__'+S.comboMain.specsStr+'__'+Date.now();
@@ -1102,28 +1104,30 @@ function closeCombo(){
   S.comboStep=null; S.comboMain=null; S.comboSides=[]; S.comboDrinks=[];
 }
 
-function getSubsidyOverage(item, price){
-  const limit=item?.category==='便當'?120:(item?.category==='飲料'?40:0);
-  const overage=limit&&Number(price)>limit?Number(price)-limit:0;
-  return overage?{name:item.name,category:item.category,price:Number(price),limit,overage}:null;
+function getSubsidyLimit(item){
+  return item?.category==='便當'?140:(item?.category==='飲料'?40:0);
 }
 
-function getCartBentoQty(){
+function getStoreCategoryKey(item){
+  return `${item?.category||''}__${item?.restaurant||'未設定店家'}`;
+}
+
+function getCartStoreCategoryTotal(item){
   const items=S.items[S.activeEventId]||[];
+  const targetKey=getStoreCategoryKey(item);
   return Object.values(S.cart).reduce((sum,cartItem)=>{
-    const item=items.find(x=>x.id===cartItem.itemId);
-    return sum+(item?.category==='便當'?(cartItem.qty||0):0);
+    const sourceItem=items.find(x=>x.id===cartItem.itemId);
+    return sum+(getStoreCategoryKey(sourceItem)===targetKey?(Number(cartItem.price)||0)*(cartItem.qty||0):0);
   },0);
 }
 
-function getBentoQuantityNotice(qtyToAdd, addedPriceTotal){
-  const before=getCartBentoQty();
-  const extraBefore=Math.max(0,before-2);
-  const extraAfter=Math.max(0,before+qtyToAdd-2);
-  const newExtra=extraAfter-extraBefore;
-  if(newExtra<=0) return null;
-  const avgPrice=qtyToAdd>0?Math.round((Number(addedPriceTotal)||0)/qtyToAdd):0;
-  return {kind:'quantity',category:'便當',name:`超過 2 個便當（新增第 ${before+1}${qtyToAdd>1?'～'+(before+qtyToAdd):''} 個）`,extraQty:newExtra,overage:avgPrice*newExtra};
+function getStoreTotalNotice(item, addedTotal){
+  const limit=getSubsidyLimit(item);
+  if(!limit) return null;
+  const before=getCartStoreCategoryTotal(item);
+  const total=before+(Number(addedTotal)||0);
+  if(total<=limit) return null;
+  return {kind:'store-total',category:item.category,store:item.restaurant||'未設定店家',before,addedTotal:Number(addedTotal)||0,total,limit,overage:total-limit};
 }
 
 function showOverageNotice(lines){
@@ -1133,11 +1137,9 @@ function showOverageNotice(lines){
     box.innerHTML=`<div class="modal-box" style="max-width:380px;text-align:left;border-top:6px solid var(--am)">
       <div style="text-align:center;font-size:2.35rem;margin-bottom:7px">💡</div>
       <div class="modal-title" style="text-align:center;color:#92400e">本場次活動餐費補助與補額提醒</div>
-      <p class="modal-sub" style="text-align:center;line-height:1.6">便當補助上限 $120，飲料補助上限 $40；以下餐點超過補助上限。</p>
+      <p class="modal-sub" style="text-align:center;line-height:1.6">同一家便當店合計補助上限 $140，同一家飲料店合計補助上限 $40。</p>
       <div style="background:#fffbeb;border:1.5px solid #fbbf24;border-radius:var(--rmd);padding:10px 12px;margin-bottom:14px">
-        ${lines.map(x=>x.kind==='quantity'
-          ?`<div style="font-size:.8rem;color:#78350f;padding:5px 0;border-bottom:1px dashed #fde68a"><strong>🍱 ${esc(x.name)}</strong><br>每筆點餐補助最多 2 個便當；新增的 ${x.extraQty} 個需自行負擔${x.overage>0?`，預估補額 <strong style="color:var(--rd)">$${x.overage}</strong>`:''}。</div>`
-          :`<div style="font-size:.8rem;color:#78350f;padding:5px 0;border-bottom:1px dashed #fde68a"><strong>${x.category==='飲料'?'🧋':'🍱'} ${esc(x.name)}</strong><br>售價 $${x.price}－補助 $${x.limit}＝<strong style="color:var(--rd)">需補額 $${x.overage}</strong></div>`).join('')}
+        ${lines.map(x=>`<div style="font-size:.8rem;color:#78350f;padding:5px 0;border-bottom:1px dashed #fde68a"><strong>${x.category==='飲料'?'🧋':'🍱'} ${esc(x.store)}</strong><br>本次同店${x.category}累計 $${x.total}－補助上限 $${x.limit}＝<strong style="color:var(--rd)">需補額 $${x.overage}</strong></div>`).join('')}
       </div>
       <button class="btn btn-or btn-full" id="overageConfirm">了解，仍要加入</button>
       <button class="btn btn-out btn-full" style="margin-top:7px" id="overageCancel">返回重新選擇</button>
@@ -1158,13 +1160,7 @@ async function quickAdd(id){
   const existQty=existKeys.reduce((s,k)=>s+(S.cart[k]?.qty||0),0);
   if(existQty>=5){toast('同一品項最多5份','warn');return;}
   const item=(S.items[S.activeEventId]||[]).find(i=>i.id===id);
-  const overage=getSubsidyOverage(item,item?.price);
-  const notices=[];
-  if(existQty===0 && overage) notices.push(overage);
-  if(item?.category==='便當'){
-    const qtyNotice=getBentoQuantityNotice(1,item.price);
-    if(qtyNotice) notices.push(qtyNotice);
-  }
+  const notices=[getStoreTotalNotice(item,item?.price)].filter(Boolean);
   if(notices.length && !(await showOverageNotice(notices))) return;
   const key=id+'__';
   if(!S.cart[key]){S.cart[key]={itemId:id,name:item.name,emoji:item.emoji,qty:0,price:item.price,specsStr:'',note:''};}
@@ -1183,10 +1179,8 @@ async function adjCart(id,d){
     if(d>0&&newQty>5){toast('同一品項最多5份','warn');return;}
     if(d>0){
       const item=(S.items[S.activeEventId]||[]).find(i=>i.id===id);
-      if(item?.category==='便當'){
-        const qtyNotice=getBentoQuantityNotice(1,S.cart[k].price||item.price);
-        if(qtyNotice && !(await showOverageNotice([qtyNotice]))) return;
-      }
+      const totalNotice=getStoreTotalNotice(item,S.cart[k].price||item.price);
+      if(totalNotice && !(await showOverageNotice([totalNotice]))) return;
     }
     S.cart[k].qty=Math.max(0,newQty);
     if(!S.cart[k].qty) delete S.cart[k];
@@ -1261,13 +1255,7 @@ async function confirmSpec(){
     document.getElementById('comboOverlay').style.display='flex';
     return;
   }
-  const overage=getSubsidyOverage(item,finalPrice);
-  const notices=[];
-  if(overage) notices.push(overage);
-  if(item.category==='便當'){
-    const qtyNotice=getBentoQuantityNotice(S.specQty,finalPrice*S.specQty);
-    if(qtyNotice) notices.push(qtyNotice);
-  }
+  const notices=[getStoreTotalNotice(item,finalPrice*S.specQty)].filter(Boolean);
   if(notices.length && !(await showOverageNotice(notices))) return;
   const key=item.id+'__'+specsStr+'__'+Date.now();
   S.cart[key]={itemId:item.id,name:item.name,emoji:item.emoji,qty:S.specQty,price:finalPrice,specsStr,note:S.specNote};
@@ -2280,12 +2268,33 @@ function copyKitchen(){
 function exportCSV(){
   const ords=S.orders[S.adminEid]||[];
   const ev=S.events.find(e=>e.id===S.adminEid);
-  const rows=[['場次','承辦','時間','班級','姓名','品項','規格','數量','單價','小計','備註']];
+  const menuItems=S.items[S.adminEid]||[];
+  const itemMap=Object.fromEntries(menuItems.map(item=>[item.id,item]));
+  const rows=[['場次','承辦','時間','姓名','店家','品項','規格','數量','單價','小計','備註']];
+  const summary={};
+  let totalQty=0,totalAmount=0;
   ords.forEach(o=>(o.order_items||[]).forEach((oi,i)=>{
+    const source=itemMap[oi.item_id]||{};
+    const restaurant=source.restaurant||ev?.store_name||'未設定店家';
+    const category=source.category||'其他';
+    const qty=Number(oi.quantity)||0;
+    const unitPrice=Number(oi.unit_price)||0;
+    const subtotal=qty*unitPrice;
     rows.push([i===0?ev?.title||'':'',i===0?ev?.organizer||'':'',i===0?fmtTime(o.created_at):'',
-      i===0?o.class_name:'',i===0?o.user_name:'',
-      oi.item_emoji+oi.item_name,oi.specs_str||'',oi.quantity,oi.unit_price,oi.quantity*oi.unit_price,i===0?o.note||'':'']);
+      i===0?o.user_name:'',restaurant,oi.item_emoji+oi.item_name,oi.specs_str||'',qty,unitPrice,subtotal,i===0?o.note||'':'']);
+    const key=[restaurant,category,oi.item_name,oi.specs_str||'',unitPrice].join('__');
+    if(!summary[key]) summary[key]={restaurant,category,name:oi.item_name,specs:oi.specs_str||'',qty:0,unitPrice,subtotal:0};
+    summary[key].qty+=qty;
+    summary[key].subtotal+=subtotal;
+    totalQty+=qty;
+    totalAmount+=subtotal;
   }));
+  rows.push([],['餐點彙整']);
+  rows.push(['店家','分類','餐點','規格','總份數','單價','金額小計']);
+  Object.values(summary)
+    .sort((a,b)=>a.restaurant.localeCompare(b.restaurant,'zh-TW')||a.category.localeCompare(b.category,'zh-TW')||a.name.localeCompare(b.name,'zh-TW'))
+    .forEach(x=>rows.push([x.restaurant,x.category,x.name,x.specs,x.qty,x.unitPrice,x.subtotal]));
+  rows.push([],['彙整總計','','','',totalQty,'',totalAmount]);
   dlCSV(rows,`點餐紀錄_${ev?.title||''}`);
 }
 function dlCSV(rows,name){
