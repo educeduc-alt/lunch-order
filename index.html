@@ -433,7 +433,7 @@ let S = {
   orders:{},        // { menuId: [orders] }
   activeEventId:null,
   pendingItems:[],   // 本次 AI 解析暫存，尚未儲存
-  loadedHistoryKey:null, // 目前已點選載入的歷史菜單膠囊
+  loadedHistoryKeys:[], // 本場次已新增的歷史菜單（防止重複載入）
   menuSearchQ:'',    // 菜單搜尋關鍵字
   collapsedCats:{},   // 收縮的分類 {cat: true/false}
   myLastOrderId:null, // 最後送出的訂單 id（用於取消/修改）
@@ -540,7 +540,7 @@ function goTab(t){
   if(t==='menu'&&!S.adminEid&&S.events.length) S.adminEid=S.events[0].id;
   S.tab=t; S.delId=null;
   if(t==='admin'&&!S.adminEid&&S.events.length) S.adminEid=S.events[0].id;
-  if(t==='admin'){S.pendingItems=[];S.loadedHistoryKey=null;}
+  if(t==='admin'){S.pendingItems=[];S.loadedHistoryKeys=[];}
   ['home','menu','admin'].forEach(x=>{
     const el=document.getElementById('tab-'+x);
     if(el) el.className='tab-btn'+(x===t?(t==='admin'?' on-admin':' on'):'');
@@ -1492,7 +1492,7 @@ function renderAdmin(){
     <!-- 場次切換 -->
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:13px;align-items:center">
       ${S.events.map(e=>`<button class="btn ${S.adminEid===e.id?'btn-or':'btn-out'}" style="padding:8px 16px;font-size:.85rem"
-        onclick="S.adminEid='${e.id}';S.loadedHistoryKey=null;render()">${esc(e.title)}</button>`).join('')}
+        onclick="S.adminEid='${e.id}';S.loadedHistoryKeys=[];render()">${esc(e.title)}</button>`).join('')}
     </div>`;
 
   if(!ev){ html+='<div class="empty"><span class="ei">📭</span><p>請先建立場次</p></div>'; return html; }
@@ -1554,7 +1554,7 @@ function renderMenuTab(){
       +'<span style="background:var(--inl);color:var(--in);border-radius:20px;padding:5px 13px;font-size:.82rem;font-weight:700;flex-shrink:0">👤 '+esc(org)+'</span>'
       // 該承辦人的場次
       +evs.map(e=>'<button class="btn '+(S.adminEid===e.id?'btn-or':'btn-out')+'" style="padding:7px 14px;font-size:.82rem" '
-        +'onclick="S.adminEid=\''+e.id+'\';S.pendingItems=[];S.loadedHistoryKey=null;render()">'+esc(e.title)+'</button>').join('')
+        +'onclick="S.adminEid=\''+e.id+'\';S.pendingItems=[];S.loadedHistoryKeys=[];render()">'+esc(e.title)+'</button>').join('')
       +'</div>';
   });
   html+='<button class="btn btn-out btn-sm" onclick="createNewEvent()">＋ 新增場次</button>';
@@ -1735,7 +1735,11 @@ function showMenuCache(){
   function renderHistoryChoices(){
     inner.querySelector('#cacheList').innerHTML=cached.map((entry,index)=>{
       const isDrink=entry.type==='飲料';
-      return '<button data-cache-idx="'+index+'" style="text-align:left;padding:8px 13px;border:1.5px solid '+(isDrink?'#a5b4fc':'#fdba74')+';border-radius:999px;background:'+(isDrink?'#eef2ff':'#fff7ed')+';color:'+(isDrink?'#3730a3':'#9a3412')+';cursor:pointer;font-family:inherit;max-width:100%">'
+      const active=(S.loadedHistoryKeys||[]).includes(entry.key);
+      const border=active?(isDrink?'#4f46e5':'#f97316'):(isDrink?'#a5b4fc':'#fdba74');
+      const background=active?(isDrink?'#4f46e5':'#f97316'):(isDrink?'#eef2ff':'#fff7ed');
+      const color=active?'#fff':(isDrink?'#3730a3':'#9a3412');
+      return '<button data-cache-idx="'+index+'" aria-pressed="'+active+'" style="text-align:left;padding:8px 13px;border:1.5px solid '+border+';border-radius:999px;background:'+background+';color:'+color+';box-shadow:'+(active?'0 3px 10px rgba(15,23,42,.2)':'none')+';cursor:pointer;font-family:inherit;max-width:100%">'
         +'<div style="font-weight:800;font-size:.78rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(isDrink?'🧋':'🍱')+' '+esc(entry.store||'未知店家')+' · '+entry.type+'</div>'
         +'<div style="font-size:.65rem;opacity:.72;margin-top:1px">'+(entry.items||[]).length+' 個品項'+(entry.savedAt&&entry.savedAt!=='內建菜單'?' · '+esc(entry.savedAt):'')+(entry.savedAt==='內建菜單'?' · 內建':'')+'</div>'
         +'</button>';
@@ -1755,12 +1759,7 @@ function showMenuCache(){
 function loadCachedMenu(idx){
   const entry=(window._historyCacheEntries||[])[idx];
   if(!entry) return;
-  // 載入到 pendingItems，讓管理員確認後儲存
-  const eid=S.adminEid;
-  S.pendingItems=entry.items.map((it,i)=>({...it,id:'cache-'+Date.now()+'-'+i,menu_id:eid,ai_parsed:false}));
-  S.loadedHistoryKey=entry.key;
-  if(window._cacheOverlay){ window._cacheOverlay.remove(); window._cacheOverlay=null; }
-  render();
+  requestHistoryAddition(entry,true);
 }
 
 function pickOrganizer(btn, name){
@@ -1790,7 +1789,7 @@ async function toggleClose(eid){
   ev.is_closed=next; toast(next?'場次已關閉':'場次已開放',next?'warn':'ok'); render();
 }
 async function deleteEvent(eid){
-  if(DEMO){S.events=S.events.filter(e=>e.id!==eid);delete S.items[eid];delete S.orders[eid];S.adminEid=S.events[0]?.id||null;S.pendingItems=[];toast('已刪除','ok');render();return;}
+  if(DEMO){S.events=S.events.filter(e=>e.id!==eid);delete S.items[eid];delete S.orders[eid];S.adminEid=S.events[0]?.id||null;S.pendingItems=[];S.loadedHistoryKeys=[];toast('已刪除','ok');render();return;}
   try{
     // 抓所有訂單 ID
     const {data:ords}=await sb.from('orders').select('id').eq('menu_id',eid);
@@ -1809,6 +1808,7 @@ async function deleteEvent(eid){
   S.events=S.events.filter(e=>e.id!==eid);
   delete S.items[eid]; delete S.orders[eid];
   S.pendingItems=[];
+  S.loadedHistoryKeys=[];
   S.adminEid=S.events[0]?.id||null;
   toast('場次已刪除','ok'); render();
 }
@@ -1816,6 +1816,7 @@ async function deleteEvent(eid){
 // 清除本次解析資料（不刪資料庫，只清暫存）
 function clearPending(){
   S.pendingItems=[];
+  S.loadedHistoryKeys=[];
   toast('已清除解析資料','ok');
   render();
 }
@@ -1826,7 +1827,7 @@ async function delOrder(id,eid){
 }
 async function clearItems(){
   const eid=S.adminEid; if(!eid) return;
-  if(DEMO){S.items[eid]=[];toast('已清空','ok');render();return;}
+  if(DEMO){S.items[eid]=[];S.loadedHistoryKeys=[];toast('已清空','ok');render();return;}
   // 先保存目前的 store_name 和 organizer
   const evNow=S.events.find(e=>e.id===eid);
   const savedStore=document.getElementById('evStore')?.value||evNow?.store_name||'';
@@ -1845,7 +1846,7 @@ async function clearItems(){
   // 再刪 menu_items
   const{error}=await sb.from('menu_items').delete().eq('menu_id',eid);
   if(error){toast('清空失敗','err');return;}
-  S.items[eid]=[];S.pendingItems=[];
+  S.items[eid]=[];S.pendingItems=[];S.loadedHistoryKeys=[];
   // 還原 store_name 和 organizer
   if(evNow){ evNow.store_name=savedStore; evNow.organizer=savedOrg; }
   toast('已清空此場次所有品項','ok');
@@ -1890,7 +1891,7 @@ function renderStoreCapsules(currentStore){
     }
     function makeHistoryBtn(entry,index){
       const isDrink=entry.type==='飲料';
-      const active=S.loadedHistoryKey===entry.key;
+      const active=(S.loadedHistoryKeys||[]).includes(entry.key);
       const border=active?(isDrink?'#4f46e5':'#f97316'):(isDrink?'#a5b4fc':'#fdba74');
       const background=active?(isDrink?'#4f46e5':'#f97316'):(isDrink?'#eef2ff':'#fff7ed');
       const color=active?'#fff':(isDrink?'#3730a3':'#9a3412');
@@ -1930,11 +1931,50 @@ function loadHistoryCapsule(index){
     .filter(entry=>entry.store&&entry.store!=='未知店家');
   const entry=entries[index];
   if(!entry){toast('找不到這筆歷史菜單','warn');return;}
+  requestHistoryAddition(entry,false);
+}
+
+function showHistoryMessage(entry,alreadyAdded=false){
+  return new Promise(resolve=>{
+    const box=document.createElement('div');
+    box.className='modal-bg';
+    box.style.zIndex='340';
+    const isDrink=entry.type==='飲料';
+    box.innerHTML=`<div class="modal-box" style="max-width:360px">
+      <div style="font-size:2rem;margin-bottom:7px">${isDrink?'🧋':'🍱'}</div>
+      <div class="modal-title">${alreadyAdded?'此菜單已新增':'確認新增歷史菜單？'}</div>
+      <p class="modal-sub" style="line-height:1.7">「${esc(entry.store||'未知店家')}」${esc(entry.type)}菜單，共 ${(entry.items||[]).length} 個品項${alreadyAdded?'<br>為避免重複，本次不會再新增。':''}</p>
+      ${alreadyAdded
+        ?'<button class="btn btn-or btn-full" data-history-ok>知道了</button>'
+        :'<button class="btn btn-or btn-full" data-history-add>確認新增</button><button class="btn btn-out btn-full" style="margin-top:7px" data-history-cancel>取消</button>'}
+    </div>`;
+    document.body.appendChild(box);
+    const finish=value=>{box.remove();resolve(value);};
+    box.querySelector('[data-history-ok]')?.addEventListener('click',()=>finish(false));
+    box.querySelector('[data-history-add]')?.addEventListener('click',()=>finish(true));
+    box.querySelector('[data-history-cancel]')?.addEventListener('click',()=>finish(false));
+    box.addEventListener('click',e=>{if(e.target===box)finish(false);});
+  });
+}
+
+async function requestHistoryAddition(entry,closeCache){
+  if((S.loadedHistoryKeys||[]).includes(entry.key)){
+    await showHistoryMessage(entry,true);
+    return;
+  }
+  S.loadedHistoryKeys=[...(S.loadedHistoryKeys||[]),entry.key];
+  render(); // 先反色，再顯示確認視窗
+  const confirmed=await showHistoryMessage(entry,false);
+  if(!confirmed){
+    S.loadedHistoryKeys=(S.loadedHistoryKeys||[]).filter(key=>key!==entry.key);
+    render();
+    return;
+  }
   const ev=S.events.find(e=>e.id===S.adminEid);
   if(ev) ev.store_name=entry.store||'';
-  const loaded=entry.items.map((it,i)=>({...it,id:'cache-'+Date.now()+'-'+i,menu_id:S.adminEid,ai_parsed:false}));
+  const loaded=(entry.items||[]).map((it,i)=>({...it,id:'cache-'+Date.now()+'-'+i,menu_id:S.adminEid,ai_parsed:false}));
   S.pendingItems=[...S.pendingItems,...loaded];
-  S.loadedHistoryKey=entry.key;
+  if(closeCache&&window._cacheOverlay){window._cacheOverlay.remove();window._cacheOverlay=null;}
   render();
 }
 
