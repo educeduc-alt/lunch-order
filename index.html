@@ -598,6 +598,14 @@ function isEventClosed(ev){
 function fmtDeadline(ev){
   return{text:'開放中',cls:'badge-open'};
 }
+function fmtEventDate(dateStr){
+  if(!dateStr) return '';
+  const [y,m,d]=String(dateStr).split('-').map(Number);
+  if(!y||!m||!d) return String(dateStr);
+  const week=['日','一','二','三','四','五','六'];
+  const weekday=week[new Date(Date.UTC(y,m-1,d)).getUTCDay()];
+  return `${y}/${String(m).padStart(2,'0')}/${String(d).padStart(2,'0')}（${weekday}）`;
+}
 function renderHome(){
   let html=`<div class="page-title">點餐場次</div>
     <div class="page-sub">選擇您要參加的場次，即可開始點餐</div>
@@ -616,6 +624,7 @@ function renderHome(){
       <div class="ec-top">
         <div class="ec-left">
           <div class="ec-badges"></div>
+          ${ev.date?`<div style="font-size:.72rem;font-weight:800;color:var(--or);margin-bottom:4px">📅 ${esc(fmtEventDate(ev.date))}</div>`:''}
           <div class="ec-title">${esc(ev.title)}</div>
           ${ev.organizer?`<div class="ec-organizer">👤 負責老師：${esc(ev.organizer)}</div>`:''}
         </div>
@@ -646,6 +655,7 @@ function renderOrderPage(){
     <div class="order-page-header">
       <button class="back-btn" onclick="S.activeEventId=null;S.cart={};render()">← 返回場次</button>
       <div class="event-info-banner">
+        ${ev.date?`<span style="display:block;font-size:.7rem;font-weight:800;color:var(--or);margin-bottom:2px">📅 ${esc(fmtEventDate(ev.date))}</span>`:''}
         <strong>${esc(ev.title)}</strong>
         ${ev.organizer?`負責老師：${esc(ev.organizer)}　`:''}${ev.store_name?`店家：${esc(ev.store_name)}`:''}
       </div>
@@ -1619,6 +1629,10 @@ function renderEventMgmt(ev){
   </div><div class="panel-body">
 
     <!-- 場次基本資訊 -->
+    <div style="margin-bottom:10px">
+      <span class="mg-lbl">場次日期</span>
+      <input class="mg-inp" type="date" id="evDate" value="${esc(ev.date||'')}" style="max-width:220px" oninput="const _e=S.events.find(x=>x.id===S.adminEid);if(_e)_e.date=this.value">
+    </div>
     <div class="ev-mgmt-grid" style="margin-bottom:10px">
       <div><span class="mg-lbl">場次標題</span><input class="mg-inp" id="evTitle" value="${esc(ev.title||'')}" oninput="const _e=S.events.find(x=>x.id===S.adminEid);if(_e)_e.title=this.value"></div>
       <div><span class="mg-lbl">店家名稱</span>
@@ -2089,18 +2103,20 @@ async function saveAll(){
   if(DEMO){toast('示範模式：變更不會寫入','warn');return;}
 
   // 儲存場次基本資訊
+  const date=document.getElementById('evDate')?.value||'';
   const title=document.getElementById('evTitle')?.value.trim();
   const activity_note=document.getElementById('evActivityNote')?.value.trim()||'';
   const store_name=document.getElementById('evStore')?.value.trim()||'';
   const orgInput=document.getElementById('evOrganizer')?.value.trim()||'';
   const evNow=S.events.find(e=>e.id===eid);
   const organizer=orgInput||evNow?.organizer||'';
+  if(!date){toast('請選擇場次日期','err');return;}
   if(!title){toast('請填場次標題','err');return;}
 
-  const{error:e1}=await sb.from('menus').update({title,activity_note,organizer,store_name}).eq('id',eid);
+  const{error:e1}=await sb.from('menus').update({date,title,activity_note,organizer,store_name}).eq('id',eid);
   if(e1){toast('儲存失敗：'+e1.message,'err');return;}
   const ev=S.events.find(e=>e.id===eid);
-  if(evNow) Object.assign(evNow,{title,activity_note,organizer,store_name});
+  if(evNow) Object.assign(evNow,{date,title,activity_note,organizer,store_name});
 
   // 把 pendingItems 讀取欄位後 append 到資料庫（不刪除既有品項）
   const existingCount=(S.items[eid]||[]).length;
