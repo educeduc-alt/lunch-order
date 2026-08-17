@@ -444,6 +444,9 @@ let S = {
   activeEventId:null,
   pendingItems:[],   // 本次 AI 解析暫存，尚未儲存
   loadedHistoryKeys:[], // 本場次已新增的歷史菜單（防止重複載入）
+  parseStatus:'idle', // idle | ready | parsing | complete | failed
+  parseRunId:null,
+  parseComparison:null,
   menuSearchQ:'',    // 菜單搜尋關鍵字
   collapsedCats:{},   // 收縮的分類 {cat: true/false}
   myLastOrderId:null, // 最後送出的訂單 id（用於取消/修改）
@@ -550,7 +553,7 @@ function goTab(t){
   if(t==='menu'&&!S.adminEid&&S.events.length) S.adminEid=S.events[0].id;
   S.tab=t; S.delId=null;
   if(t==='admin'&&!S.adminEid&&S.events.length) S.adminEid=S.events[0].id;
-  if(t==='admin'){S.pendingItems=[];S.loadedHistoryKeys=[];}
+  if(t==='admin'){S.pendingItems=[];S.loadedHistoryKeys=[];S.parseStatus='idle';S.parseComparison=null;}
   ['home','menu','admin'].forEach(x=>{
     const el=document.getElementById('tab-'+x);
     if(el) el.className='tab-btn'+(x===t?(t==='admin'?' on-admin':' on'):'');
@@ -1612,7 +1615,7 @@ function renderMenuTab(){
       +'<span style="background:var(--inl);color:var(--in);border-radius:20px;padding:5px 13px;font-size:.82rem;font-weight:700;flex-shrink:0">👤 '+esc(org)+'</span>'
       // 該承辦人的場次
       +evs.map(e=>'<button class="btn '+(S.adminEid===e.id?'btn-or':'btn-out')+'" style="padding:7px 14px;font-size:.82rem" '
-        +'onclick="S.adminEid=\''+e.id+'\';S.pendingItems=[];S.loadedHistoryKeys=[];render()">'+esc(e.title)+'</button>').join('')
+        +'onclick="S.adminEid=\''+e.id+'\';S.pendingItems=[];S.loadedHistoryKeys=[];S.parseStatus=\'idle\';S.parseComparison=null;window._pendingMainFile=null;window._pendingDrinkFile=null;render()">'+esc(e.title)+'</button>').join('')
       +'</div>';
   });
   html+='<button class="btn btn-out btn-sm" onclick="createNewEvent()">＋ 新增場次</button>';
@@ -1626,6 +1629,21 @@ function renderMenuTab(){
   html+=renderEventMgmt(ev);
 
   return html;
+}
+
+function renderParseCheckStatus(){
+  const state=S.parseStatus||'idle';
+  if(state==='idle') return '';
+  const cfg={
+    ready:{bg:'var(--aml)',color:'#92400e',text:'⏳ 已選擇菜單，尚未執行一鍵解析'},
+    parsing:{bg:'var(--inl)',color:'var(--in)',text:'🤖 一鍵解析進行中，請勿儲存'},
+    complete:{bg:'var(--grl)',color:'var(--gr)',text:'✅ 已完成一鍵解析，並與歷史菜單比對'},
+    failed:{bg:'var(--rdl)',color:'var(--rd)',text:'❌ 解析未完成，請重新執行一鍵解析'}
+  }[state];
+  if(!cfg) return '';
+  const changes=(S.parseComparison||[]).reduce((sum,g)=>sum+g.added.length+g.removed.length+g.changed.length,0);
+  const extra=state==='complete'?`；共發現 ${changes} 項差異`:'';
+  return `<div style="background:${cfg.bg};color:${cfg.color};border-radius:var(--rsm);padding:8px 11px;margin:8px 0 10px;font-size:.74rem;font-weight:700">${cfg.text}${extra}</div>`;
 }
 
 function renderEventMgmt(ev){
@@ -1697,6 +1715,7 @@ function renderEventMgmt(ev){
       <button class="btn btn-or" onclick="saveAll()">💾 儲存</button>
       <button class="btn btn-rd btn-sm" onclick="if(confirm('確定刪除整個場次？所有訂單和品項也會一併刪除。'))deleteEvent('${ev.id}')">🗑️ 刪除場次</button>
     </div>
+    <div id="parseCheckStatus">${renderParseCheckStatus()}</div>
 
     <!-- 品項列表 -->
     <!-- 已儲存品項摘要 -->
@@ -1757,7 +1776,7 @@ async function createNewEvent(){
   const{data,error}=await sb.from('menus').insert({title:'新場次',activity_note:'',deadline:'11:30',organizer:'',store_name:'',date:new Date(Date.now()+8*60*60*1000).toISOString().slice(0,10)}).select().single();
   if(error){toast('建立失敗','err');return;}
   S.events.push(data); S.items[data.id]=[]; S.orders[data.id]=[];
-  S.adminEid=data.id; render(); toast('場次已建立','ok');
+  S.adminEid=data.id;S.pendingItems=[];S.loadedHistoryKeys=[];S.parseStatus='idle';S.parseComparison=null;render();toast('場次已建立','ok');
 }
 function splitHistoryEntries(entries){
   const result=[];
@@ -1852,7 +1871,7 @@ async function toggleClose(eid){
   ev.is_closed=next; toast(next?'場次已關閉':'場次已開放',next?'warn':'ok'); render();
 }
 async function deleteEvent(eid){
-  if(DEMO){S.events=S.events.filter(e=>e.id!==eid);delete S.items[eid];delete S.orders[eid];S.adminEid=S.events[0]?.id||null;S.pendingItems=[];S.loadedHistoryKeys=[];toast('已刪除','ok');render();return;}
+  if(DEMO){S.events=S.events.filter(e=>e.id!==eid);delete S.items[eid];delete S.orders[eid];S.adminEid=S.events[0]?.id||null;S.pendingItems=[];S.loadedHistoryKeys=[];S.parseStatus='idle';S.parseComparison=null;toast('已刪除','ok');render();return;}
   try{
     // 抓所有訂單 ID
     const {data:ords}=await sb.from('orders').select('id').eq('menu_id',eid);
@@ -1872,6 +1891,8 @@ async function deleteEvent(eid){
   delete S.items[eid]; delete S.orders[eid];
   S.pendingItems=[];
   S.loadedHistoryKeys=[];
+  S.parseStatus='idle';
+  S.parseComparison=null;
   S.adminEid=S.events[0]?.id||null;
   toast('場次已刪除','ok'); render();
 }
@@ -1880,6 +1901,8 @@ async function deleteEvent(eid){
 function clearPending(){
   S.pendingItems=[];
   S.loadedHistoryKeys=[];
+  S.parseStatus=(window._pendingMainFile||window._pendingDrinkFile)?'ready':'idle';
+  S.parseComparison=null;
   toast('已清除解析資料','ok');
   render();
 }
@@ -1890,7 +1913,7 @@ async function delOrder(id,eid){
 }
 async function clearItems(){
   const eid=S.adminEid; if(!eid) return;
-  if(DEMO){S.items[eid]=[];S.loadedHistoryKeys=[];toast('已清空','ok');render();return;}
+  if(DEMO){S.items[eid]=[];S.loadedHistoryKeys=[];S.parseStatus='idle';S.parseComparison=null;toast('已清空','ok');render();return;}
   // 先保存目前的 store_name 和 organizer
   const evNow=S.events.find(e=>e.id===eid);
   const savedStore=document.getElementById('evStore')?.value||evNow?.store_name||'';
@@ -1909,7 +1932,7 @@ async function clearItems(){
   // 再刪 menu_items
   const{error}=await sb.from('menu_items').delete().eq('menu_id',eid);
   if(error){toast('清空失敗','err');return;}
-  S.items[eid]=[];S.pendingItems=[];S.loadedHistoryKeys=[];
+  S.items[eid]=[];S.pendingItems=[];S.loadedHistoryKeys=[];S.parseStatus='idle';S.parseComparison=null;
   // 還原 store_name 和 organizer
   if(evNow){ evNow.store_name=savedStore; evNow.organizer=savedOrg; }
   toast('已清空此場次所有品項','ok');
@@ -2110,6 +2133,20 @@ async function saveMenu(){
 async function saveAll(){
   const eid=S.adminEid; if(!eid){toast('請先選擇場次','err');return;}
   if(DEMO){toast('示範模式：變更不會寫入','warn');return;}
+  const hasSelectedFiles=!!window._pendingMainFile||!!window._pendingDrinkFile;
+  if(S.parseStatus==='parsing'){toast('一鍵解析仍在進行中，完成後才能儲存','warn');return;}
+  if(hasSelectedFiles&&S.parseStatus!=='complete'){
+    toast(S.parseStatus==='failed'?'一鍵解析未完成，請重新解析':'已選擇菜單，請先按「一鍵解析」','warn');
+    return;
+  }
+  if(S.parseStatus==='complete'){
+    // 儲存前再依目前畫面中的解析結果重算，避免使用已過期的比對摘要。
+    S.parseComparison=compareParsedWithHistory(S.parseRunId);
+    const counts=(S.parseComparison||[]).reduce((sum,g)=>({added:sum.added+g.added.length,removed:sum.removed+g.removed.length,changed:sum.changed+g.changed.length}),{added:0,removed:0,changed:0});
+    if(!confirm(`已確認完成一鍵解析與歷史比對。\n新增 ${counts.added} 項、歷史未出現 ${counts.removed} 項、價格或規格變更 ${counts.changed} 項。\n\n確定儲存本次解析結果？`)) return;
+  }else if(S.pendingItems.length){
+    if(!confirm('本次品項來自歷史菜單或手動新增，尚未執行一鍵解析。\n確定仍要儲存？')) return;
+  }
 
   // 儲存場次基本資訊
   const date=document.getElementById('evDate')?.value||'';
@@ -2180,6 +2217,11 @@ async function saveAll(){
       });
       localStorage.setItem('menuCache',JSON.stringify(cached.slice(0,20)));
     }catch(e){}
+    S.parseStatus='idle';
+    S.parseComparison=null;
+    S.parseRunId=null;
+    window._pendingMainFile=null;
+    window._pendingDrinkFile=null;
     toast('✅ 已儲存！場次共 '+total+' 個品項','ok');
   } else {
     toast('✅ 場次資訊已儲存','ok');
@@ -2205,6 +2247,16 @@ function previewFile(e, uploadType){
   if(icon) icon.textContent=file.type==='application/pdf'||file.name.endsWith('.pdf')?'📄':'🖼️';
   if(uploadType==='drink') window._pendingDrinkFile=file;
   else window._pendingMainFile=file;
+  S.parseStatus='ready';
+  S.parseComparison=null;
+  const old=S.pendingItems.filter(item=>!item._parseRunId);
+  if(old.length!==S.pendingItems.length){
+    S.pendingItems=old;
+    const list=document.getElementById('mgmtItems');
+    if(list) list.innerHTML='';
+  }
+  const check=document.getElementById('parseCheckStatus');
+  if(check) check.innerHTML=renderParseCheckStatus();
 }
 
 // 開始解析：用之前選好的檔案
@@ -2220,24 +2272,82 @@ function startParse(uploadType){
 
 // 一鍵解析：同時觸發主餐和飲料
 
-function showParseSuccess(count, cats){
+function normalizeCompareText(value){
+  return String(value||'').trim().toLowerCase().replace(/[\s　\-＿_·・()（）]/g,'');
+}
+function menuItemFingerprint(item){
+  const specs=(item.specs||[]).map(s=>({cat:s.cat||'',opts:[...(s.opts||[])].map(String).sort()}));
+  return JSON.stringify({price:Number(item.price)||0,specs});
+}
+function compareParsedWithHistory(runId){
+  const parsed=(S.pendingItems||[]).filter(item=>item._parseRunId===runId);
+  const ev=S.events.find(e=>e.id===S.adminEid);
+  const fallbackStore=(document.getElementById('evStore')?.value||ev?.store_name||'').trim();
+  let history=[];
+  try{history=splitHistoryEntries(JSON.parse(localStorage.getItem('menuCache')||'[]'));}catch(e){}
+  const groups={};
+  parsed.forEach(item=>{
+    const type=item.category==='飲料'||item._uploadType==='drink'?'飲料':'便當';
+    const store=(item.restaurant&&item.restaurant!=='本日菜單'?item.restaurant:fallbackStore)||'未辨識店家';
+    const key=normalizeCompareText(store)+'__'+type;
+    if(!groups[key]) groups[key]={store,type,items:[]};
+    groups[key].items.push(item);
+  });
+  return Object.values(groups).map(group=>{
+    const old=history.find(entry=>entry.type===group.type&&normalizeCompareText(entry.store)===normalizeCompareText(group.store));
+    const oldMap=new Map((old?.items||[]).map(item=>[normalizeCompareText(item.name),item]));
+    const newMap=new Map(group.items.map(item=>[normalizeCompareText(item.name),item]));
+    const added=group.items.filter(item=>!oldMap.has(normalizeCompareText(item.name))).map(item=>item.name);
+    const removed=(old?.items||[]).filter(item=>!newMap.has(normalizeCompareText(item.name))).map(item=>item.name);
+    const changed=group.items.filter(item=>{
+      const previous=oldMap.get(normalizeCompareText(item.name));
+      return previous&&menuItemFingerprint(previous)!==menuItemFingerprint(item);
+    }).map(item=>item.name);
+    return {store:group.store,type:group.type,hasHistory:!!old,added,removed,changed,currentCount:group.items.length,historyCount:(old?.items||[]).length};
+  });
+}
+
+function showParseComparison(groups){
   const box=document.createElement('div');
   box.className='modal-bg';
-  box.innerHTML=`<div class="modal-box" style="text-align:center">
-    <div style="font-size:2.5rem;margin-bottom:10px">✅</div>
-    <div class="modal-title">解析完成！</div>
-    <p class="modal-sub">共解析 <strong>${count}</strong> 個品項</p>
-    <p style="font-size:.78rem;color:var(--sll);margin-bottom:18px">${esc(cats)}</p>
-    <button class="btn btn-or btn-full" onclick="this.closest('.modal-bg').remove()">確認</button>
-    <button class="btn btn-out btn-full" style="margin-top:7px" onclick="this.closest('.modal-bg').remove();saveAll()">確認並立即儲存 💾</button>
+  box.style.zIndex='520';
+  const body=(groups||[]).map(group=>{
+    const icon=group.type==='飲料'?'🧋':'🍱';
+    let rows='';
+    if(!group.hasHistory){
+      rows=`<div style="color:var(--in);font-size:.74rem">首次解析，找不到同店家的${group.type}歷史菜單；本次共 ${group.currentCount} 項。</div>`;
+    }else if(!group.added.length&&!group.removed.length&&!group.changed.length){
+      rows='<div style="color:var(--gr);font-size:.74rem;font-weight:700">✓ 與歷史菜單相同，沒有增刪或價格規格變更</div>';
+    }else{
+      if(group.added.length) rows+=`<div style="color:var(--gr);font-size:.74rem;margin-bottom:5px"><strong>新增 ${group.added.length} 項：</strong>${esc(group.added.join('、'))}</div>`;
+      if(group.removed.length) rows+=`<div style="color:var(--rd);font-size:.74rem;margin-bottom:5px"><strong>歷史中有、本次未出現 ${group.removed.length} 項：</strong>${esc(group.removed.join('、'))}</div>`;
+      if(group.changed.length) rows+=`<div style="color:var(--am);font-size:.74rem"><strong>價格或規格可能變更 ${group.changed.length} 項：</strong>${esc(group.changed.join('、'))}</div>`;
+    }
+    return `<div style="border:1px solid var(--bo);border-radius:var(--rmd);padding:10px 12px;margin-bottom:8px;text-align:left"><div style="font-weight:800;font-size:.82rem;margin-bottom:7px">${icon} ${esc(group.store)} · ${group.type}</div>${rows}</div>`;
+  }).join('')||'<div style="font-size:.78rem;color:var(--sll)">本次沒有可供比對的解析品項。</div>';
+  box.innerHTML=`<div class="modal-box" style="max-width:480px;text-align:left;max-height:82vh;overflow-y:auto">
+    <div style="text-align:center;font-size:2rem;margin-bottom:6px">🔎</div>
+    <div class="modal-title" style="text-align:center">與歷史菜單比對完成</div>
+    <p class="modal-sub" style="text-align:center;line-height:1.6">便當與飲料分開比對品項名稱、價格及規格。</p>
+    ${body}
+    <button class="btn btn-or btn-full" id="comparisonClose">確認，返回檢查</button>
   </div>`;
   document.body.appendChild(box);
+  box.querySelector('#comparisonClose').onclick=()=>box.remove();
 }
 
 async function parseAll(){
   const hasMain=!!window._pendingMainFile;
   const hasDrink=!!window._pendingDrinkFile;
   if(!hasMain&&!hasDrink){toast('請先選擇至少一個菜單檔案','warn');return;}
+  const runId='parse-'+Date.now();
+  S.parseRunId=runId;
+  S.parseStatus='parsing';
+  S.parseComparison=null;
+  // 重新解析時移除上一輪 AI 暫存，保留手動新增與歷史菜單載入項目。
+  S.pendingItems=(S.pendingItems||[]).filter(item=>!item._parseRunId);
+  const check=document.getElementById('parseCheckStatus');
+  if(check) check.innerHTML=renderParseCheckStatus();
   const overlay=document.createElement('div');
   overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;display:flex;align-items:center;justify-content:center';
   overlay.innerHTML='<div style="background:#fff;border-radius:16px;padding:28px 32px;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.2)">'
@@ -2246,25 +2356,40 @@ async function parseAll(){
     +'<div style="font-size:.78rem;color:#94a3b8;margin-top:6px">請稍候，AI 正在分析菜單</div>'
     +'</div>';
   document.body.appendChild(overlay);
+  const results=[];
   try{
     if(hasMain){
       const msg=document.getElementById('parseOverlayMsg');
       if(msg) msg.textContent='🍱 解析主餐中…';
-      await startParse('main');
+      results.push(await startParse('main'));
     }
     if(hasDrink){
       const msg=document.getElementById('parseOverlayMsg');
       if(msg) msg.textContent='🧋 解析飲料中…';
-      await startParse('drink');
+      results.push(await startParse('drink'));
     }
+    const successful=results.every(result=>result&&result.success===true);
+    const parsedCount=(S.pendingItems||[]).filter(item=>item._parseRunId===runId).length;
+    if(successful&&parsedCount>0){
+      S.parseStatus='complete';
+      S.parseComparison=compareParsedWithHistory(runId);
+    }else{
+      S.parseStatus='failed';
+      S.parseComparison=null;
+    }
+  }catch(err){
+    console.error(err);
+    S.parseStatus='failed';
+    S.parseComparison=null;
+    toast('一鍵解析未完成，請重新解析','err');
   }finally{
     overlay.remove();
-    // 解析完直接 render 顯示品項，不跳視窗
     render();
     // 更新膠囊
     const capsDiv=document.getElementById('storeCapsules');
     if(capsDiv) capsDiv.innerHTML=renderStoreCapsules(document.getElementById('evStore')?.value||'');
     window._lastParseCats='';
+    if(S.parseStatus==='complete') showParseComparison(S.parseComparison);
   }
 }
 
@@ -2279,8 +2404,7 @@ async function handleImg(event, uploadType='main'){
   if(zone) zone.innerHTML=`<div class="scan-ldr"><div class="spin"></div>${isPdf?'PDF 轉換中…':'圖片載入中…'}</div>`;
   if(isPdf){
     // PDF 用 PDF.js 轉換第一頁為圖片
-    await aiParsePdf(file);
-    return;
+    return await aiParsePdf(file,uploadType);
   }
   const reader=new FileReader();
   reader.onload=e=>{
@@ -2300,9 +2424,9 @@ async function handleImg(event, uploadType='main'){
       }
     }catch(e){ console.warn('Storage upload skipped:', e.message); }
   }
-  await aiParse(file);
+  return await aiParse(file,uploadType);
 }
-async function aiParsePdf(file){
+async function aiParsePdf(file,uploadType='main'){
   const stId=(uploadType==='drink')?'aiStatusDrink':'aiStatusMain';
   const statusEl=document.getElementById(stId)||document.getElementById('aiStatus');
   if(statusEl) statusEl.innerHTML=`<div class="scan-ldr"><div class="spin"></div>PDF 解析中，請稍候…</div>`;
@@ -2329,12 +2453,12 @@ async function aiParsePdf(file){
       // 更新預覽
       const zone=(uploadType==='drink')?document.querySelector('#imgInpDrink')?.closest('.upload-zone'):document.querySelector('#imgInpMain')?.closest('.upload-zone');
       if(zone) zone.innerHTML=`<img src="data:image/jpeg;base64,${base64}" class="menu-preview-img"><div style="margin-top:6px;font-size:.72rem;color:var(--in)">點擊更換圖片/PDF</div><input type="file" id="imgInp" accept="image/*,application/pdf" style="display:none" onchange="handleImg(event)">`;
-      await aiParseBase64(base64,'image/jpeg');
+      return await aiParseBase64(base64,'image/jpeg',uploadType);
     } else {
       const base64=canvas.toDataURL('image/jpeg',0.72).split(',')[1];
       const zone=(uploadType==='drink')?document.querySelector('#imgInpDrink')?.closest('.upload-zone'):document.querySelector('#imgInpMain')?.closest('.upload-zone');
       if(zone) zone.innerHTML=`<img src="data:image/jpeg;base64,${base64}" class="menu-preview-img"><div style="margin-top:6px;font-size:.72rem;color:var(--in)">點擊更換圖片/PDF</div><input type="file" id="imgInp" accept="image/*,application/pdf" style="display:none" onchange="handleImg(event)">`;
-      await aiParseBase64(base64,'image/jpeg');
+      return await aiParseBase64(base64,'image/jpeg',uploadType);
     }
   }catch(err){
     console.error(err);
@@ -2342,16 +2466,17 @@ async function aiParsePdf(file){
   const statusEl=document.getElementById(stId)||document.getElementById('aiStatus');
     if(statusEl) statusEl.innerHTML=`<div style="font-size:.75rem;color:var(--rd);margin-top:7px">❌ PDF 解析失敗：${err.message}</div>`;
     toast('PDF 解析失敗，請改用圖片格式','err');
+    return {success:false,error:err.message};
   }
 }
 
-async function aiParse(file){
+async function aiParse(file,uploadType='main'){
   const base64=await toBase64(file);
-  await aiParseBase64(base64,'image/jpeg');
+  return await aiParseBase64(base64,'image/jpeg',uploadType);
 }
 
-async function aiParseBase64(base64,mime){
-  const statusEl=document.getElementById('aiStatus');
+async function aiParseBase64(base64,mime,uploadType='main'){
+  const statusEl=document.getElementById(uploadType==='drink'?'aiStatusDrink':'aiStatusMain')||document.getElementById('aiStatus');
   if(statusEl) statusEl.innerHTML=`<div class="scan-ldr"><div class="spin"></div>AI 正在解析菜單，請稍候…</div>`;
   try{
     const proxyUrl=window._geminiProxyUrl;
@@ -2395,7 +2520,7 @@ async function aiParseBase64(base64,mime){
     catch(e){ throw new Error('菜單解析失敗，品項可能過多，請嘗試分開上傳'); }
     if(!Array.isArray(parsed)||!parsed.length){
       if(statusEl) statusEl.innerHTML=`<div style="font-size:.75rem;color:var(--am);margin-top:7px">⚠️ AI 無法識別，請手動新增品項</div>`;
-      return;
+      return {success:false,empty:true};
     }
     const eid=S.adminEid;
     if(!S.items[eid]) S.items[eid]=[];
@@ -2412,7 +2537,9 @@ async function aiParseBase64(base64,mime){
         price:Number(it.price)||0,
         specs:Array.isArray(it.specs)?it.specs.filter(s=>s.cat&&Array.isArray(s.opts)&&s.opts.length):[],
         sort_order:S.items[eid].length+i,
-        ai_parsed:true
+        ai_parsed:true,
+        _parseRunId:S.parseRunId,
+        _uploadType:uploadType
       }));
     // 累加：把本次解析結果加入 pendingItems（支援主餐+飲料分開上傳）
     S.pendingItems=[...S.pendingItems, ...newItems];
@@ -2423,10 +2550,12 @@ async function aiParseBase64(base64,mime){
     if(statusEl) statusEl.innerHTML=`<div style="font-size:.75rem;color:var(--gr);margin-top:7px">✅ 解析完成 ${newItems.length} 個品項（${cats}），確認後按「💾 儲存」加入場次</div>`;
     render();
     window._lastParseCats=(window._lastParseCats?window._lastParseCats+'、':'')+cats;
+    return {success:true,count:newItems.length,items:newItems};
   }catch(err){
     console.error(err);
     if(statusEl) statusEl.innerHTML=`<div style="font-size:.75rem;color:var(--rd);margin-top:7px">❌ 解析失敗：${err.message}</div>`;
     toast('AI 解析失敗：'+err.message,'err');
+    return {success:false,error:err.message};
   }
 }
 function toBase64(file){
