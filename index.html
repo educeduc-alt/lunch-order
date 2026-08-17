@@ -1696,47 +1696,51 @@ async function createNewEvent(){
   S.events.push(data); S.items[data.id]=[]; S.orders[data.id]=[];
   S.adminEid=data.id; render(); toast('場次已建立','ok');
 }
+function splitHistoryEntries(entries){
+  const result=[];
+  (Array.isArray(entries)?entries:[]).forEach((entry,sourceIndex)=>{
+    const groups={便當:[],飲料:[]};
+    (Array.isArray(entry.items)?entry.items:[]).forEach(item=>{
+      const category=item.category||'';
+      // 舊版快取可能把同店便當、飲料存在同一筆；顯示前先依品項分類拆開。
+      const type=category==='飲料'||(!category&&entry.type==='飲料')?'飲料':'便當';
+      groups[type].push(item);
+    });
+    ['便當','飲料'].forEach(type=>{
+      if(!groups[type].length) return;
+      result.push({...entry,key:(entry.key||('history-'+sourceIndex))+'__'+type,type,items:groups[type],sourceIndex});
+    });
+  });
+  return result;
+}
+
 function showMenuCache(){
   const stored=JSON.parse(localStorage.getItem('menuCache')||'[]');
   // 合併預設菜單（不重複）
   const presetStores=PRESET_MENUS.map(p=>p.store);
   const extra=stored.filter(s=>!presetStores.includes(s.store));
-  const cached=[...PRESET_MENUS,...extra];
+  const cached=splitHistoryEntries([...PRESET_MENUS,...extra]);
   if(!cached.length){toast('尚無歷史菜單紀錄','warn');return;}
-  const stores=[...new Set(cached.map(c=>c.store||'未知店家'))];
   window._historyCacheEntries=cached;
-  window._historySelectedStore=stores[0];
   // 建立選單覆蓋層
   const overlay=document.createElement('div');
   overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:300;display:flex;align-items:center;justify-content:center;padding:16px';
   const inner=document.createElement('div');
   inner.style.cssText='background:#fff;border-radius:18px;padding:22px;max-width:430px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.2)';
   inner.innerHTML='<div style="font-family:Nunito,sans-serif;font-weight:800;font-size:1rem;margin-bottom:12px">📂 選擇歷史菜單</div>'
-    +'<div style="font-size:.7rem;font-weight:700;color:var(--sll);margin-bottom:6px">先選擇店家</div>'
-    +'<div id="cacheStoreCapsules" style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:13px"></div>'
-    +'<div id="cacheList" style="max-height:300px;overflow-y:auto"></div>'
+    +'<div style="font-size:.7rem;font-weight:700;color:var(--sll);margin-bottom:9px">便當與飲料已分開，請直接點選要載入的菜單</div>'
+    +'<div id="cacheList" style="max-height:300px;overflow-y:auto;display:flex;gap:8px;flex-wrap:wrap;align-content:flex-start"></div>'
     +'<button id="cacheCancelBtn" style="margin-top:12px;width:100%;padding:9px;border:1.5px solid #e2e8f0;border-radius:8px;background:#f8f7f4;cursor:pointer;font-family:inherit;font-weight:700">取消</button>';
   overlay.appendChild(inner);
   function renderHistoryChoices(){
-    const selected=window._historySelectedStore;
-    inner.querySelector('#cacheStoreCapsules').innerHTML=stores.map((store,i)=>
-      '<button type="button" data-store-idx="'+i+'" style="padding:7px 13px;border:1.5px solid '+(store===selected?'var(--or)':'var(--bo)')+';border-radius:999px;background:'+(store===selected?'var(--or)':'var(--bos)')+';color:'+(store===selected?'#fff':'var(--slm)')+';font-family:inherit;font-size:.76rem;font-weight:800;cursor:pointer;box-shadow:'+(store===selected?'0 3px 10px rgba(249,115,22,.25)':'none')+'">🏪 '+esc(store)+'</button>'
-    ).join('');
-    const entries=cached.map((entry,index)=>({entry,index})).filter(x=>(x.entry.store||'未知店家')===selected);
-    inner.querySelector('#cacheList').innerHTML=entries.map(({entry,index})=>{
+    inner.querySelector('#cacheList').innerHTML=cached.map((entry,index)=>{
       const isDrink=entry.type==='飲料';
-      return '<button data-cache-idx="'+index+'" style="text-align:left;padding:11px 13px;border:1.5px solid #e2e8f0;border-left:4px solid '+(isDrink?'#4f46e5':'#f97316')+';border-radius:10px;background:#fff;cursor:pointer;font-family:inherit;width:100%;margin-bottom:7px">'
-        +'<div style="font-weight:800;font-size:.86rem">'+(isDrink?'🧋 飲料菜單':'🍱 便當與點心')+'</div>'
-        +'<div style="font-size:.7rem;color:#64748b;margin-top:2px">'+(entry.items||[]).length+' 個品項'+(entry.savedAt&&entry.savedAt!=='內建菜單'?' · '+esc(entry.savedAt):'')+(entry.savedAt==='內建菜單'?' · 內建':'')+'</div>'
+      return '<button data-cache-idx="'+index+'" style="text-align:left;padding:8px 13px;border:1.5px solid '+(isDrink?'#a5b4fc':'#fdba74')+';border-radius:999px;background:'+(isDrink?'#eef2ff':'#fff7ed')+';color:'+(isDrink?'#3730a3':'#9a3412')+';cursor:pointer;font-family:inherit;max-width:100%">'
+        +'<div style="font-weight:800;font-size:.78rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(isDrink?'🧋':'🍱')+' '+esc(entry.store||'未知店家')+' · '+entry.type+'</div>'
+        +'<div style="font-size:.65rem;opacity:.72;margin-top:1px">'+(entry.items||[]).length+' 個品項'+(entry.savedAt&&entry.savedAt!=='內建菜單'?' · '+esc(entry.savedAt):'')+(entry.savedAt==='內建菜單'?' · 內建':'')+'</div>'
         +'</button>';
-    }).join('')||'<div style="text-align:center;padding:22px;color:var(--sll);font-size:.78rem">此店家沒有可載入的歷史菜單</div>';
+    }).join('');
   }
-  inner.querySelector('#cacheStoreCapsules').addEventListener('click',e=>{
-    const btn=e.target.closest('button[data-store-idx]');
-    if(!btn) return;
-    window._historySelectedStore=stores[Number(btn.dataset.storeIdx)];
-    renderHistoryChoices();
-  });
   inner.querySelector('#cacheList').addEventListener('click',e=>{
     const btn=e.target.closest('button[data-cache-idx]');
     if(btn){ loadCachedMenu(Number(btn.dataset.cacheIdx)); }
@@ -1876,39 +1880,35 @@ function renderStoreCapsules(currentStore){
     const pendingStores=(S.pendingItems||[]).map(it=>it.restaurant).filter(s=>s&&s!=='未知店家');
     const savedStores=((S.items||{})[S.adminEid]||[]).map(it=>it.restaurant).filter(s=>s&&s!=='未知店家');
     const parsedStores=[...new Set([...pendingStores,...savedStores])];
-    const cached=JSON.parse(localStorage.getItem('menuCache')||'[]');
-    const histStores=[...new Set(cached.map(c=>c.store).filter(s=>s&&s!=='未知店家'))];
-    const extraHist=histStores.filter(s=>!parsedStores.includes(s));
-    if(!parsedStores.length&&!extraHist.length) return '';
+    const historyEntries=splitHistoryEntries(JSON.parse(localStorage.getItem('menuCache')||'[]'))
+      .filter(entry=>entry.store&&entry.store!=='未知店家');
+    if(!parsedStores.length&&!historyEntries.length) return '';
 
-    function makeBtn(s, fromHist){
+    function makeBtn(s){
       const active=currentStore===s;
-      const btn=document.createElement('button');
-      btn.type='button';
-      // 顯示店家名稱，歷史的加上小圖示
-      btn.innerHTML=(fromHist?'📂 ':'')+esc(s);
-      btn.title=fromHist?'點擊載入「'+s+'」的歷史菜單':'點擊選擇此店家';
-      btn.onclick=()=>pickStore(s, fromHist);
-      btn.style.cssText='font-size:.72rem;padding:4px 12px;border:1.5px solid '+(active?'var(--or)':'var(--bo)')+';border-radius:20px;background:'+(active?'var(--or)':'var(--bos)')+';color:'+(active?'#fff':'var(--slm)')+';cursor:pointer;font-weight:600;margin:0;display:flex;align-items:center;gap:3px';
-      return btn.outerHTML;
+      return '<button type="button" data-store="'+esc(s)+'" onclick="pickStore(this.dataset.store)" title="點擊選擇此店家" style="font-size:.72rem;padding:4px 12px;border:1.5px solid '+(active?'var(--or)':'var(--bo)')+';border-radius:20px;background:'+(active?'var(--or)':'var(--bos)')+';color:'+(active?'#fff':'var(--slm)')+';cursor:pointer;font-weight:600;margin:0;display:flex;align-items:center;gap:3px">'+esc(s)+'</button>';
+    }
+    function makeHistoryBtn(entry,index){
+      const isDrink=entry.type==='飲料';
+      return '<button type="button" data-history-idx="'+index+'" onclick="loadHistoryCapsule(Number(this.dataset.historyIdx))" title="只載入'+entry.type+'歷史菜單" style="font-size:.72rem;padding:5px 12px;border:1.5px solid '+(isDrink?'#a5b4fc':'#fdba74')+';border-radius:999px;background:'+(isDrink?'#eef2ff':'#fff7ed')+';color:'+(isDrink?'#3730a3':'#9a3412')+';cursor:pointer;font-weight:700;margin:0;display:flex;align-items:center;gap:3px">'+(isDrink?'🧋':'🍱')+' '+esc(entry.store)+' · '+entry.type+'</button>';
     }
 
     let html='';
     if(parsedStores.length){
       html+='<div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-bottom:5px">'
         +'<span style="font-size:.65rem;color:var(--sll);font-weight:700;white-space:nowrap">本次</span>'
-        +parsedStores.map(s=>makeBtn(s,false)).join('')+'</div>';
+        +parsedStores.map(s=>makeBtn(s)).join('')+'</div>';
     }
-    if(extraHist.length){
+    if(historyEntries.length){
       html+='<div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">'
         +'<span style="font-size:.65rem;color:var(--sll);font-weight:700;white-space:nowrap">歷史</span>'
-        +extraHist.map(s=>makeBtn(s,true)).join('')+'</div>';
+        +historyEntries.map((entry,index)=>makeHistoryBtn(entry,index)).join('')+'</div>';
     }
     return html;
   }catch(e){return '';}
 }
 
-function pickStore(storeName, loadHistory){
+function pickStore(storeName){
   const inp=document.getElementById('evStore');
   if(!inp) return;
   const ev=S.events.find(e=>e.id===S.adminEid);
@@ -1919,21 +1919,19 @@ function pickStore(storeName, loadHistory){
   const capsDiv=document.getElementById('storeCapsules');
   if(capsDiv) capsDiv.innerHTML=renderStoreCapsules(newVal);
 
-  // 歷史膠囊：點了直接載入該店歷史菜單
-  if(loadHistory && newVal){
-    const cached=JSON.parse(localStorage.getItem('menuCache')||'[]');
-    const storeItems=cached.filter(c=>c.store===storeName);
-    if(storeItems.length){
-      const loaded=storeItems.flatMap(c=>c.items||[]).map((it,i)=>({
-        ...it, id:'cache-'+Date.now()+'-'+i, menu_id:S.adminEid, ai_parsed:false
-      }));
-      S.pendingItems=[...S.pendingItems, ...loaded];
-      toast('已載入「'+storeName+'」'+loaded.length+'個品項，確認後按💾儲存','ok');
-      render();
-    } else {
-      toast('找不到「'+storeName+'」的歷史菜單','warn');
-    }
-  }
+}
+
+function loadHistoryCapsule(index){
+  const entries=splitHistoryEntries(JSON.parse(localStorage.getItem('menuCache')||'[]'))
+    .filter(entry=>entry.store&&entry.store!=='未知店家');
+  const entry=entries[index];
+  if(!entry){toast('找不到這筆歷史菜單','warn');return;}
+  const ev=S.events.find(e=>e.id===S.adminEid);
+  if(ev) ev.store_name=entry.store||'';
+  const loaded=entry.items.map((it,i)=>({...it,id:'cache-'+Date.now()+'-'+i,menu_id:S.adminEid,ai_parsed:false}));
+  S.pendingItems=[...S.pendingItems,...loaded];
+  toast('已載入「'+entry.store+'」'+entry.type+' '+loaded.length+' 個品項，確認後按💾儲存','ok');
+  render();
 }
 
 function setDrinkDesc(i, val){
