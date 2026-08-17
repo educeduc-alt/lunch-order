@@ -1030,22 +1030,27 @@ function toggleComboItem(type, id){
 function showComboSpecPicker(type, item, arr){
   // 在 comboSheetContent 裡疊加一個規格選擇層
   const specSel={};
-  item.specs.forEach(sp=>{if(sp.opts.length) specSel[sp.cat]=sp.opts[0];});
+  item.specs.forEach(sp=>{
+    if(isMultiAddonSpec(sp.cat,item)) specSel[sp.cat]=[];
+    else if(sp.opts.length) specSel[sp.cat]=sp.opts[0];
+  });
+  window.comboSpecSel=specSel;
 
   function buildPickerHTML(){
     let h=`<div style="position:absolute;inset:0;background:rgba(255,255,255,.97);border-radius:var(--rxl);padding:18px;z-index:10;display:flex;flex-direction:column">
       <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:1rem;border-left:4px solid var(--or);padding-left:9px;margin-bottom:14px">${esc(item.emoji)} ${esc(item.name)}${item.price>0?' <span style=\"color:var(--or)\">$'+item.price+'</span>':''}</div>`;
     item.specs.forEach(sp=>{
+      const multi=isMultiAddonSpec(sp.cat,item);
       h+=`<div style="margin-bottom:12px"><div style="font-size:.68rem;font-weight:700;color:var(--sll);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">${esc(sp.cat)}</div>
         <div style="display:flex;flex-wrap:wrap;gap:5px">`;
       sp.opts.forEach(o=>{
-        const on=specSel[sp.cat]===o;
-        h+=`<button onclick="comboSpecSel['${esc(sp.cat)}']='${esc(o)}';document.getElementById('comboSpecPreview').innerHTML=renderComboSpecBtn()"
-          style="padding:7px 16px;border:1.5px solid ${on?'var(--or)':'var(--bo)'};border-radius:20px;font-size:.82rem;font-weight:600;background:${on?'var(--or)':'var(--ca)'};color:${on?'#fff':'var(--slm)'};cursor:pointer">${esc(o)}</button>`;
+        const on=multi?(specSel[sp.cat]||[]).includes(o):specSel[sp.cat]===o;
+        h+=`<button class="spec-opt${on?' on':''}" data-combo-cat="${esc(sp.cat)}" data-combo-opt="${esc(o)}" aria-pressed="${on}" onclick="selectComboSpecOption(this,${multi})">${esc(o)}</button>`;
       });
       h+=`</div></div>`;
+      if(multi) h+=`<div style="font-size:.66rem;color:var(--sll);margin:-8px 0 12px">可複選，再點一次可取消</div>`;
     });
-    h+=`<div id="comboSpecPreview"></div>
+    h+=`<div id="comboSpecPreview">${renderComboSpecPreview()}</div>
       <div style="display:flex;gap:7px;margin-top:auto;padding-top:12px">
         <button class="btn btn-out" onclick="this.closest('[style*=absolute]').remove()">取消</button>
         <button class="btn btn-or btn-full" onclick="confirmComboSpec()">確認加入</button>
@@ -1063,16 +1068,43 @@ function showComboSpecPicker(type, item, arr){
   sheet.appendChild(picker.firstChild);
 
   // 全域暫存
-  window.comboSpecSel=specSel;
+  window.selectComboSpecOption=function(btn,multi){
+    const cat=btn.dataset.comboCat;
+    const opt=btn.dataset.comboOpt;
+    if(multi){
+      const selected=Array.isArray(window.comboSpecSel[cat])?[...window.comboSpecSel[cat]]:[];
+      const index=selected.indexOf(opt);
+      if(index>=0) selected.splice(index,1); else selected.push(opt);
+      window.comboSpecSel[cat]=selected;
+      btn.classList.toggle('on',selected.includes(opt));
+      btn.setAttribute('aria-pressed',String(selected.includes(opt)));
+    }else{
+      window.comboSpecSel[cat]=opt;
+      document.querySelectorAll('#comboOverlay [data-combo-cat]').forEach(el=>{
+        if(el.dataset.comboCat!==cat) return;
+        const on=el.dataset.comboOpt===opt;
+        el.classList.toggle('on',on);
+        el.setAttribute('aria-pressed',String(on));
+      });
+    }
+    const preview=document.getElementById('comboSpecPreview');
+    if(preview) preview.innerHTML=renderComboSpecPreview();
+  };
   window.confirmComboSpec=function(){
-    const specsStr=Object.values(window.comboSpecSel).join('/');
-    arr.push({item, specsStr});
+    const unpricedAddons=getUnpricedAddons(window.comboSpecSel);
+    if(unpricedAddons.length){toast('所選加料尚未設定價格，請先聯絡承辦人','warn');return;}
+    const specsStr=formatSpecSelections(window.comboSpecSel);
+    const finalPrice=calcSpecPrice(item,window.comboSpecSel);
+    arr.push({item:{...item,price:finalPrice}, specsStr});
     const el=document.querySelector('#comboOverlay .sheet [style*="absolute"]');
     if(el) el.remove();
     renderComboSheet();
   };
-  window.renderComboSpecBtn=function(){
-    return '<div style="font-size:.75rem;color:var(--gr);margin-top:4px">已選：'+Object.values(window.comboSpecSel).join(' / ')+'</div>';
+  window.renderComboSpecPreview=renderComboSpecPreview;
+  function renderComboSpecPreview(){
+    const selections=formatSpecSelections(window.comboSpecSel||specSel)||'尚未選擇加料';
+    const price=calcSpecPrice(item,window.comboSpecSel||specSel);
+    return '<div style="font-size:.75rem;color:var(--gr);margin-top:4px">已選：'+esc(selections)+' · $'+price+'</div>';
   };
 }
 
@@ -1208,7 +1240,10 @@ function openSpec(id){
   if(isEventClosed(ev)){toast('此場次已截止','err');return;}
   S.specItem=(S.items[S.activeEventId]||[]).find(i=>i.id===id);
   S.specSel={};
-  (S.specItem.specs||[]).forEach(sp=>{if(sp.opts.length)S.specSel[sp.cat]=sp.opts[0];});
+  (S.specItem.specs||[]).forEach(sp=>{
+    if(isMultiAddonSpec(sp.cat,S.specItem)) S.specSel[sp.cat]=[];
+    else if(sp.opts.length) S.specSel[sp.cat]=sp.opts[0];
+  });
   S.specQty=1;S.specNote='';
   renderSheet();
   document.getElementById('specOverlay').style.display='flex';
@@ -1224,11 +1259,33 @@ function parseOptPrice(optStr){
 function isAddonSpec(cat){
   return /加料|加價|配料|配餐|升級/.test(String(cat||''));
 }
+function isMultiAddonSpec(cat,item){
+  return item?.category==='飲料'&&/加料|配料/.test(String(cat||''));
+}
 function isEmptyAddonOption(opt){
   return /^(不加|無|不要|原味|不需要|none)$/i.test(String(opt||'').trim());
 }
 function getUnpricedAddons(specSel){
-  return Object.entries(specSel||{}).filter(([cat,opt])=>isAddonSpec(cat)&&!isEmptyAddonOption(opt)&&!parseOptPrice(opt));
+  const result=[];
+  Object.entries(specSel||{}).forEach(([cat,value])=>{
+    const opts=Array.isArray(value)?value:[value];
+    opts.forEach(opt=>{
+      if(isAddonSpec(cat)&&opt&&!isEmptyAddonOption(opt)&&!parseOptPrice(opt)) result.push([cat,opt]);
+    });
+  });
+  return result;
+}
+
+function formatSpecSelections(specSel){
+  return Object.values(specSel||{}).flatMap(value=>Array.isArray(value)?value:[value]).filter(Boolean).join('/');
+}
+
+function toggleSpecOption(cat,opt){
+  const selected=Array.isArray(S.specSel[cat])?[...S.specSel[cat]]:[];
+  const index=selected.indexOf(opt);
+  if(index>=0) selected.splice(index,1); else selected.push(opt);
+  S.specSel[cat]=selected;
+  renderSheet();
 }
 
 // 根據目前選擇的規格計算實際價格
@@ -1236,10 +1293,13 @@ function calcSpecPrice(item, specSel){
   let price=Number(item.price)||0;
   let extras=0;
   Object.entries(specSel||{}).forEach(([cat,optVal])=>{
-    const info=parseOptPrice(optVal);
-    if(!info) return;
-    if(info.isDelta||isAddonSpec(cat)) extras+=info.amount;
-    else price=info.amount;
+    const values=Array.isArray(optVal)?optVal:[optVal];
+    values.forEach(value=>{
+      const info=parseOptPrice(value);
+      if(!info) return;
+      if(info.isDelta||isAddonSpec(cat)) extras+=info.amount;
+      else price=info.amount;
+    });
   });
   return price+extras;
 }
@@ -1251,9 +1311,15 @@ function renderSheet(){
   document.getElementById('sheetTitle').innerHTML=`${esc(item.emoji)} ${esc(item.name)}${curPrice>0?` <span style="color:var(--or);font-size:.9rem">$${curPrice}</span>`:''}`;
   let html='';
   (item.specs||[]).forEach(sp=>{
+    const multi=isMultiAddonSpec(sp.cat,item);
     html+=`<div class="spec-sec"><div class="spec-lbl">${esc(sp.cat)}</div><div class="spec-opts">
-      ${sp.opts.map(o=>`<button class="spec-opt${S.specSel[sp.cat]===o?' on':''}" onclick="S.specSel['${esc(sp.cat)}']='${esc(o)}';renderSheet()">${esc(o)}</button>`).join('')}
+      ${sp.opts.map(o=>{
+        const on=multi?(S.specSel[sp.cat]||[]).includes(o):S.specSel[sp.cat]===o;
+        const action=multi?`toggleSpecOption('${esc(sp.cat)}','${esc(o)}')`:`S.specSel['${esc(sp.cat)}']='${esc(o)}';renderSheet()`;
+        return `<button class="spec-opt${on?' on':''}" aria-pressed="${on}" onclick="${action}">${esc(o)}${multi&&on?' ✓':''}</button>`;
+      }).join('')}
     </div></div>`;
+    if(multi) html+=`<div style="font-size:.66rem;color:var(--sll);margin:-8px 0 12px">可複選，再點一次可取消</div>`;
   });
   if(unpricedAddons.length){
     html+=`<div style="margin:-2px 0 12px;padding:8px 10px;border-radius:8px;background:var(--rdl);color:var(--rd);font-size:.7rem;font-weight:700">⚠️ ${esc(unpricedAddons.map(([,opt])=>opt).join('、'))} 尚未設定加價，請承辦人補上價格。</div>`;
@@ -1275,7 +1341,7 @@ async function confirmSpec(){
   const item=S.specItem;
   const unpricedAddons=getUnpricedAddons(S.specSel);
   if(unpricedAddons.length){toast('所選加料尚未設定價格，請先聯絡承辦人','warn');return;}
-  const specsStr=Object.values(S.specSel).join('/');
+  const specsStr=formatSpecSelections(S.specSel);
   const finalPrice=calcSpecPrice(item, S.specSel);  // 用規格動態價格
   // 套餐模式
   if(item._comboMode){
