@@ -1945,34 +1945,41 @@ function showHistoryMessage(entry,alreadyAdded=false){
       <div class="modal-title">${alreadyAdded?'此菜單已新增':'確認新增歷史菜單？'}</div>
       <p class="modal-sub" style="line-height:1.7">「${esc(entry.store||'未知店家')}」${esc(entry.type)}菜單，共 ${(entry.items||[]).length} 個品項${alreadyAdded?'<br>為避免重複，本次不會再新增。':''}</p>
       ${alreadyAdded
-        ?'<button class="btn btn-or btn-full" data-history-ok>知道了</button>'
+        ?'<button class="btn btn-out btn-full" data-history-keep>保留菜單</button><button class="btn btn-rd btn-full" style="margin-top:7px" data-history-delete>刪除誤按的菜單</button>'
         :'<button class="btn btn-or btn-full" data-history-add>確認新增</button><button class="btn btn-out btn-full" style="margin-top:7px" data-history-cancel>取消</button>'}
     </div>`;
     document.body.appendChild(box);
     const finish=value=>{box.remove();resolve(value);};
-    box.querySelector('[data-history-ok]')?.addEventListener('click',()=>finish(false));
-    box.querySelector('[data-history-add]')?.addEventListener('click',()=>finish(true));
-    box.querySelector('[data-history-cancel]')?.addEventListener('click',()=>finish(false));
-    box.addEventListener('click',e=>{if(e.target===box)finish(false);});
+    box.querySelector('[data-history-keep]')?.addEventListener('click',()=>finish('keep'));
+    box.querySelector('[data-history-delete]')?.addEventListener('click',()=>finish('delete'));
+    box.querySelector('[data-history-add]')?.addEventListener('click',()=>finish('add'));
+    box.querySelector('[data-history-cancel]')?.addEventListener('click',()=>finish('cancel'));
+    box.addEventListener('click',e=>{if(e.target===box)finish(alreadyAdded?'keep':'cancel');});
   });
 }
 
 async function requestHistoryAddition(entry,closeCache){
   if((S.loadedHistoryKeys||[]).includes(entry.key)){
-    await showHistoryMessage(entry,true);
+    const action=await showHistoryMessage(entry,true);
+    if(action==='delete'){
+      S.pendingItems=(S.pendingItems||[]).filter(item=>item._historyKey!==entry.key);
+      S.loadedHistoryKeys=(S.loadedHistoryKeys||[]).filter(key=>key!==entry.key);
+      if(closeCache&&window._cacheOverlay){window._cacheOverlay.remove();window._cacheOverlay=null;}
+      render();
+    }
     return;
   }
   S.loadedHistoryKeys=[...(S.loadedHistoryKeys||[]),entry.key];
   render(); // 先反色，再顯示確認視窗
-  const confirmed=await showHistoryMessage(entry,false);
-  if(!confirmed){
+  const action=await showHistoryMessage(entry,false);
+  if(action!=='add'){
     S.loadedHistoryKeys=(S.loadedHistoryKeys||[]).filter(key=>key!==entry.key);
     render();
     return;
   }
   const ev=S.events.find(e=>e.id===S.adminEid);
   if(ev) ev.store_name=entry.store||'';
-  const loaded=(entry.items||[]).map((it,i)=>({...it,id:'cache-'+Date.now()+'-'+i,menu_id:S.adminEid,ai_parsed:false}));
+  const loaded=(entry.items||[]).map((it,i)=>({...it,id:'cache-'+Date.now()+'-'+i,menu_id:S.adminEid,ai_parsed:false,_historyKey:entry.key}));
   S.pendingItems=[...S.pendingItems,...loaded];
   if(closeCache&&window._cacheOverlay){window._cacheOverlay.remove();window._cacheOverlay=null;}
   render();
