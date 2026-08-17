@@ -2663,31 +2663,34 @@ function exportCSV(){
   const ev=S.events.find(e=>e.id===S.adminEid);
   const menuItems=S.items[S.adminEid]||[];
   const itemMap=Object.fromEntries(menuItems.map(item=>[item.id,item]));
-  const rows=[['場次','承辦','時間','姓名','店家','品項','規格','糖度冰塊／品項備註','數量','單價','小計','訂單備註']];
+  // 每一個品項列都保留場次、姓名與分工分類，方便直接用試算表篩選便當／飲料。
+  const rows=[['場次','場次日期','承辦','點餐時間','點餐姓名','店家','分工分類','原始分類','品項','規格','糖度冰塊／品項備註','數量','單價','小計','訂單備註']];
   const summary={};
   let totalQty=0,totalAmount=0;
-  ords.forEach(o=>(o.order_items||[]).forEach((oi,i)=>{
-    const source=itemMap[oi.item_id]||{};
+  ords.forEach(o=>(o.order_items||[]).forEach(oi=>{
+    const source=itemMap[oi.item_id]||menuItems.find(item=>item.name===oi.item_name)||{};
     const restaurant=source.restaurant||ev?.store_name||'未設定店家';
     const category=source.category||'其他';
+    const workType=category==='飲料'?'飲料':'便當';
     const qty=Number(oi.quantity)||0;
     const unitPrice=Number(oi.unit_price)||0;
     const subtotal=qty*unitPrice;
-    rows.push([i===0?ev?.title||'':'',i===0?ev?.organizer||'':'',i===0?fmtTime(o.created_at):'',
-      i===0?o.user_name:'',restaurant,oi.item_emoji+oi.item_name,oi.specs_str||'',oi.note||'',qty,unitPrice,subtotal,i===0?o.note||'':'']);
-    const key=[restaurant,category,oi.item_name,oi.specs_str||'',oi.note||'',unitPrice].join('__');
-    if(!summary[key]) summary[key]={restaurant,category,name:oi.item_name,specs:oi.specs_str||'',itemNote:oi.note||'',qty:0,unitPrice,subtotal:0};
+    rows.push([ev?.title||'',ev?.date||'',ev?.organizer||'',fmtTime(o.created_at),o.user_name||'',restaurant,workType,category,
+      oi.item_emoji+oi.item_name,oi.specs_str||'',oi.note||'',qty,unitPrice,subtotal,o.note||'']);
+    const key=[restaurant,workType,category,oi.item_name,oi.specs_str||'',oi.note||'',unitPrice].join('__');
+    if(!summary[key]) summary[key]={event:ev?.title||'',date:ev?.date||'',names:new Set(),restaurant,workType,category,name:oi.item_name,specs:oi.specs_str||'',itemNote:oi.note||'',qty:0,unitPrice,subtotal:0};
+    if(o.user_name) summary[key].names.add(o.user_name);
     summary[key].qty+=qty;
     summary[key].subtotal+=subtotal;
     totalQty+=qty;
     totalAmount+=subtotal;
   }));
   rows.push([],['餐點彙整']);
-  rows.push(['店家','分類','餐點','規格','糖度冰塊／品項備註','總份數','單價','金額小計']);
+  rows.push(['場次','場次日期','點餐姓名','店家','分工分類','原始分類','餐點','規格','糖度冰塊／品項備註','總份數','單價','金額小計']);
   Object.values(summary)
-    .sort((a,b)=>a.restaurant.localeCompare(b.restaurant,'zh-TW')||a.category.localeCompare(b.category,'zh-TW')||a.name.localeCompare(b.name,'zh-TW'))
-    .forEach(x=>rows.push([x.restaurant,x.category,x.name,x.specs,x.itemNote,x.qty,x.unitPrice,x.subtotal]));
-  rows.push([],['彙整總計','','','','',totalQty,'',totalAmount]);
+    .sort((a,b)=>a.workType.localeCompare(b.workType,'zh-TW')||a.restaurant.localeCompare(b.restaurant,'zh-TW')||a.category.localeCompare(b.category,'zh-TW')||a.name.localeCompare(b.name,'zh-TW'))
+    .forEach(x=>rows.push([x.event,x.date,[...x.names].join('、'),x.restaurant,x.workType,x.category,x.name,x.specs,x.itemNote,x.qty,x.unitPrice,x.subtotal]));
+  rows.push(['彙整總計','','','','','','','','',totalQty,'',totalAmount]);
   dlCSV(rows,`點餐紀錄_${ev?.title||''}`);
 }
 function dlCSV(rows,name){
