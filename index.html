@@ -24,7 +24,7 @@ button{font-family:inherit;cursor:pointer;border:none;background:none}
 input,select,textarea{font-family:inherit}
 
 /* ── TOPBAR ── */
-.topbar{background:var(--ca);border-bottom:1px solid var(--bo);position:sticky;top:0;z-index:90;box-shadow:var(--shsm)}
+.topbar{background:rgba(255,255,255,.96);border-bottom:1px solid var(--bo);position:sticky;top:0;z-index:90;box-shadow:none;backdrop-filter:blur(10px)}
 .topbar-inner{max-width:940px;margin:0 auto;padding:0 16px;height:54px;display:flex;align-items:center;justify-content:space-between}
 .brand{display:flex;align-items:center;gap:9px;font-family:'Nunito',sans-serif;font-weight:900;font-size:1.1rem;color:var(--or)}
 .brand-icon{width:32px;height:32px;border-radius:10px;background:var(--or);display:flex;align-items:center;justify-content:center;font-size:1rem;box-shadow:0 2px 8px rgba(249,115,22,.35)}
@@ -39,10 +39,10 @@ input,select,textarea{font-family:inherit}
 .tab-btn.on-admin{color:var(--sl);border-bottom-color:var(--sl)}
 
 /* ── MAIN ── */
-.main{max-width:940px;margin:0 auto;width:100%;padding:20px 16px 100px}
+.main{max-width:1000px;margin:0 auto;width:100%;padding:26px 18px 100px}
 
 /* ── SESSION LIST (首頁) ── */
-.page-title{font-family:'Nunito',sans-serif;font-weight:900;font-size:1.1rem;margin-bottom:4px}
+.page-title{font-family:'Nunito',sans-serif;font-weight:900;font-size:1.35rem;letter-spacing:-.02em;margin-bottom:4px}
 .page-sub{font-size:.8rem;color:var(--sll);margin-bottom:18px}
 .meal-policy{background:linear-gradient(135deg,#fffbeb,#fff7ed);border:2px solid #fbbf24;border-radius:var(--rlg);padding:14px 16px;margin-bottom:16px;box-shadow:0 4px 16px rgba(217,119,6,.12)}
 .meal-policy-title{display:flex;align-items:center;gap:7px;font-size:.92rem;font-weight:900;color:#92400e;margin-bottom:8px}
@@ -53,8 +53,8 @@ input,select,textarea{font-family:inherit}
 @media(max-width:440px){.meal-policy-grid{grid-template-columns:1fr}}
 
 .event-list{display:flex;flex-direction:column;gap:10px}
-.event-card{background:var(--ca);border:1.5px solid var(--bo);border-radius:var(--rlg);overflow:hidden;cursor:pointer;transition:border-color .18s,box-shadow .18s,transform .18s}
-.event-card:hover{border-color:var(--or);box-shadow:var(--shmd);transform:translateY(-2px)}
+.event-card{background:var(--ca);border:1px solid var(--bo);border-radius:var(--rlg);overflow:hidden;cursor:pointer;box-shadow:0 2px 10px rgba(15,23,42,.045);transition:border-color .18s,box-shadow .18s}
+.event-card:hover{border-color:#fdba74;box-shadow:0 8px 24px rgba(15,23,42,.08)}
 .event-card.closed-card{opacity:.6;cursor:not-allowed;pointer-events:none}
 .ec-top{padding:14px 16px;border-bottom:1px solid var(--bos);display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
 .ec-left{flex:1}
@@ -67,7 +67,7 @@ input,select,textarea{font-family:inherit}
 .ec-right{text-align:right;flex-shrink:0}
 .ec-deadline{font-size:.72rem;color:var(--rd);font-weight:700;white-space:nowrap}
 .ec-deadline-label{font-size:.65rem;color:var(--sll);margin-bottom:1px}
-.ec-bot{padding:10px 16px;background:var(--bos);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px}
+.ec-bot{padding:10px 16px;background:var(--ca);border-top:1px solid var(--bos);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px}
 .ec-store{font-size:.75rem;color:var(--slm);display:flex;align-items:center;gap:4px}
 .ec-count{font-size:.75rem;font-weight:700;padding:3px 10px;border-radius:20px}
 .ec-count.ok{background:var(--grl);color:var(--gr)}
@@ -91,10 +91,10 @@ input,select,textarea{font-family:inherit}
 .notice{background:var(--inl);border:1.5px solid #c7d2fe;border-radius:var(--rmd);padding:10px 13px;font-size:.78rem;color:#3730a3;line-height:1.6;margin-bottom:14px;display:flex;gap:8px}
 
 /* ── ID CARD ── */
-.id-card{background:var(--ca);border:1px solid var(--bo);border-radius:var(--rlg);padding:13px 15px;margin-bottom:14px;box-shadow:var(--shsm);display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+.id-card{background:var(--ca);border:1px solid var(--bo);border-radius:var(--rlg);padding:15px 16px;margin-bottom:16px;box-shadow:none;display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
 .id-card .fld{flex:1;min-width:120px}
 .id-card label{display:block;font-size:.68rem;font-weight:700;color:var(--sll);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
-.activity-meal-help{width:100%;display:flex;align-items:flex-start;gap:9px;background:linear-gradient(135deg,#ecfeff,#eff6ff);border:1.5px solid #67e8f9;border-radius:var(--rmd);padding:10px 12px;color:#155e75;font-size:.75rem;line-height:1.65}
+.activity-meal-help{width:100%;display:flex;align-items:flex-start;gap:9px;background:#f8fafc;border:1px solid var(--bo);border-radius:var(--rmd);padding:10px 12px;color:var(--slm);font-size:.75rem;line-height:1.65}
 .activity-meal-help strong{color:#0e7490}
 .inp,.sel{width:100%;border:1.5px solid var(--bo);border-radius:var(--rsm);padding:8px 10px;font-size:.85rem;color:var(--sl);background:var(--ca);outline:none;transition:border-color .18s,box-shadow .18s}
 .inp:focus,.sel:focus{border-color:var(--or);box-shadow:0 0 0 3px rgba(249,115,22,.12)}
@@ -102,19 +102,19 @@ input,select,textarea{font-family:inherit}
 /* ── MENU ── */
 .rest-block{margin-bottom:20px}
 .rest-name{font-size:.78rem;font-weight:700;color:var(--slm);background:var(--bos);border-radius:var(--rsm);padding:5px 10px;display:inline-flex;align-items:center;gap:5px;margin-bottom:9px}
-.cat-toggle{width:100%;min-height:46px;padding:8px 10px 8px 13px;border:1.5px solid #cbd5e1;border-left:5px solid var(--or);border-radius:var(--rmd);background:linear-gradient(135deg,var(--ca),var(--orl));display:flex;align-items:center;justify-content:space-between;gap:10px;text-align:left;box-shadow:var(--shsm);transition:border-color .18s,box-shadow .18s,transform .18s;background-color:var(--ca)}
-.cat-toggle:hover{border-color:var(--or);box-shadow:var(--shmd);transform:translateY(-1px)}
+.cat-toggle{width:100%;min-height:46px;padding:9px 11px 9px 14px;border:1px solid var(--bo);border-left:4px solid var(--or);border-radius:var(--rmd);background:var(--ca);display:flex;align-items:center;justify-content:space-between;gap:10px;text-align:left;box-shadow:none;transition:border-color .18s,box-shadow .18s}
+.cat-toggle:hover{border-color:#fdba74;box-shadow:0 4px 14px rgba(15,23,42,.06)}
 .cat-toggle:focus-visible{outline:3px solid rgba(249,115,22,.28);outline-offset:2px}
 .cat-toggle.is-collapsed{background:var(--ca);border-color:var(--bo);border-left-color:var(--sll)}
 .cat-toggle-main{display:flex;align-items:center;gap:7px;font-size:.9rem;font-weight:800;color:var(--sl);min-width:0}
 .cat-toggle-count{background:var(--or);color:#fff;border-radius:20px;padding:2px 8px;font-size:.68rem;font-weight:800;line-height:1.4}
-.cat-toggle-state{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-width:82px;padding:6px 10px;border-radius:20px;background:var(--or);color:#fff;font-size:.73rem;font-weight:800;white-space:nowrap;box-shadow:0 2px 8px rgba(249,115,22,.24)}
-.cat-toggle.is-collapsed .cat-toggle-state{background:var(--sl);box-shadow:none}
+.cat-toggle-state{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-width:74px;padding:6px 10px;border-radius:20px;background:var(--orll);color:var(--ord);font-size:.71rem;font-weight:800;white-space:nowrap;box-shadow:none}
+.cat-toggle.is-collapsed .cat-toggle-state{background:var(--bos);color:var(--slm);box-shadow:none}
 .cat-toggle-arrow{display:inline-block;font-size:.82rem;transition:transform .18s}
 .cat-toggle:not(.is-collapsed) .cat-toggle-arrow{transform:rotate(90deg)}
 .menu-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(158px,1fr));gap:9px}
 @media(max-width:440px){.menu-grid{grid-template-columns:1fr 1fr}}
-.m-card{background:var(--ca);border:1.5px solid var(--bo);border-radius:var(--rlg);padding:13px 11px 11px;cursor:pointer;transition:border-color .18s,transform .18s,box-shadow .18s;position:relative;overflow:hidden;user-select:none}
+.m-card{background:var(--ca);border:1px solid var(--bo);border-radius:var(--rlg);padding:14px 12px 12px;cursor:pointer;box-shadow:0 2px 9px rgba(15,23,42,.035);transition:border-color .18s,transform .18s,box-shadow .18s;position:relative;overflow:hidden;user-select:none}
 .m-card::after{content:'';position:absolute;inset:0;background:var(--orl);opacity:0;transition:opacity .18s;pointer-events:none}
 .m-card:hover{border-color:var(--or);transform:translateY(-2px);box-shadow:var(--shmd)}
 .m-card.sel{border-color:var(--or);box-shadow:var(--shmd)}
@@ -132,9 +132,9 @@ input,select,textarea{font-family:inherit}
 .qn{font-family:'Nunito',sans-serif;font-weight:800;font-size:.88rem;min-width:18px;text-align:center}
 
 /* ── SPEC SHEET ── */
-.overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;display:flex;align-items:flex-end;justify-content:center;animation:fi .2s}
+.overlay{position:fixed;inset:0;background:rgba(15,23,42,.46);backdrop-filter:blur(3px);z-index:200;display:flex;align-items:flex-end;justify-content:center;animation:fi .2s}
 @keyframes fi{from{opacity:0}to{opacity:1}}
-.sheet{background:var(--ca);border-radius:var(--rxl) var(--rxl) 0 0;padding:18px 18px 30px;width:100%;max-width:460px;max-height:78vh;overflow-y:auto;animation:su .23s ease}
+.sheet{background:var(--ca);border-radius:var(--rxl) var(--rxl) 0 0;padding:20px 20px 30px;width:100%;max-width:480px;max-height:82vh;overflow-y:auto;box-shadow:0 -12px 50px rgba(15,23,42,.18);animation:su .23s ease}
 @keyframes su{from{transform:translateY(36px);opacity:0}to{transform:translateY(0);opacity:1}}
 .sheet-handle{width:38px;height:4px;background:var(--bo);border-radius:2px;margin:0 auto 15px}
 .sheet-title{font-family:'Nunito',sans-serif;font-weight:800;font-size:1.05rem;border-left:4px solid var(--or);padding-left:9px;margin-bottom:13px}
@@ -150,6 +150,16 @@ input,select,textarea{font-family:inherit}
 .sqb{width:34px;height:34px;border-radius:50%;border:1.5px solid var(--bo);background:var(--ca);font-size:1.1rem;font-weight:700;display:flex;align-items:center;justify-content:center;transition:all .15s}
 .sqb:hover{background:var(--or);color:#fff;border-color:var(--or)}
 .sqn{font-family:'Nunito',sans-serif;font-weight:900;font-size:1.25rem;min-width:28px;text-align:center}
+
+/* 點餐步驟改為單一精簡導覽，降低初次進入的視覺負擔 */
+.order-guide{padding:9px 12px!important;background:var(--ca)!important;border:1px solid var(--bo)!important;box-shadow:none!important}
+.order-guide>div:first-child{display:none!important}
+.order-guide>div:nth-child(2){align-items:center!important;justify-content:flex-start!important;gap:8px!important}
+.order-guide>div:nth-child(2)>div[style*="flex:1"]{display:flex;align-items:center;gap:6px;flex:0 1 auto!important;padding:0!important;text-align:left!important}
+.order-guide>div:nth-child(2)>div[style*="flex:1"]>div:first-child{width:27px!important;height:27px!important;margin:0!important;font-size:.9rem!important;flex-shrink:0}
+.order-guide>div:nth-child(2)>div[style*="flex:1"]>div:nth-child(2){margin:0!important;font-size:.7rem!important;white-space:nowrap}
+.order-guide>div:nth-child(2)>div[style*="flex:1"]>div:nth-child(3){display:none!important}
+.order-guide>div:nth-child(2)>div:not([style*="flex:1"]){margin:0!important;color:var(--sll)!important}
 
 /* ── CART ── */
 .cart-panel{background:var(--ca);border:1px solid var(--bo);border-radius:var(--rlg);padding:13px 15px;margin-top:14px;box-shadow:var(--shsm)}
@@ -379,9 +389,9 @@ input,select,textarea{font-family:inherit}
 <!-- TABS -->
 <div class="tab-bar">
   <div class="tab-bar-inner">
-    <button class="tab-btn on" id="tab-home" onclick="goTab('home')">🏠 場次列表</button>
-    <button class="tab-btn" id="tab-menu" onclick="goTab('menu')">📋 菜單上傳和點餐</button>
-    <button class="tab-btn" id="tab-admin" onclick="goTab('admin')">⚙️ 後台</button>
+    <button class="tab-btn on" id="tab-home" onclick="goTab('home')">場次列表</button>
+    <button class="tab-btn" id="tab-menu" onclick="goTab('menu')">菜單與點餐</button>
+    <button class="tab-btn" id="tab-admin" onclick="goTab('admin')">後台</button>
   </div>
 </div>
 
@@ -670,7 +680,7 @@ function renderOrderPage(){
   }
 
   // 三步驟點餐指導
-  html+=`<div style="background:var(--ca);border:1px solid var(--bo);border-radius:var(--rlg);padding:14px 16px;margin-bottom:14px;box-shadow:var(--shsm)">
+  html+=`<div class="order-guide" style="background:var(--ca);border:1px solid var(--bo);border-radius:var(--rlg);padding:14px 16px;margin-bottom:14px;box-shadow:var(--shsm)">
     <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:.85rem;color:var(--slm);margin-bottom:12px;text-align:center;letter-spacing:.3px">📖 點餐步驟</div>
     <div style="display:flex;align-items:flex-start;justify-content:center;gap:0">
       <!-- 步驟1 -->
@@ -1200,26 +1210,41 @@ function openSpec(id){
   renderSheet();
   document.getElementById('specOverlay').style.display='flex';
 }
-// 從規格選項名稱解析價格（例：「八角飯盒 $120」→ 120）
-function parseOptPrice(optStr, fallback){
-  const m = optStr.match(/\$\s*(\d+)/);
-  return m ? parseInt(m[1]) : fallback;
+// 從規格文字解析價格：
+// 「大杯 $35」代表替代單價；「珍珠 +$10」代表在單價上加價。
+function parseOptPrice(optStr){
+  const text=String(optStr||'');
+  const m=text.match(/([＋+\-－]?)\s*\$\s*(\d+)/);
+  if(!m) return null;
+  return {amount:Number(m[2])||0,isDelta:m[1]==='+'||m[1]==='＋'||/加\s*\$/.test(text)};
+}
+function isAddonSpec(cat){
+  return /加料|加價|配料|配餐|升級/.test(String(cat||''));
+}
+function isEmptyAddonOption(opt){
+  return /^(不加|無|不要|原味|不需要|none)$/i.test(String(opt||'').trim());
+}
+function getUnpricedAddons(specSel){
+  return Object.entries(specSel||{}).filter(([cat,opt])=>isAddonSpec(cat)&&!isEmptyAddonOption(opt)&&!parseOptPrice(opt));
 }
 
 // 根據目前選擇的規格計算實際價格
 function calcSpecPrice(item, specSel){
-  let price = item.price;
-  // 遍歷所有規格，如果選項裡有 $ 就取最後一個有價格的規格
-  Object.values(specSel).forEach(optVal=>{
-    const p = parseOptPrice(optVal, -1);
-    if(p >= 0) price = p;
+  let price=Number(item.price)||0;
+  let extras=0;
+  Object.entries(specSel||{}).forEach(([cat,optVal])=>{
+    const info=parseOptPrice(optVal);
+    if(!info) return;
+    if(info.isDelta||isAddonSpec(cat)) extras+=info.amount;
+    else price=info.amount;
   });
-  return price;
+  return price+extras;
 }
 
 function renderSheet(){
   const item=S.specItem;
   const curPrice=calcSpecPrice(item, S.specSel);
+  const unpricedAddons=getUnpricedAddons(S.specSel);
   document.getElementById('sheetTitle').innerHTML=`${esc(item.emoji)} ${esc(item.name)}${curPrice>0?` <span style="color:var(--or);font-size:.9rem">$${curPrice}</span>`:''}`;
   let html='';
   (item.specs||[]).forEach(sp=>{
@@ -1227,6 +1252,9 @@ function renderSheet(){
       ${sp.opts.map(o=>`<button class="spec-opt${S.specSel[sp.cat]===o?' on':''}" onclick="S.specSel['${esc(sp.cat)}']='${esc(o)}';renderSheet()">${esc(o)}</button>`).join('')}
     </div></div>`;
   });
+  if(unpricedAddons.length){
+    html+=`<div style="margin:-2px 0 12px;padding:8px 10px;border-radius:8px;background:var(--rdl);color:var(--rd);font-size:.7rem;font-weight:700">⚠️ ${esc(unpricedAddons.map(([,opt])=>opt).join('、'))} 尚未設定加價，請承辦人補上價格。</div>`;
+  }
   html+=`<div class="spec-sec"><div class="spec-lbl">數量</div>
     <div class="sheet-qty">
       <button class="sqb" onclick="if(S.specQty>1){S.specQty--;renderSheet()}">−</button>
@@ -1242,6 +1270,8 @@ function renderSheet(){
 }
 async function confirmSpec(){
   const item=S.specItem;
+  const unpricedAddons=getUnpricedAddons(S.specSel);
+  if(unpricedAddons.length){toast('所選加料尚未設定價格，請先聯絡承辦人','warn');return;}
   const specsStr=Object.values(S.specSel).join('/');
   const finalPrice=calcSpecPrice(item, S.specSel);  // 用規格動態價格
   // 套餐模式
@@ -1365,19 +1395,16 @@ function showFinalOrderConfirmation(ev, name, cartKeys, orderNote){
   });
 }
 
-function showSubmittedOrderNotice(orderId, box){
+function showSubmittedOrderNotice(orderId){
   const ev=S.events.find(e=>e.id===S.activeEventId);
   const order=(S.orders[S.activeEventId]||[]).find(o=>o.id===orderId);
-  if(!order){box?.remove();toast('找不到這筆點餐紀錄','err');return;}
+  if(!order){toast('找不到這筆點餐紀錄','err');return;}
   const items=order.order_items||[];
   const totalQty=items.reduce((sum,item)=>sum+(Number(item.quantity)||0),0);
   const total=Number(order.total)||items.reduce((sum,item)=>sum+(Number(item.unit_price)||0)*(Number(item.quantity)||0),0);
-  // 從「查看已送出的點餐」進入時，獨立顯示既有訂單內容。
-  // 剛完成送單時則沿用傳入的確認視窗，避免連續出現兩個相似頁面。
-  if(!box){
-    box=document.createElement('div');
-    box.className='modal-bg';
-    box.innerHTML=`<div class="modal-box" style="max-width:430px;text-align:left;padding:24px 20px">
+  const box=document.createElement('div');
+  box.className='modal-bg';
+  box.innerHTML=`<div class="modal-box" style="max-width:430px;text-align:left;padding:24px 20px">
       <div style="text-align:center;font-size:2.4rem;margin-bottom:7px">✅</div>
       <div class="modal-title" style="text-align:center;color:var(--gr)">已送出的點餐</div>
       <p class="modal-sub" style="text-align:center;line-height:1.6">可在這裡查看內容、修改或取消餐點。</p>
@@ -1407,27 +1434,8 @@ function showSubmittedOrderNotice(orderId, box){
         <button class="btn btn-or btn-full" id="submittedEdit">修改點餐</button>
       </div>
       <button class="btn btn-out btn-full" style="margin-top:8px" id="submittedClose">關閉</button>
-    </div>`;
-    document.body.appendChild(box);
-    box.querySelector('#submittedCancel').onclick=()=>{box.remove();cancelMyOrder(orderId);};
-    box.querySelector('#submittedEdit').onclick=()=>{box.remove();editMyOrder(orderId);};
-    box.querySelector('#submittedClose').onclick=()=>box.remove();
-    return;
-  }
-  box.querySelector('#orderFlowIcon').textContent='✅';
-  const title=box.querySelector('#orderFlowTitle');
-  title.textContent='點餐已成功送出';
-  title.style.color='var(--gr)';
-  box.querySelector('#orderFlowSub').textContent=`已送出共 ${totalQty} 份${total>0?`，合計 $${total}`:''}；需要調整可直接修改或取消。`;
-  const summary=box.querySelector('#orderFlowSummary');
-  summary.style.cssText='background:var(--grl);border:1.5px solid #86efac;border-radius:var(--rmd);padding:9px 11px;margin-bottom:10px;font-size:.76rem;line-height:1.65;color:#166534';
-  summary.innerHTML=`<strong style="display:block;font-size:.85rem">${esc(ev?.title||'點餐場次')}</strong>姓名：${esc(order.user_name||S.myName)}${ev?.store_name?`　店家：${esc(ev.store_name)}`:''}`;
-  const actions=box.querySelector('#orderFlowActions');
-  actions.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-      <button class="btn btn-rd btn-full" id="submittedCancel">取消點餐</button>
-      <button class="btn btn-or btn-full" id="submittedEdit">修改點餐</button>
-    </div>
-    <button class="btn btn-out btn-full" style="margin-top:8px" id="submittedClose">關閉</button>`;
+  </div>`;
+  document.body.appendChild(box);
   box.querySelector('#submittedCancel').onclick=()=>{box.remove();cancelMyOrder(orderId);};
   box.querySelector('#submittedEdit').onclick=()=>{box.remove();editMyOrder(orderId);};
   box.querySelector('#submittedClose').onclick=()=>box.remove();
@@ -1473,9 +1481,9 @@ async function submitOrder(){
   await loadEventDetail(S.activeEventId);
   const myOrder=(S.orders[S.activeEventId]||[]).find(o=>o.user_name===S.myName);
   if(myOrder) S.myLastOrderId=myOrder.id;
+  orderFlowBox.remove();
   render();
-  if(myOrder) showSubmittedOrderNotice(myOrder.id,orderFlowBox);
-  else orderFlowBox.remove();
+  toast('點餐已成功送出 ✓','ok');
 }
 
 /* ═══ RECORDS ═══ */
@@ -1704,15 +1712,16 @@ function renderEventMgmt(ev){
       <span class="mg-lbl">${S.pendingItems.length?'本次解析品項（確認後按儲存）':'尚未解析品項'}</span>
       ${S.pendingItems.length?'<button class="btn btn-out btn-sm" onclick="clearPending()">✕ 清除解析</button>':''}
     </div>
+    ${S.pendingItems.length?'<div style="font-size:.68rem;color:var(--slm);background:var(--bos);border-radius:7px;padding:7px 9px;margin-bottom:8px">價格格式：杯型完整售價請填「大杯 $35」；加料請填「珍珠 +$10」。</div>':''}
     <div id="mgmtItems">
       ${items.map((it,i)=>{
         const specsHtml=(it.specs&&it.specs.length)
           ? it.specs.map((s,si)=>`
             <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;padding:4px 0;border-top:1px dashed var(--bos)">
               <span style="font-size:.68rem;font-weight:700;color:var(--in);min-width:40px">⚙️ ${esc(s.cat)}</span>
-              ${s.opts.map((o,oi)=>`<input class="mg-inp" value="${esc(o)}"
+              ${s.opts.map((o,oi)=>`<input class="mg-inp" value="${esc(o)}" title="完整售價用 $35；額外加價用 +$10"
                 oninput="updateSpecOpt(${i},${si},${oi},this.value)"
-                style="width:72px;font-size:.72rem;padding:3px 6px">`).join('')}
+                style="width:108px;font-size:.72rem;padding:3px 6px">`).join('')}
               <button onclick="addSpecOpt(${i},${si})" style="font-size:.7rem;padding:2px 7px;border:1.5px solid var(--bo);border-radius:5px;background:var(--bos);cursor:pointer">＋</button>
               <button onclick="removeSpecCat(${i},${si})" style="font-size:.7rem;padding:2px 6px;border:none;background:var(--rdl);color:var(--rd);border-radius:5px;cursor:pointer">✕</button>
             </div>`).join('')
@@ -2351,6 +2360,7 @@ async function aiParseBase64(base64,mime){
       body:JSON.stringify({messages:[{role:'user',content:[
         {type:'image',source:{type:'base64',media_type:mime,data:base64}},
         {type:'text',text:'請解析這張菜單圖片，只回傳純 JSON 陣列，不要有任何其他文字或 markdown：\\n[{"restaurant":"店家名稱","category":"便當","emoji":"emoji","name":"品項名稱","price":數字或0,"description":"描述","specs":[]}]\\nspecs 規格判斷規則（只加菜單上真實存在的）：\\n1. 若有多個價格欄（如八角飯盒/圓飯盒），price 填最小值，specs 加 {"cat":"飯盒","opts":["八角飯盒 $110","圓飯盒 $125"]} 把價格標在選項裡\\n2. 若有加量/加飯/加菜選項，specs 加 {"cat":"份量","opts":["正常","加量"]}\\n3. 飲料若有加料區，specs 加 {"cat":"加料","opts":["珍珠","椰果",...]} 只列菜單上有的料\\n4. 飲料若有杯型，specs 加 {"cat":"杯型","opts":["中杯","大杯"]}\\n5. 便當若有主食選擇（飯/麵/焗烤），specs 加 {"cat":"主食","opts":["白飯","麵",...]}\\n6. 沒有對應規格就保留 specs:[]\\ncategory 判斷規則：若整張菜單都是飲料（如飲料店菜單），所有品項 category 填「飲料」；加料區單獨列出的料也填「飲料」。若是便當/餐盒菜單，主餐填「便當」，湯品小菜填「點心」。只列出清楚可見的品項，看不清楚不要猜。忽略優惠說明。確保 JSON 完整不截斷。price 看不清楚填 0。無法辨識回傳 []。'}
+        ,{type:'text',text:'價格解析補充規則：杯型或容器的完整售價請寫成「選項 $金額」，例如「大杯 $35」；加料、加飯或升級的額外費用請寫成「選項 +$金額」，例如「珍珠 +$10」。只保留菜單上清楚可見的價格，絕對不可猜測。'}
       ]}]})});
     const text=await res.text();
     if(!res.ok){
