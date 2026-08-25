@@ -1611,6 +1611,39 @@ async function doDelete(id,menuId){
 }
 
 /* ═══ ADMIN ═══ */
+function groupEventsByOrganizer(events){
+  const groups={};
+  (events||[]).forEach(event=>{
+    const organizer=(event.organizer||'未指定').trim()||'未指定';
+    if(!groups[organizer]) groups[organizer]=[];
+    groups[organizer].push(event);
+  });
+  return groups;
+}
+function renderOrganizerEventGroups(events,mode){
+  const groups=groupEventsByOrganizer(events);
+  if(!Object.keys(groups).length) return '<div style="padding:8px 2px;color:var(--sll);font-size:.76rem">目前沒有場次</div>';
+  return Object.entries(groups).map(([organizer,events])=>{
+    const buttons=events.map(event=>{
+      const action=mode==='menu'
+        ?`S.adminEid='${event.id}';S.pendingItems=[];S.loadedHistoryKeys=[];S.parseStatus='idle';S.parseComparison=null;window._pendingMainFile=null;window._pendingDrinkFile=null;render()`
+        :`S.adminEid='${event.id}';S.loadedHistoryKeys=[];render()`;
+      return `<button class="btn ${S.adminEid===event.id?'btn-or':'btn-out'} btn-sm" style="padding:7px 13px;font-size:.8rem" onclick="${action}">${esc(event.title)}</button>`;
+    }).join('');
+    return `<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin:7px 0">
+      <span style="background:var(--inl);color:var(--in);border-radius:20px;padding:5px 12px;font-size:.78rem;font-weight:800;flex-shrink:0">👤 ${esc(organizer)}</span>
+      ${buttons}
+    </div>`;
+  }).join('');
+}
+function renderFoldableEventSection(title,events,mode,open){
+  return `<details ${open?'open':''} style="margin-bottom:10px;border:1px solid var(--bo);border-radius:12px;background:#fff;overflow:hidden">
+    <summary style="cursor:pointer;list-style:none;padding:11px 13px;background:var(--bos);font-size:.82rem;font-weight:800;color:var(--sl);display:flex;align-items:center;justify-content:space-between">
+      <span>${title}</span><span style="font-size:.72rem;color:var(--sll)">${events.length} 個場次　⌄</span>
+    </summary>
+    <div style="padding:8px 12px 10px">${renderOrganizerEventGroups(events,mode)}</div>
+  </details>`;
+}
 function renderAdmin(){
   if(!S.adminEid&&S.events.length) S.adminEid=(S.events.find(e=>!e.archived_at)||S.events[0]).id;
   const ev=S.events.find(e=>e.id===S.adminEid);
@@ -1618,17 +1651,8 @@ function renderAdmin(){
   const activeEvents=S.events.filter(e=>!e.archived_at);
   const archivedEvents=S.events.filter(e=>e.archived_at);
 
-  let html=`
-    <!-- 場次切換 -->
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:13px;align-items:center">
-      <span style="font-size:.72rem;font-weight:800;color:var(--sll)">進行中</span>
-      ${activeEvents.map(e=>`<button class="btn ${S.adminEid===e.id?'btn-or':'btn-out'}" style="padding:8px 16px;font-size:.85rem"
-        onclick="S.adminEid='${e.id}';S.loadedHistoryKeys=[];render()">${esc(e.title)}</button>`).join('')}
-    </div>
-    ${archivedEvents.length?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin:-5px 0 13px;align-items:center;padding:9px 11px;background:var(--bos);border-radius:10px">
-      <span style="font-size:.72rem;font-weight:800;color:var(--sll)">📦 已儲存</span>
-      ${archivedEvents.map(e=>`<button class="btn ${S.adminEid===e.id?'btn-or':'btn-out'}" style="padding:7px 13px;font-size:.8rem" onclick="S.adminEid='${e.id}';S.loadedHistoryKeys=[];render()">${esc(e.title)}</button>`).join('')}
-    </div>`:''}`;
+  let html=renderFoldableEventSection('🟢 進行中',activeEvents,'admin',true)
+    +renderFoldableEventSection('📦 已儲存',archivedEvents,'admin',false);
 
   if(!ev){ html+='<div class="empty"><span class="ei">📭</span><p>請先建立場次</p></div>'; return html; }
 
@@ -1673,35 +1697,11 @@ function renderAdmin(){
 function renderMenuTab(){
   if(!S.adminEid&&S.events.length) S.adminEid=(S.events.find(e=>!e.archived_at)||S.events[0]).id;
   const ev=S.events.find(e=>e.id===S.adminEid);
-
-  // 按承辦人分組
-  const byOrganizer={};
-  S.events.filter(e=>!e.archived_at).forEach(e=>{
-    const org=e.organizer||'未指定';
-    if(!byOrganizer[org]) byOrganizer[org]=[];
-    byOrganizer[org].push(e);
-  });
-
-  let html='<div style="margin-bottom:14px">';
-  Object.entries(byOrganizer).forEach(([org, evs])=>{
-    html+='<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:8px">'
-      // 人名膠囊
-      +'<span style="background:var(--inl);color:var(--in);border-radius:20px;padding:5px 13px;font-size:.82rem;font-weight:700;flex-shrink:0">👤 '+esc(org)+'</span>'
-      // 該承辦人的場次
-      +evs.map(e=>'<button class="btn '+(S.adminEid===e.id?'btn-or':'btn-out')+'" style="padding:7px 14px;font-size:.82rem" '
-        +'onclick="S.adminEid=\''+e.id+'\';S.pendingItems=[];S.loadedHistoryKeys=[];S.parseStatus=\'idle\';S.parseComparison=null;window._pendingMainFile=null;window._pendingDrinkFile=null;render()">'+esc(e.title)+'</button>').join('')
-      +'</div>';
-  });
-  html+='<button class="btn btn-out btn-sm" onclick="createNewEvent()">＋ 新增場次</button>';
-  html+='</div>';
+  const activeEvents=S.events.filter(e=>!e.archived_at);
   const archivedEvents=S.events.filter(e=>e.archived_at);
-  if(archivedEvents.length){
-    html+='<div style="margin:2px 0 15px;padding:10px 12px;border:1px solid var(--bo);background:var(--bos);border-radius:12px">'
-      +'<div style="font-size:.72rem;font-weight:800;color:var(--sll);margin-bottom:8px">📦 已儲存場次（保留菜單、訂單與匯出資料）</div>'
-      +'<div style="display:flex;gap:7px;flex-wrap:wrap">'
-      +archivedEvents.map(e=>'<button class="btn '+(S.adminEid===e.id?'btn-or':'btn-out')+' btn-sm" onclick="S.adminEid=\''+e.id+'\';S.pendingItems=[];S.loadedHistoryKeys=[];render()">'+esc(e.title)+'</button>').join('')
-      +'</div></div>';
-  }
+  let html=renderFoldableEventSection('🟢 進行中',activeEvents,'menu',true)
+    +renderFoldableEventSection('📦 已儲存',archivedEvents,'menu',false)
+    +'<div style="margin:2px 0 14px"><button class="btn btn-out btn-sm" onclick="createNewEvent()">＋ 新增場次</button></div>';
 
   if(!ev){
     html+='<div class="empty"><span class="ei">📭</span><p>請先建立場次</p></div>';
