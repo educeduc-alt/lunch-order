@@ -1626,8 +1626,8 @@ function renderOrganizerEventGroups(events,mode){
   return Object.entries(groups).map(([organizer,events])=>{
     const buttons=events.map(event=>{
       const action=mode==='menu'
-        ?`S.adminEid='${event.id}';S.pendingItems=[];S.loadedHistoryKeys=[];S.parseStatus='idle';S.parseComparison=null;window._pendingMainFile=null;window._pendingDrinkFile=null;render()`
-        :`S.adminEid='${event.id}';S.loadedHistoryKeys=[];render()`;
+        ?`S.eventSection='${event.archived_at?'archived':'active'}';S.adminEid='${event.id}';S.pendingItems=[];S.loadedHistoryKeys=[];S.parseStatus='idle';S.parseComparison=null;window._pendingMainFile=null;window._pendingDrinkFile=null;render()`
+        :`S.eventSection='${event.archived_at?'archived':'active'}';S.adminEid='${event.id}';S.loadedHistoryKeys=[];render()`;
       return `<button class="btn ${S.adminEid===event.id?'btn-or':'btn-out'} btn-sm" style="padding:7px 13px;font-size:.8rem" onclick="${action}">${esc(event.title)}</button>`;
     }).join('');
     return `<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin:7px 0">
@@ -1636,9 +1636,10 @@ function renderOrganizerEventGroups(events,mode){
     </div>`;
   }).join('');
 }
-function renderFoldableEventSection(title,events,mode,open){
-  return `<details ${open?'open':''} style="margin-bottom:10px;border:1px solid var(--bo);border-radius:12px;background:#fff;overflow:hidden">
-    <summary style="cursor:pointer;list-style:none;padding:11px 13px;background:var(--bos);font-size:.82rem;font-weight:800;color:var(--sl);display:flex;align-items:center;justify-content:space-between">
+function renderFoldableEventSection(title,events,mode,sectionKey){
+  const open=(S.eventSection||'active')===sectionKey;
+  return `<details data-event-section="${sectionKey}" ${open?'open':''} style="margin-bottom:10px;border:1px solid var(--bo);border-radius:12px;background:#fff;overflow:hidden">
+    <summary onclick="event.preventDefault();S.eventSection='${sectionKey}';render()" style="cursor:pointer;list-style:none;padding:11px 13px;background:var(--bos);font-size:.82rem;font-weight:800;color:var(--sl);display:flex;align-items:center;justify-content:space-between">
       <span>${title}</span><span style="font-size:.72rem;color:var(--sll)">${events.length} 個場次　⌄</span>
     </summary>
     <div style="padding:8px 12px 10px">${renderOrganizerEventGroups(events,mode)}</div>
@@ -1651,8 +1652,8 @@ function renderAdmin(){
   const activeEvents=S.events.filter(e=>!e.archived_at);
   const archivedEvents=S.events.filter(e=>e.archived_at);
 
-  let html=renderFoldableEventSection('🟢 進行中',activeEvents,'admin',true)
-    +renderFoldableEventSection('📦 已儲存',archivedEvents,'admin',false);
+  let html=renderFoldableEventSection('🟢 進行中',activeEvents,'admin','active')
+    +renderFoldableEventSection('📦 已儲存',archivedEvents,'admin','archived');
 
   if(!ev){ html+='<div class="empty"><span class="ei">📭</span><p>請先建立場次</p></div>'; return html; }
 
@@ -1699,9 +1700,9 @@ function renderMenuTab(){
   const ev=S.events.find(e=>e.id===S.adminEid);
   const activeEvents=S.events.filter(e=>!e.archived_at);
   const archivedEvents=S.events.filter(e=>e.archived_at);
-  let html=renderFoldableEventSection('🟢 進行中',activeEvents,'menu',true)
-    +renderFoldableEventSection('📦 已儲存',archivedEvents,'menu',false)
-    +'<div style="margin:2px 0 14px"><button class="btn btn-out btn-sm" onclick="createNewEvent()">＋ 新增場次</button></div>';
+  let html=renderFoldableEventSection('🟢 進行中',activeEvents,'menu','active')
+    +renderFoldableEventSection('📦 已儲存',archivedEvents,'menu','archived')
+    +'<div style="margin:5px 0 16px"><button class="btn btn-or" style="width:100%;padding:14px 20px;font-size:1rem;font-weight:900;border-radius:12px;box-shadow:0 5px 14px rgba(249,115,22,.25)" onclick="S.eventSection=\'active\';createNewEvent()">＋ 新增場次</button></div>';
 
   if(!ev){
     html+='<div class="empty"><span class="ei">📭</span><p>請先建立場次</p></div>';
@@ -1985,21 +1986,23 @@ async function archiveEvent(eid){
   const ev=S.events.find(e=>e.id===eid); if(!ev) return;
   if(!confirm(`確定將「${ev.title}」儲存到後台？\n\n前台將不再顯示此場次，但菜單、訂單與匯出資料都會保留。`)) return;
   const archivedAt=new Date().toISOString();
-  if(DEMO){ev.archived_at=archivedAt;ev.is_closed=true;render();toast('場次已儲存到後台','ok');return;}
+  if(DEMO){ev.archived_at=archivedAt;ev.is_closed=true;S.eventSection='archived';render();toast('場次已儲存到後台','ok');return;}
   const{error}=await sb.from('menus').update({archived_at:archivedAt,is_closed:true}).eq('id',eid);
   if(error){toast('儲存場次失敗：'+error.message,'err');return;}
   ev.archived_at=archivedAt;
   ev.is_closed=true;
+  S.eventSection='archived';
   toast('📦 場次已儲存到後台','ok');
   render();
 }
 async function restoreEvent(eid){
   const ev=S.events.find(e=>e.id===eid); if(!ev) return;
   if(!confirm(`確定恢復「${ev.title}」？\n\n恢復後會重新出現在前台場次列表，場次仍維持關閉，請確認後再手動開放。`)) return;
-  if(DEMO){ev.archived_at=null;render();toast('場次已恢復','ok');return;}
+  if(DEMO){ev.archived_at=null;S.eventSection='active';render();toast('場次已恢復','ok');return;}
   const{error}=await sb.from('menus').update({archived_at:null}).eq('id',eid);
   if(error){toast('恢復失敗：'+error.message,'err');return;}
   ev.archived_at=null;
+  S.eventSection='active';
   toast('↩️ 場次已恢復，請確認是否需要開放','ok');
   render();
 }
