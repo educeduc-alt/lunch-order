@@ -1997,13 +1997,14 @@ async function archiveEvent(eid){
 }
 async function restoreEvent(eid){
   const ev=S.events.find(e=>e.id===eid); if(!ev) return;
-  if(!confirm(`確定恢復「${ev.title}」？\n\n恢復後會重新出現在前台場次列表，場次仍維持關閉，請確認後再手動開放。`)) return;
-  if(DEMO){ev.archived_at=null;S.eventSection='active';render();toast('場次已恢復','ok');return;}
-  const{error}=await sb.from('menus').update({archived_at:null}).eq('id',eid);
+  if(!confirm(`確定恢復「${ev.title}」？\n\n恢復後會重新出現在前台場次列表，並立即開放點餐。`)) return;
+  if(DEMO){ev.archived_at=null;ev.is_closed=false;S.eventSection='active';render();toast('場次已恢復並開放點餐','ok');return;}
+  const{error}=await sb.from('menus').update({archived_at:null,is_closed:false}).eq('id',eid);
   if(error){toast('恢復失敗：'+error.message,'err');return;}
   ev.archived_at=null;
+  ev.is_closed=false;
   S.eventSection='active';
-  toast('↩️ 場次已恢復，請確認是否需要開放','ok');
+  toast('↩️ 場次已恢復並開放點餐','ok');
   render();
 }
 async function deleteEvent(eid){
