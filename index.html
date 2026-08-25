@@ -623,7 +623,7 @@ function renderHome(){
   let html=`<div class="page-title">點餐場次</div>
     <div class="page-sub">選擇您要參加的場次，即可開始點餐</div>
     <div class="event-list">`;
-  const allEvs=S.events;
+  const allEvs=S.events.filter(ev=>!ev.archived_at);
   if(!allEvs.length){
     html+=`</div><div class="empty-events"><span class="ei">📭</span><p>尚無點餐場次<br>請等待承辦人建立</p></div>`;
     return html;
@@ -1612,15 +1612,23 @@ async function doDelete(id,menuId){
 
 /* ═══ ADMIN ═══ */
 function renderAdmin(){
-  if(!S.adminEid&&S.events.length) S.adminEid=S.events[0].id;
+  if(!S.adminEid&&S.events.length) S.adminEid=(S.events.find(e=>!e.archived_at)||S.events[0]).id;
   const ev=S.events.find(e=>e.id===S.adminEid);
+
+  const activeEvents=S.events.filter(e=>!e.archived_at);
+  const archivedEvents=S.events.filter(e=>e.archived_at);
 
   let html=`
     <!-- 場次切換 -->
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:13px;align-items:center">
-      ${S.events.map(e=>`<button class="btn ${S.adminEid===e.id?'btn-or':'btn-out'}" style="padding:8px 16px;font-size:.85rem"
+      <span style="font-size:.72rem;font-weight:800;color:var(--sll)">進行中</span>
+      ${activeEvents.map(e=>`<button class="btn ${S.adminEid===e.id?'btn-or':'btn-out'}" style="padding:8px 16px;font-size:.85rem"
         onclick="S.adminEid='${e.id}';S.loadedHistoryKeys=[];render()">${esc(e.title)}</button>`).join('')}
-    </div>`;
+    </div>
+    ${archivedEvents.length?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin:-5px 0 13px;align-items:center;padding:9px 11px;background:var(--bos);border-radius:10px">
+      <span style="font-size:.72rem;font-weight:800;color:var(--sll)">📦 已儲存</span>
+      ${archivedEvents.map(e=>`<button class="btn ${S.adminEid===e.id?'btn-or':'btn-out'}" style="padding:7px 13px;font-size:.8rem" onclick="S.adminEid='${e.id}';S.loadedHistoryKeys=[];render()">${esc(e.title)}</button>`).join('')}
+    </div>`:''}`;
 
   if(!ev){ html+='<div class="empty"><span class="ei">📭</span><p>請先建立場次</p></div>'; return html; }
 
@@ -1663,12 +1671,12 @@ function renderAdmin(){
 /* 場次 & 菜單管理 */
 
 function renderMenuTab(){
-  if(!S.adminEid&&S.events.length) S.adminEid=S.events[0].id;
+  if(!S.adminEid&&S.events.length) S.adminEid=(S.events.find(e=>!e.archived_at)||S.events[0]).id;
   const ev=S.events.find(e=>e.id===S.adminEid);
 
   // 按承辦人分組
   const byOrganizer={};
-  S.events.forEach(e=>{
+  S.events.filter(e=>!e.archived_at).forEach(e=>{
     const org=e.organizer||'未指定';
     if(!byOrganizer[org]) byOrganizer[org]=[];
     byOrganizer[org].push(e);
@@ -1686,6 +1694,14 @@ function renderMenuTab(){
   });
   html+='<button class="btn btn-out btn-sm" onclick="createNewEvent()">＋ 新增場次</button>';
   html+='</div>';
+  const archivedEvents=S.events.filter(e=>e.archived_at);
+  if(archivedEvents.length){
+    html+='<div style="margin:2px 0 15px;padding:10px 12px;border:1px solid var(--bo);background:var(--bos);border-radius:12px">'
+      +'<div style="font-size:.72rem;font-weight:800;color:var(--sll);margin-bottom:8px">📦 已儲存場次（保留菜單、訂單與匯出資料）</div>'
+      +'<div style="display:flex;gap:7px;flex-wrap:wrap">'
+      +archivedEvents.map(e=>'<button class="btn '+(S.adminEid===e.id?'btn-or':'btn-out')+' btn-sm" onclick="S.adminEid=\''+e.id+'\';S.pendingItems=[];S.loadedHistoryKeys=[];render()">'+esc(e.title)+'</button>').join('')
+      +'</div></div>';
+  }
 
   if(!ev){
     html+='<div class="empty"><span class="ei">📭</span><p>請先建立場次</p></div>';
@@ -1775,11 +1791,16 @@ function renderEventMgmt(ev){
 
     </div>
 
+    ${ev.archived_at?`<div style="margin:10px 0;padding:10px 12px;border-radius:10px;background:var(--grl);color:var(--gr);font-size:.78rem;font-weight:700">📦 此場次已儲存到後台，不會顯示在前台點餐列表；菜單、訂單與匯出資料均保留。</div>`:''}
+
     <!-- 動作按鈕 -->
     <div style="display:flex;gap:7px;margin:12px 0 8px;flex-wrap:wrap">
       <button class="btn btn-gr" onclick="parseAll()">🤖 一鍵解析</button>
       <button class="btn btn-or" onclick="saveAll()">💾 儲存</button>
       <button class="btn btn-rd btn-sm" onclick="if(confirm('確定刪除整個場次？所有訂單和品項也會一併刪除。'))deleteEvent('${ev.id}')">🗑️ 刪除場次</button>
+      ${ev.archived_at
+        ?`<button class="btn btn-out btn-sm" onclick="restoreEvent('${ev.id}')">↩️ 恢復場次</button>`
+        :`<button class="btn btn-gr btn-sm" onclick="archiveEvent('${ev.id}')">📦 儲存場次</button>`}
     </div>
     <div id="parseCheckStatus">${renderParseCheckStatus()}</div>
 
@@ -1862,12 +1883,36 @@ function splitHistoryEntries(entries){
   return result;
 }
 
+function getHistoryEntries(){
+  let localEntries=[];
+  try{localEntries=JSON.parse(localStorage.getItem('menuCache')||'[]');}catch(e){}
+  const archivedEntries=[];
+  S.events.filter(ev=>ev.archived_at).forEach(ev=>{
+    const groups={};
+    (S.items[ev.id]||[]).forEach(item=>{
+      const store=(item.restaurant||ev.store_name||'').trim();
+      if(!store||store==='未知店家') return;
+      if(!groups[store]) groups[store]=[];
+      groups[store].push(item);
+    });
+    Object.entries(groups).forEach(([store,items])=>archivedEntries.push({
+      key:'archive-'+ev.id+'-'+store,
+      store,
+      items,
+      savedAt:ev.archived_at,
+      sourceEventId:ev.id
+    }));
+  });
+  const unique=new Map();
+  splitHistoryEntries([...archivedEntries,...PRESET_MENUS,...localEntries]).forEach(entry=>{
+    const key=normalizeCompareText(entry.store)+'__'+entry.type;
+    if(!unique.has(key)) unique.set(key,entry);
+  });
+  return [...unique.values()];
+}
+
 function showMenuCache(){
-  const stored=JSON.parse(localStorage.getItem('menuCache')||'[]');
-  // 合併預設菜單（不重複）
-  const presetStores=PRESET_MENUS.map(p=>p.store);
-  const extra=stored.filter(s=>!presetStores.includes(s.store));
-  const cached=splitHistoryEntries([...PRESET_MENUS,...extra]);
+  const cached=getHistoryEntries();
   if(!cached.length){toast('尚無歷史菜單紀錄','warn');return;}
   window._historyCacheEntries=cached;
   // 建立選單覆蓋層
@@ -1935,6 +1980,28 @@ async function toggleClose(eid){
   if(DEMO){ev.is_closed=next;toast(next?'已關閉':'已開放',next?'warn':'ok');render();return;}
   await sb.from('menus').update({is_closed:next}).eq('id',eid);
   ev.is_closed=next; toast(next?'場次已關閉':'場次已開放',next?'warn':'ok'); render();
+}
+async function archiveEvent(eid){
+  const ev=S.events.find(e=>e.id===eid); if(!ev) return;
+  if(!confirm(`確定將「${ev.title}」儲存到後台？\n\n前台將不再顯示此場次，但菜單、訂單與匯出資料都會保留。`)) return;
+  const archivedAt=new Date().toISOString();
+  if(DEMO){ev.archived_at=archivedAt;ev.is_closed=true;render();toast('場次已儲存到後台','ok');return;}
+  const{error}=await sb.from('menus').update({archived_at:archivedAt,is_closed:true}).eq('id',eid);
+  if(error){toast('儲存場次失敗：'+error.message,'err');return;}
+  ev.archived_at=archivedAt;
+  ev.is_closed=true;
+  toast('📦 場次已儲存到後台','ok');
+  render();
+}
+async function restoreEvent(eid){
+  const ev=S.events.find(e=>e.id===eid); if(!ev) return;
+  if(!confirm(`確定恢復「${ev.title}」？\n\n恢復後會重新出現在前台場次列表，場次仍維持關閉，請確認後再手動開放。`)) return;
+  if(DEMO){ev.archived_at=null;render();toast('場次已恢復','ok');return;}
+  const{error}=await sb.from('menus').update({archived_at:null}).eq('id',eid);
+  if(error){toast('恢復失敗：'+error.message,'err');return;}
+  ev.archived_at=null;
+  toast('↩️ 場次已恢復，請確認是否需要開放','ok');
+  render();
 }
 async function deleteEvent(eid){
   if(DEMO){S.events=S.events.filter(e=>e.id!==eid);delete S.items[eid];delete S.orders[eid];S.adminEid=S.events[0]?.id||null;S.pendingItems=[];S.loadedHistoryKeys=[];S.parseStatus='idle';S.parseComparison=null;toast('已刪除','ok');render();return;}
@@ -2033,7 +2100,7 @@ function renderStoreCapsules(currentStore){
     const pendingStores=(S.pendingItems||[]).map(it=>it.restaurant).filter(s=>s&&s!=='未知店家');
     const savedStores=((S.items||{})[S.adminEid]||[]).map(it=>it.restaurant).filter(s=>s&&s!=='未知店家');
     const parsedStores=[...new Set([...pendingStores,...savedStores])];
-    const historyEntries=splitHistoryEntries(JSON.parse(localStorage.getItem('menuCache')||'[]'))
+    const historyEntries=getHistoryEntries()
       .filter(entry=>entry.store&&entry.store!=='未知店家');
     if(!parsedStores.length&&!historyEntries.length) return '';
 
@@ -2079,7 +2146,7 @@ function pickStore(storeName){
 }
 
 function loadHistoryCapsule(index){
-  const entries=splitHistoryEntries(JSON.parse(localStorage.getItem('menuCache')||'[]'))
+  const entries=getHistoryEntries()
     .filter(entry=>entry.store&&entry.store!=='未知店家');
   const entry=entries[index];
   if(!entry){toast('找不到這筆歷史菜單','warn');return;}
@@ -2350,7 +2417,7 @@ function compareParsedWithHistory(runId){
   const ev=S.events.find(e=>e.id===S.adminEid);
   const fallbackStore=(document.getElementById('evStore')?.value||ev?.store_name||'').trim();
   let history=[];
-  try{history=splitHistoryEntries(JSON.parse(localStorage.getItem('menuCache')||'[]'));}catch(e){}
+  try{history=getHistoryEntries();}catch(e){}
   const groups={};
   parsed.forEach(item=>{
     const type=item.category==='飲料'||item._uploadType==='drink'?'飲料':'便當';
