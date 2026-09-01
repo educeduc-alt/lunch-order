@@ -264,6 +264,11 @@ input,select,textarea{font-family:inherit}
 .upload-zone{border:2px dashed var(--bo);border-radius:var(--rlg);padding:18px;text-align:center;cursor:pointer;background:var(--ca);transition:all .2s;position:relative;overflow:hidden}
 .upload-zone:hover{border-color:var(--in);background:var(--inl)}
 .upload-sub{font-size:.72rem;color:var(--sll);margin-top:4px}
+.parse-upload-title{display:flex;align-items:center;gap:7px;margin-bottom:8px;font-size:1.05rem;font-weight:800;color:var(--sl)}
+.parse-upload-zone{min-height:112px;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.parse-upload-icon{font-size:2rem;display:block;margin-bottom:6px}
+.parse-upload-label{font-weight:800;font-size:.95rem;line-height:1.35;color:var(--slm)}
+.parse-upload-zone .upload-sub{font-size:.8rem;margin-top:6px}
 .scan-ldr{display:flex;align-items:center;justify-content:center;gap:9px;font-size:.82rem;font-weight:700;color:var(--ord);margin-top:8px}
 .spin{width:20px;height:20px;border:2.5px solid var(--orll);border-top-color:var(--or);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -1682,11 +1687,11 @@ function renderEventMgmt(ev){
 
       <!-- 主餐上傳 -->
       <div>
-        <span class="mg-lbl" style="display:flex;align-items:center;gap:5px;margin-bottom:6px">🍱 主餐菜單</span>
-        <div class="upload-zone" onclick="document.getElementById('imgInpMain').click()" style="min-height:90px" id="zoneMain">
+        <span class="parse-upload-title">🍱 主餐菜單</span>
+        <div class="upload-zone parse-upload-zone" onclick="document.getElementById('imgInpMain').click()" id="zoneMain">
           <input type="file" id="imgInpMain" accept="image/*,application/pdf" style="display:none" onchange="previewFile(event,'main')">
-          <span style="font-size:1.5rem;display:block;margin-bottom:4px" id="iconMain">📎</span>
-          <div style="font-weight:700;font-size:.82rem;color:var(--slm)" id="labelMain">上傳主餐圖片/PDF</div>
+          <span class="parse-upload-icon" id="iconMain">📎</span>
+          <div class="parse-upload-label" id="labelMain">上傳主餐圖片/PDF</div>
           <div class="upload-sub">JPG / PNG / PDF</div>
         </div>
         <div id="aiStatusMain"></div>
@@ -1694,11 +1699,11 @@ function renderEventMgmt(ev){
 
       <!-- 飲料上傳 -->
       <div>
-        <span class="mg-lbl" style="display:flex;align-items:center;gap:5px;margin-bottom:6px">🧋 飲料菜單</span>
-        <div class="upload-zone" onclick="document.getElementById('imgInpDrink').click()" style="min-height:90px" id="zoneDrink">
+        <span class="parse-upload-title">🧋 飲料菜單</span>
+        <div class="upload-zone parse-upload-zone" onclick="document.getElementById('imgInpDrink').click()" id="zoneDrink">
           <input type="file" id="imgInpDrink" accept="image/*,application/pdf" style="display:none" onchange="previewFile(event,'drink')">
-          <span style="font-size:1.5rem;display:block;margin-bottom:4px" id="iconDrink">📎</span>
-          <div style="font-weight:700;font-size:.82rem;color:var(--slm)" id="labelDrink">上傳飲料圖片/PDF</div>
+          <span class="parse-upload-icon" id="iconDrink">📎</span>
+          <div class="parse-upload-label" id="labelDrink">上傳飲料圖片/PDF</div>
           <div class="upload-sub">JPG / PNG / PDF</div>
         </div>
         <div id="aiStatusDrink"></div>
