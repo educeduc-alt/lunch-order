@@ -62,10 +62,10 @@ input,select,textarea{font-family:inherit}
 .badge{display:inline-flex;align-items:center;gap:3px;font-size:.68rem;font-weight:700;padding:2px 8px;border-radius:20px}
 .badge-open{background:var(--grl);color:var(--gr)}
 .badge-closed{background:var(--rdl);color:var(--rd)}
-.ec-title{font-weight:700;font-size:.95rem;margin-bottom:3px}
+.ec-title{font-weight:700;font-size:.95rem;margin-bottom:3px;color:var(--or)}
 .ec-organizer{font-size:.72rem;color:var(--sll);display:flex;align-items:center;gap:4px}
 .ec-right{align-self:stretch;text-align:right;flex-shrink:0;display:flex;align-items:flex-end;justify-content:flex-end}
-.ec-date{font-size:.72rem;font-weight:800;color:var(--or);white-space:nowrap}
+.ec-date{font-size:.72rem;font-weight:800;color:var(--sl);white-space:nowrap}
 .ec-deadline{font-size:.72rem;color:var(--rd);font-weight:700;white-space:nowrap}
 .ec-deadline-label{font-size:.65rem;color:var(--sll);margin-bottom:1px}
 .ec-bot{padding:10px 16px;background:var(--ca);border-top:1px solid var(--bos);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px}
@@ -1689,10 +1689,10 @@ function renderEventMgmt(ev){
       <div>
         <div class="upload-zone parse-upload-zone" onclick="document.getElementById('imgInpMain').click()" id="zoneMain">
           <input type="file" id="imgInpMain" accept="image/*,application/pdf" style="display:none" onchange="previewFile(event,'main')">
-          <span class="parse-upload-title">🍱 主餐菜單</span>
+          <span class="parse-upload-title">🍱 主菜菜單</span>
           <span class="parse-upload-icon" id="iconMain">📎</span>
           <div class="parse-upload-label" id="labelMain">上傳主餐圖片</div>
-          <div class="upload-sub">JPG / PNG</div>
+          <div class="upload-sub">PDF/JPG/PNG</div>
         </div>
         <div id="aiStatusMain"></div>
       </div>
@@ -1704,7 +1704,7 @@ function renderEventMgmt(ev){
           <span class="parse-upload-title">🧋 飲料菜單</span>
           <span class="parse-upload-icon" id="iconDrink">📎</span>
           <div class="parse-upload-label" id="labelDrink">上傳飲料圖片</div>
-          <div class="upload-sub">JPG / PNG</div>
+          <div class="upload-sub">PDF/JPG/PNG</div>
         </div>
         <div id="aiStatusDrink"></div>
       </div>
