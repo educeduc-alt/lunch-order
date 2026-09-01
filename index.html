@@ -626,7 +626,6 @@ function renderHome(){
     html+=`<div class="event-card${closed?' closed-card':''}" onclick="openEvent('${ev.id}')">
       <div class="ec-top">
         <div class="ec-left">
-          <div class="ec-badges"><span class="badge ${closed?'badge-closed':'badge-open'}">${closed?'已截止（可查看）':'開放點餐'}</span></div>
           <div class="ec-title">${esc(ev.title)}</div>
           ${ev.organizer?`<div class="ec-organizer">👤 負責老師：${esc(ev.organizer)}</div>`:''}
         </div>
@@ -1710,7 +1709,7 @@ function renderEventMgmt(ev){
     <!-- 動作按鈕 -->
     <div style="display:flex;gap:7px;margin:12px 0 8px;flex-wrap:wrap">
       <button class="btn btn-gr" onclick="parseAll()">🤖 一鍵解析</button>
-      <button class="btn btn-or" onclick="saveMenu()">💾 儲存菜單</button>
+      <button class="btn btn-or" onclick="saveMenu()">💾 儲存</button>
       <button class="btn btn-rd btn-sm" onclick="if(confirm('確定刪除整個場次？所有訂單和品項也會一併刪除。'))deleteEvent('${ev.id}')">🗑️ 刪除場次</button>
       <button class="btn btn-save-event" onclick="saveEvent()">💾 儲存場次</button>
     </div>
@@ -2109,7 +2108,7 @@ async function saveEvent(){
   const eid=S.adminEid; if(!eid){toast('請先選擇場次','err');return;}
   if(DEMO){toast('示範模式：變更不會寫入','warn');return;}
   if(S.pendingItems.length||window._pendingMainFile||window._pendingDrinkFile){
-    toast('尚有未儲存的菜單，請先按「儲存菜單」','warn');
+    toast('尚有未儲存的內容，請先按「儲存」','warn');
     return;
   }
   const date=document.getElementById('evDate')?.value||'';
@@ -2146,10 +2145,31 @@ async function saveMenu(){
   }else if(S.pendingItems.length){
     if(!confirm('本次品項來自歷史菜單或手動新增，尚未執行一鍵解析。\n確定仍要儲存？')) return;
   }
-  if(!S.pendingItems.length){toast('目前沒有可儲存的新菜單品項','warn');return;}
-
-  // 儲存菜單只處理品項，不更新場次、不切換頁籤。
+  // 「儲存」會保留目前畫面上的場次設定；若有新菜單品項則一併儲存。
+  // 不變更 is_closed，因此不會把場次移到後台或從前台隱藏。
+  const date=document.getElementById('evDate')?.value||'';
+  const title=document.getElementById('evTitle')?.value.trim();
+  const activity_note=document.getElementById('evActivityNote')?.value.trim()||'';
+  const store_name=document.getElementById('evStore')?.value.trim()||'';
+  const orgInput=document.getElementById('evOrganizer')?.value.trim()||'';
   const evNow=S.events.find(e=>e.id===eid);
+  const organizer=orgInput||evNow?.organizer||'';
+  if(!date){toast('請選擇場次日期','err');return;}
+  if(!title){toast('請填場次標題','err');return;}
+  const{data:settingRows,error:settingError}=await sb.from('menus')
+    .update({date,title,activity_note,organizer,store_name})
+    .eq('id',eid)
+    .select('id');
+  if(settingError||!settingRows?.length){
+    toast('設定儲存失敗：'+(settingError?.message||'資料未更新'),'err');
+    return;
+  }
+  if(evNow) Object.assign(evNow,{date,title,activity_note,organizer,store_name});
+  if(!S.pendingItems.length){
+    toast('✅ 目前畫面設定已儲存','ok');
+    render();
+    return;
+  }
 
   // 把 pendingItems 讀取欄位後 append 到資料庫（不刪除既有品項）
   const existingCount=(S.items[eid]||[]).length;
@@ -2209,7 +2229,7 @@ async function saveMenu(){
     S.parseRunId=null;
     window._pendingMainFile=null;
     window._pendingDrinkFile=null;
-    toast('✅ 菜單已儲存！本場次共 '+total+' 個品項','ok');
+    toast('✅ 設定與菜單已儲存！本場次共 '+total+' 個品項','ok');
   }
   render();
   // 儲存後更新店家膠囊
