@@ -108,6 +108,7 @@ input,select,textarea{font-family:inherit}
 .cat-toggle:focus-visible{outline:3px solid rgba(249,115,22,.28);outline-offset:2px}
 .cat-toggle.is-collapsed{background:var(--ca);border-color:var(--bo);border-left-color:var(--sll)}
 .cat-toggle-main{display:flex;align-items:center;gap:7px;font-size:.9rem;font-weight:800;color:var(--sl);min-width:0}
+.cat-toggle-store{font-size:.72rem;font-weight:700;color:var(--sll);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cat-toggle-count{background:var(--or);color:#fff;border-radius:20px;padding:2px 8px;font-size:.68rem;font-weight:800;line-height:1.4}
 .cat-toggle-state{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-width:74px;padding:6px 10px;border-radius:20px;background:var(--orll);color:var(--ord);font-size:.71rem;font-weight:800;white-space:nowrap;box-shadow:none}
 .cat-toggle.is-collapsed .cat-toggle-state{background:var(--bos);color:var(--slm);box-shadow:none}
@@ -151,16 +152,6 @@ input,select,textarea{font-family:inherit}
 .sqb{width:34px;height:34px;border-radius:50%;border:1.5px solid var(--bo);background:var(--ca);font-size:1.1rem;font-weight:700;display:flex;align-items:center;justify-content:center;transition:all .15s}
 .sqb:hover{background:var(--or);color:#fff;border-color:var(--or)}
 .sqn{font-family:'Nunito',sans-serif;font-weight:900;font-size:1.25rem;min-width:28px;text-align:center}
-
-/* 點餐步驟改為單一精簡導覽，降低初次進入的視覺負擔 */
-.order-guide{padding:9px 12px!important;background:var(--ca)!important;border:1px solid var(--bo)!important;box-shadow:none!important}
-.order-guide>div:first-child{display:none!important}
-.order-guide>div:nth-child(2){align-items:center!important;justify-content:flex-start!important;gap:8px!important}
-.order-guide>div:nth-child(2)>div[style*="flex:1"]{display:flex;align-items:center;gap:6px;flex:0 1 auto!important;padding:0!important;text-align:left!important}
-.order-guide>div:nth-child(2)>div[style*="flex:1"]>div:first-child{width:27px!important;height:27px!important;margin:0!important;font-size:.9rem!important;flex-shrink:0}
-.order-guide>div:nth-child(2)>div[style*="flex:1"]>div:nth-child(2){margin:0!important;font-size:.7rem!important;white-space:nowrap}
-.order-guide>div:nth-child(2)>div[style*="flex:1"]>div:nth-child(3){display:none!important}
-.order-guide>div:nth-child(2)>div:not([style*="flex:1"]){margin:0!important;color:var(--sll)!important}
 
 /* ── CART ── */
 .cart-panel{background:var(--ca);border:1px solid var(--bo);border-radius:var(--rlg);padding:13px 15px;margin-top:14px;box-shadow:var(--shsm)}
@@ -450,7 +441,6 @@ let S = {
   parseComparison:null,
   menuSearchQ:'',    // 菜單搜尋關鍵字
   collapsedCats:{},   // 收縮的分類 {cat: true/false}
-  myLastOrderId:null, // 最後送出的訂單 id（用於取消/修改）
   // 套餐組合 sheet
   comboStep:null,     // null | 'side' | 'drink'
   comboMain:null,     // 選定的主餐 item
@@ -664,46 +654,17 @@ function renderOrderPage(){
       <div class="event-info-banner">
         ${ev.date?`<span style="display:block;font-size:.7rem;font-weight:800;color:var(--or);margin-bottom:2px">📅 ${esc(fmtEventDate(ev.date))}</span>`:''}
         <strong>${esc(ev.title)}</strong>
-        ${ev.organizer?`負責老師：${esc(ev.organizer)}　`:''}${ev.store_name?`店家：${esc(ev.store_name)}`:''}
+        ${ev.organizer?`負責老師：${esc(ev.organizer)}`:''}
       </div>
     </div>`;
 
   if(closed) html+=`<div style="background:var(--rdl);border:1.5px solid #fca5a5;border-radius:var(--rmd);padding:10px 13px;font-size:.8rem;color:var(--rd);font-weight:700;margin-bottom:12px;text-align:center">⛔ 此場次已截止，無法點餐</div>`;
 
-  // 已點餐入口；詳細內容、取消與修改集中在提醒畫面
+  // 已點餐入口：只提供查看已送出的內容。
   const myExisting=(S.orders[S.activeEventId]||[]).find(o=>o.user_name===S.myName);
   if(myExisting && !isEventClosed(ev)){
-    html+=`<button class="btn btn-gr btn-full" style="margin-bottom:12px;padding:11px" onclick="showSubmittedOrderNotice('${myExisting.id}')">✅ 查看已送出的點餐／取消／修改</button>`;
+    html+=`<button class="btn btn-gr btn-full" style="margin-bottom:12px;padding:11px" onclick="showSubmittedOrderNotice('${myExisting.id}')">✅ 查看已送出的餐點</button>`;
   }
-
-  // 三步驟點餐指導
-  html+=`<div class="order-guide" style="background:var(--ca);border:1px solid var(--bo);border-radius:var(--rlg);padding:14px 16px;margin-bottom:14px;box-shadow:var(--shsm)">
-    <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:.85rem;color:var(--slm);margin-bottom:12px;text-align:center;letter-spacing:.3px">📖 點餐步驟</div>
-    <div style="display:flex;align-items:flex-start;justify-content:center;gap:0">
-      <!-- 步驟1 -->
-      <div style="flex:1;text-align:center;padding:0 6px">
-        <div style="width:44px;height:44px;border-radius:50%;background:var(--orll);display:flex;align-items:center;justify-content:center;font-size:1.4rem;margin:0 auto 7px">✍️</div>
-        <div style="font-size:.72rem;font-weight:700;color:var(--sl);margin-bottom:2px">填寫姓名</div>
-        <div style="font-size:.65rem;color:var(--sll);line-height:1.4">輸入您的姓名</div>
-      </div>
-      <!-- 箭頭 -->
-      <div style="color:var(--or);font-size:1rem;margin-top:14px;flex-shrink:0">›</div>
-      <!-- 步驟2 -->
-      <div style="flex:1;text-align:center;padding:0 6px">
-        <div style="width:44px;height:44px;border-radius:50%;background:var(--orll);display:flex;align-items:center;justify-content:center;font-size:1.4rem;margin:0 auto 7px">🍱</div>
-        <div style="font-size:.72rem;font-weight:700;color:var(--sl);margin-bottom:2px">選擇餐點</div>
-        <div style="font-size:.65rem;color:var(--sll);line-height:1.4">按 ＋ 加入清單</div>
-      </div>
-      <!-- 箭頭 -->
-      <div style="color:var(--or);font-size:1rem;margin-top:14px;flex-shrink:0">›</div>
-      <!-- 步驟3 -->
-      <div style="flex:1;text-align:center;padding:0 6px">
-        <div style="width:44px;height:44px;border-radius:50%;background:var(--orll);display:flex;align-items:center;justify-content:center;font-size:1.4rem;margin:0 auto 7px">✅</div>
-        <div style="font-size:.72rem;font-weight:700;color:var(--sl);margin-bottom:2px">送出點餐</div>
-        <div style="font-size:.65rem;color:var(--sll);line-height:1.4">按下方送出鍵</div>
-      </div>
-    </div>
-  </div>`;
 
   html+=`<div class="id-card">
     <div class="fld"><label>姓名</label><input class="inp" id="uName" placeholder="王小明" value="${esc(S.myName)}" oninput="S.myName=this.value"></div>
@@ -728,13 +689,15 @@ function renderOrderPage(){
     const orderedCats=[...CAT_ORDER,...Object.keys(byCat).filter(c=>!CAT_ORDER.includes(c))].filter(c=>byCat[c]);
     orderedCats.forEach(cat=>{
       const its=byCat[cat];
+      const catStores=[...new Set(its.map(item=>String(item.restaurant||'').trim()).filter(store=>store&&store!=='未知店家'&&store!=='本日菜單'))];
+      if(!catStores.length&&ev.store_name) catStores.push(ev.store_name);
       const collapsed=S.collapsedCats[cat]||false;
       const catCount=its.reduce((s,item)=>{const keys=Object.keys(S.cart).filter(k=>k.startsWith(item.id+'__'));return s+keys.reduce((ss,k)=>ss+(S.cart[k]?.qty||0),0);},0);
       html+=`<div class="rest-block">
         <button type="button" class="cat-toggle${collapsed?' is-collapsed':''}"
           aria-expanded="${!collapsed}" aria-label="${collapsed?'展開':'收合'}${esc(cat)}分類"
           onclick="S.collapsedCats['${cat}']=!S.collapsedCats['${cat}'];render()">
-          <span class="cat-toggle-main"><span>${CAT_ICON[cat]||'🍽️'}</span><span>${esc(cat)}</span>${catCount>0?`<span class="cat-toggle-count">已選 ${catCount}</span>`:''}</span>
+          <span class="cat-toggle-main"><span>${CAT_ICON[cat]||'🍽️'}</span><span>${esc(cat)}</span>${catStores.length?`<span class="cat-toggle-store">· ${esc(catStores.join('／'))}</span>`:''}${catCount>0?`<span class="cat-toggle-count">已選 ${catCount}</span>`:''}</span>
           <span class="cat-toggle-state"><span class="cat-toggle-arrow">▶</span>${collapsed?'展開':'收合'}</span>
         </button>
         ${collapsed?'':`<div class="menu-grid" style="margin-top:8px">`}`;
@@ -1358,34 +1321,6 @@ function closeSpec(){document.getElementById('specOverlay').style.display='none'
 
 /* ── SUBMIT ── */
 
-async function cancelMyOrder(orderId){
-  if(!confirm('確定取消此筆點餐？')) return;
-  const eid=S.activeEventId;
-  const{error}=await dbDeleteOrder(orderId, eid);
-  if(error){toast('取消失敗：'+error.message,'err');return;}
-  S.myLastOrderId=null;
-  toast('已取消點餐','ok');
-  render();
-}
-
-async function editMyOrder(orderId){
-  // 取消舊的，讓使用者重新點
-  const eid=S.activeEventId;
-  const oldOrder=(S.orders[eid]||[]).find(o=>o.id===orderId);
-  if(!oldOrder) return;
-  if(!confirm('取消舊點餐並重新選擇？')) return;
-  const{error}=await dbDeleteOrder(orderId, eid);
-  if(error){toast('操作失敗','err');return;}
-  // 把舊的品項預填回購物車
-  S.cart={};
-  (oldOrder.order_items||[]).forEach((oi,i)=>{
-    const k=oi.item_id+'__'+(oi.specs_str||'')+'__'+(Date.now()+i);
-    S.cart[k]={itemId:oi.item_id,name:oi.item_name,emoji:oi.item_emoji,qty:oi.quantity,price:oi.unit_price,specsStr:oi.specs_str||'',note:oi.note||''};
-  });
-  toast('已取消舊點餐，請重新確認清單後送出','warn');
-  render();
-}
-
 function showDuplicateWarning(name, existingOrder){
   return new Promise(resolve=>{
     const items=(existingOrder.order_items||[]).map(oi=>oi.item_emoji+oi.item_name+'×'+oi.quantity).join('、');
@@ -1470,7 +1405,7 @@ function showSubmittedOrderNotice(orderId){
   box.innerHTML=`<div class="modal-box" style="max-width:430px;text-align:left;padding:24px 20px">
       <div style="text-align:center;font-size:2.4rem;margin-bottom:7px">✅</div>
       <div class="modal-title" style="text-align:center;color:var(--gr)">已送出的點餐</div>
-      <p class="modal-sub" style="text-align:center;line-height:1.6">可在這裡查看內容、修改或取消餐點。</p>
+      <p class="modal-sub" style="text-align:center;line-height:1.6">以下為您已送出的餐點內容。</p>
       <div style="background:var(--grl);border:1.5px solid #86efac;border-radius:var(--rmd);padding:9px 11px;margin-bottom:10px;font-size:.76rem;line-height:1.65;color:#166534">
         <strong style="display:block;font-size:.85rem">${esc(ev?.title||'點餐場次')}</strong>
         姓名：${esc(order.user_name||S.myName)}${ev?.store_name?`　店家：${esc(ev.store_name)}`:''}
@@ -1492,15 +1427,9 @@ function showSubmittedOrderNotice(orderId){
         <span style="font-size:.8rem;color:var(--slm)">共 ${totalQty} 份</span>
         <span style="font-size:1.08rem;color:var(--or)">${total>0?'合計 $'+total:'價格另計'}</span>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        <button class="btn btn-rd btn-full" id="submittedCancel">取消點餐</button>
-        <button class="btn btn-or btn-full" id="submittedEdit">修改點餐</button>
-      </div>
-      <button class="btn btn-out btn-full" style="margin-top:8px" id="submittedClose">關閉</button>
+      <button class="btn btn-out btn-full" id="submittedClose">關閉</button>
   </div>`;
   document.body.appendChild(box);
-  box.querySelector('#submittedCancel').onclick=()=>{box.remove();cancelMyOrder(orderId);};
-  box.querySelector('#submittedEdit').onclick=()=>{box.remove();editMyOrder(orderId);};
   box.querySelector('#submittedClose').onclick=()=>box.remove();
 }
 
@@ -1539,11 +1468,8 @@ async function submitOrder(){
     return;
   }
   S.cart={};
-  S.myLastOrderId=null;
-  // 找剛送出的訂單 id
+  // 重新載入場次，讓「查看已送出的餐點」立即出現。
   await loadEventDetail(S.activeEventId);
-  const myOrder=(S.orders[S.activeEventId]||[]).find(o=>o.user_name===S.myName);
-  if(myOrder) S.myLastOrderId=myOrder.id;
   orderFlowBox.remove();
   render();
   toast('點餐已成功送出 ✓','ok');
@@ -1710,8 +1636,11 @@ function renderEventMgmt(ev){
   const items=S.pendingItems; // 後台只顯示本次解析的暫存品項
   return `<div class="panel"><div class="panel-head">
     <div class="panel-title">✏️ 場次設定 & 菜單管理</div>
-    <button class="btn btn-or btn-sm" onclick="addItem()">＋ 品項</button>
-    <button class="btn btn-out btn-sm" onclick="showMenuCache()">📂 歷史菜單</button>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
+      <button class="btn btn-or btn-sm" onclick="saveAll()">💾 儲存場次</button>
+      <button class="btn btn-out btn-sm" onclick="addItem()">＋ 品項</button>
+      <button class="btn btn-out btn-sm" onclick="showMenuCache()">📂 歷史菜單</button>
+    </div>
   </div><div class="panel-body">
 
     <!-- 場次基本資訊 -->
@@ -1772,7 +1701,6 @@ function renderEventMgmt(ev){
     <!-- 動作按鈕 -->
     <div style="display:flex;gap:7px;margin:12px 0 8px;flex-wrap:wrap">
       <button class="btn btn-gr" onclick="parseAll()">🤖 一鍵解析</button>
-      <button class="btn btn-or" onclick="saveAll()">💾 儲存</button>
       <button class="btn btn-rd btn-sm" onclick="if(confirm('確定刪除整個場次？所有訂單和品項也會一併刪除。'))deleteEvent('${ev.id}')">🗑️ 刪除場次</button>
     </div>
     <div id="parseCheckStatus">${renderParseCheckStatus()}</div>
