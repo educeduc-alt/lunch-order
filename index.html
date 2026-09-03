@@ -2423,19 +2423,7 @@ async function handleImg(event, uploadType='main'){
     if(zone) zone.innerHTML=`<img src="${e.target.result}" class="menu-preview-img"><div style="margin-top:6px;font-size:.72rem;color:var(--in)">點擊更換圖片</div><input type="file" id="imgInp" accept="image/*,application/pdf" style="display:none" onchange="handleImg(event)">`;
   };
   reader.readAsDataURL(file);
-  if(!DEMO){
-    const eid=S.adminEid;
-    const ext=file.name.split('.').pop();
-    const path=`menus/${eid}_${Date.now()}.${ext}`;
-    try{
-      const{error:serr}=await sb.storage.from('menu-images').upload(path,file,{upsert:true,contentType:file.type||'image/jpeg'});
-      if(!serr){
-        const{data:pub}=sb.storage.from('menu-images').getPublicUrl(path);
-        await sb.from('menus').update({img_url:pub.publicUrl}).eq('id',eid);
-        const ev=S.events.find(e=>e.id===eid); if(ev) ev.img_url=pub.publicUrl;
-      }
-    }catch(e){ console.warn('Storage upload skipped:', e.message); }
-  }
+  // AI 解析直接使用瀏覽器內壓縮後的圖片；不另存未使用的原圖，避免 Storage 設定異常阻礙解析。
   return await aiParse(file,uploadType);
 }
 async function aiParsePdf(file,uploadType='main'){
@@ -2492,21 +2480,41 @@ async function aiParseBase64(base64,mime,uploadType='main'){
   if(statusEl) statusEl.innerHTML=`<div class="scan-ldr"><div class="spin"></div>AI 正在解析菜單，請稍候…</div>`;
   try{
     const proxyUrl=window._geminiProxyUrl;
-    const res=await fetch(proxyUrl,{method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({messages:[{role:'user',content:[
+    const requestBody=JSON.stringify({messages:[{role:'user',content:[
         {type:'image',source:{type:'base64',media_type:mime,data:base64}},
         {type:'text',text:'請解析這張菜單圖片，只回傳純 JSON 陣列，不要有任何其他文字或 markdown：\\n[{"restaurant":"店家名稱","category":"便當","emoji":"emoji","name":"品項名稱","price":數字或0,"description":"描述","specs":[]}]\\nspecs 規格判斷規則（只加菜單上真實存在的）：\\n1. 若有多個價格欄（如八角飯盒/圓飯盒），price 填最小值，specs 加 {"cat":"飯盒","opts":["八角飯盒 $110","圓飯盒 $125"]} 把價格標在選項裡\\n2. 若有加量/加飯/加菜選項，specs 加 {"cat":"份量","opts":["正常","加量"]}\\n3. 飲料若有加料區，specs 加 {"cat":"加料","opts":["珍珠","椰果",...]} 只列菜單上有的料\\n4. 飲料若有杯型，specs 加 {"cat":"杯型","opts":["中杯","大杯"]}\\n5. 便當若有主食選擇（飯/麵/焗烤），specs 加 {"cat":"主食","opts":["白飯","麵",...]}\\n6. 沒有對應規格就保留 specs:[]\\ncategory 判斷規則：若整張菜單都是飲料（如飲料店菜單），所有品項 category 填「飲料」；加料區單獨列出的料也填「飲料」。若是便當/餐盒菜單，主餐填「便當」，湯品小菜填「點心」。只列出清楚可見的品項，看不清楚不要猜。忽略優惠說明。確保 JSON 完整不截斷。price 看不清楚填 0。無法辨識回傳 []。'}
         ,{type:'text',text:'價格解析補充規則：杯型或容器的完整售價請寫成「選項 $金額」，例如「大杯 $35」；加料、加飯或升級的額外費用請寫成「選項 +$金額」，例如「珍珠 +$10」。只保留菜單上清楚可見的價格，絕對不可猜測。'}
-      ]}]})});
-    const text=await res.text();
-    if(!res.ok){
-      let detail='';
+      ]}]});
+    const retryableStatuses=new Set([429,500,502,503,504,524]);
+    let res=null;
+    let text='';
+    let lastDetail='';
+    for(let attempt=1;attempt<=3;attempt++){
       try{
-        const errBody=JSON.parse(text);
-        detail=errBody?.error?.message||errBody?.error||errBody?.message||'';
-      }catch(e){ detail=text.slice(0,160); }
-      throw new Error(`API 錯誤 ${res.status}${detail?'：'+detail:''}`);
+        res=await fetch(proxyUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:requestBody});
+        text=await res.text();
+      }catch(fetchError){
+        lastDetail=fetchError.message||'網路連線失敗';
+        if(attempt===3) throw new Error('無法連線 AI 服務：'+lastDetail);
+      }
+      if(res?.ok) break;
+      if(res){
+        try{
+          const errBody=JSON.parse(text);
+          lastDetail=errBody?.error?.message||errBody?.error||errBody?.message||'';
+        }catch(e){ lastDetail=text.slice(0,120); }
+        if(!retryableStatuses.has(res.status)) break;
+        if(attempt===3) break;
+      }
+      const waitMs=attempt*1500;
+      if(statusEl) statusEl.innerHTML=`<div class="scan-ldr"><div class="spin"></div>AI 忙碌中，正在自動重試 ${attempt}/2…</div>`;
+      await new Promise(resolve=>setTimeout(resolve,waitMs));
+    }
+    if(!res.ok){
+      const friendly=retryableStatuses.has(res.status)
+        ? 'AI 服務目前使用人數較多，已自動重試但仍未成功，請稍候 1～2 分鐘再試'
+        : `API 錯誤 ${res.status}${lastDetail?'：'+lastDetail:''}`;
+      throw new Error(friendly);
     }
     let d;
     try{ d=JSON.parse(text); }
