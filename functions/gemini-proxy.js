@@ -61,12 +61,15 @@ export const onRequest = async ({ request, env }) => {
     return jsonResponse({ error: '請求必須包含圖片和文字提示' }, 400);
   }
 
-  // 優先使用環境變數指定的模型；遇到高流量或暫時性錯誤時改用穩定備援模型。
-  const models = [
-    (env.GEMINI_MODEL || '').trim(),
-    'gemini-2.5-flash',
-    'gemini-2.5-flash-lite',
-  ].filter((model, index, list) => model && list.indexOf(model) === index);
+  // 新帳戶已無法使用 Gemini 2.5。環境變數若仍留著舊值，直接改用目前可用的 3.6 Flash。
+  const configuredModel = (env.GEMINI_MODEL || '').trim();
+  const retiredModels = new Set(['gemini-2.5-flash', 'gemini-2.5-flash-lite']);
+  const primaryModel = configuredModel && !retiredModels.has(configuredModel)
+    ? configuredModel
+    : 'gemini-3.6-flash';
+  // 備援模型必須由環境變數明確指定，避免再次自動切換到已停用的模型。
+  const models = [primaryModel, (env.GEMINI_FALLBACK_MODEL || '').trim()]
+    .filter((model, index, list) => model && !retiredModels.has(model) && list.indexOf(model) === index);
   const retryableStatuses = new Set([429, 500, 502, 503, 504, 524]);
   const requestBody = JSON.stringify({
     contents: [{ role: 'user', parts }],
@@ -117,6 +120,11 @@ export const onRequest = async ({ request, env }) => {
     if (geminiResponse.ok) break;
 
     lastError = geminiData?.error?.message || `Gemini API 錯誤 ${geminiResponse.status}`;
+    // 模型不存在時，若管理者有設定備援模型則繼續嘗試；沒有備援時直接回傳設定錯誤。
+    if (geminiResponse.status === 404 && candidateModel !== models[models.length - 1]) {
+      geminiData = null;
+      continue;
+    }
     if (!retryableStatuses.has(geminiResponse.status)) {
       return jsonResponse({ error: lastError, retryable: false }, geminiResponse.status);
     }
@@ -125,7 +133,9 @@ export const onRequest = async ({ request, env }) => {
 
   if (!geminiData) {
     return jsonResponse({
-      error: `${lastError}，系統已嘗試備援模型，請稍候再試`,
+      error: models.length > 1
+        ? `${lastError}，系統已嘗試備援模型，請稍候再試`
+        : `${lastError}，請稍候再試`,
       retryable: true,
     }, retryableStatuses.has(lastStatus) ? 503 : 502);
   }
