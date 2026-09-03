@@ -55,17 +55,16 @@ input,select,textarea{font-family:inherit}
 .event-list{display:flex;flex-direction:column;gap:10px}
 .event-card{background:var(--ca);border:1px solid var(--bo);border-radius:var(--rlg);overflow:hidden;cursor:pointer;box-shadow:0 2px 10px rgba(15,23,42,.045);transition:border-color .18s,box-shadow .18s}
 .event-card:hover{border-color:#fdba74;box-shadow:0 8px 24px rgba(15,23,42,.08)}
-.event-card.closed-card{opacity:.72;cursor:pointer}
+.event-card.closed-card{opacity:.6;cursor:not-allowed;pointer-events:none}
 .ec-top{padding:14px 16px;border-bottom:1px solid var(--bos);display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
 .ec-left{flex:1}
 .ec-badges{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:7px}
 .badge{display:inline-flex;align-items:center;gap:3px;font-size:.68rem;font-weight:700;padding:2px 8px;border-radius:20px}
 .badge-open{background:var(--grl);color:var(--gr)}
 .badge-closed{background:var(--rdl);color:var(--rd)}
-.ec-title{font-weight:700;font-size:.95rem;margin-bottom:3px;color:var(--or)}
+.ec-title{font-weight:700;font-size:.95rem;margin-bottom:3px}
 .ec-organizer{font-size:.72rem;color:var(--sll);display:flex;align-items:center;gap:4px}
-.ec-right{align-self:stretch;text-align:right;flex-shrink:0;display:flex;align-items:flex-end;justify-content:flex-end}
-.ec-date{font-size:.72rem;font-weight:800;color:var(--sl);white-space:nowrap}
+.ec-right{text-align:right;flex-shrink:0}
 .ec-deadline{font-size:.72rem;color:var(--rd);font-weight:700;white-space:nowrap}
 .ec-deadline-label{font-size:.65rem;color:var(--sll);margin-bottom:1px}
 .ec-bot{padding:10px 16px;background:var(--ca);border-top:1px solid var(--bos);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px}
@@ -108,7 +107,6 @@ input,select,textarea{font-family:inherit}
 .cat-toggle:focus-visible{outline:3px solid rgba(249,115,22,.28);outline-offset:2px}
 .cat-toggle.is-collapsed{background:var(--ca);border-color:var(--bo);border-left-color:var(--sll)}
 .cat-toggle-main{display:flex;align-items:center;gap:7px;font-size:.9rem;font-weight:800;color:var(--sl);min-width:0}
-.cat-toggle-store{font-size:.72rem;font-weight:700;color:var(--sll);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cat-toggle-count{background:var(--or);color:#fff;border-radius:20px;padding:2px 8px;font-size:.68rem;font-weight:800;line-height:1.4}
 .cat-toggle-state{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-width:74px;padding:6px 10px;border-radius:20px;background:var(--orll);color:var(--ord);font-size:.71rem;font-weight:800;white-space:nowrap;box-shadow:none}
 .cat-toggle.is-collapsed .cat-toggle-state{background:var(--bos);color:var(--slm);box-shadow:none}
@@ -152,6 +150,16 @@ input,select,textarea{font-family:inherit}
 .sqb{width:34px;height:34px;border-radius:50%;border:1.5px solid var(--bo);background:var(--ca);font-size:1.1rem;font-weight:700;display:flex;align-items:center;justify-content:center;transition:all .15s}
 .sqb:hover{background:var(--or);color:#fff;border-color:var(--or)}
 .sqn{font-family:'Nunito',sans-serif;font-weight:900;font-size:1.25rem;min-width:28px;text-align:center}
+
+/* 點餐步驟改為單一精簡導覽，降低初次進入的視覺負擔 */
+.order-guide{padding:9px 12px!important;background:var(--ca)!important;border:1px solid var(--bo)!important;box-shadow:none!important}
+.order-guide>div:first-child{display:none!important}
+.order-guide>div:nth-child(2){align-items:center!important;justify-content:flex-start!important;gap:8px!important}
+.order-guide>div:nth-child(2)>div[style*="flex:1"]{display:flex;align-items:center;gap:6px;flex:0 1 auto!important;padding:0!important;text-align:left!important}
+.order-guide>div:nth-child(2)>div[style*="flex:1"]>div:first-child{width:27px!important;height:27px!important;margin:0!important;font-size:.9rem!important;flex-shrink:0}
+.order-guide>div:nth-child(2)>div[style*="flex:1"]>div:nth-child(2){margin:0!important;font-size:.7rem!important;white-space:nowrap}
+.order-guide>div:nth-child(2)>div[style*="flex:1"]>div:nth-child(3){display:none!important}
+.order-guide>div:nth-child(2)>div:not([style*="flex:1"]){margin:0!important;color:var(--sll)!important}
 
 /* ── CART ── */
 .cart-panel{background:var(--ca);border:1px solid var(--bo);border-radius:var(--rlg);padding:13px 15px;margin-top:14px;box-shadow:var(--shsm)}
@@ -234,7 +242,6 @@ input,select,textarea{font-family:inherit}
 .btn-out{background:var(--ca);color:var(--slm);border:1.5px solid var(--bo)}.btn-out:hover{border-color:var(--sl);color:var(--sl)}
 .btn-rd{background:var(--rd);color:#fff}.btn-rd:hover{background:#b91c1c}
 .btn-gr{background:var(--gr);color:#fff}.btn-gr:hover{background:#15803d}
-.btn-save-event{background:#4f46e5;color:#fff;box-shadow:0 2px 9px rgba(79,70,229,.3)}.btn-save-event:hover{background:#4338ca}
 .btn-sm{padding:4px 10px;font-size:.7rem}
 .btn-full{width:100%;padding:10px;font-size:.86rem}
 
@@ -264,11 +271,6 @@ input,select,textarea{font-family:inherit}
 .upload-zone{border:2px dashed var(--bo);border-radius:var(--rlg);padding:18px;text-align:center;cursor:pointer;background:var(--ca);transition:all .2s;position:relative;overflow:hidden}
 .upload-zone:hover{border-color:var(--in);background:var(--inl)}
 .upload-sub{font-size:.72rem;color:var(--sll);margin-top:4px}
-.parse-upload-title{display:flex;align-items:center;justify-content:center;gap:7px;margin-bottom:9px;font-size:1.05rem;font-weight:800;color:var(--sl)}
-.parse-upload-zone{min-height:132px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding-top:16px;padding-bottom:16px}
-.parse-upload-icon{font-size:2rem;display:block;margin-bottom:6px}
-.parse-upload-label{font-weight:800;font-size:.95rem;line-height:1.35;color:var(--slm)}
-.parse-upload-zone .upload-sub{font-size:.8rem;margin-top:6px}
 .scan-ldr{display:flex;align-items:center;justify-content:center;gap:9px;font-size:.82rem;font-weight:700;color:var(--ord);margin-top:8px}
 .spin{width:20px;height:20px;border:2.5px solid var(--orll);border-top-color:var(--or);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -447,6 +449,7 @@ let S = {
   parseComparison:null,
   menuSearchQ:'',    // 菜單搜尋關鍵字
   collapsedCats:{},   // 收縮的分類 {cat: true/false}
+  myLastOrderId:null, // 最後送出的訂單 id（用於取消/修改）
   // 套餐組合 sheet
   comboStep:null,     // null | 'side' | 'drink'
   comboMain:null,     // 選定的主餐 item
@@ -620,21 +623,28 @@ function renderHome(){
   let html=`<div class="page-title">點餐場次</div>
     <div class="page-sub">選擇您要參加的場次，即可開始點餐</div>
     <div class="event-list">`;
-  // 已儲存完成（關閉）的場次只保留在後台，前台不顯示。
-  const allEvs=S.events.filter(ev=>!isEventClosed(ev));
+  const allEvs=S.events.filter(ev=>!ev.archived_at);
   if(!allEvs.length){
     html+=`</div><div class="empty-events"><span class="ei">📭</span><p>尚無點餐場次<br>請等待承辦人建立</p></div>`;
     return html;
   }
   allEvs.forEach(ev=>{
     const closed=isEventClosed(ev);
+    const status=fmtDeadline(ev);
+    const ords=S.orders[ev.id]||[];
+    const cnt=ords.length;
     html+=`<div class="event-card${closed?' closed-card':''}" onclick="openEvent('${ev.id}')">
       <div class="ec-top">
         <div class="ec-left">
+          <div class="ec-badges"></div>
+          ${ev.date?`<div style="font-size:.72rem;font-weight:800;color:var(--or);margin-bottom:4px">📅 ${esc(fmtEventDate(ev.date))}</div>`:''}
           <div class="ec-title">${esc(ev.title)}</div>
           ${ev.organizer?`<div class="ec-organizer">👤 負責老師：${esc(ev.organizer)}</div>`:''}
         </div>
-        ${ev.date?`<div class="ec-right"><div class="ec-date">📅 ${esc(fmtEventDate(ev.date))}</div></div>`:''}
+      </div>
+      <div class="ec-bot">
+        <div class="ec-store">🏪 ${esc(ev.store_name||'（尚未設定店家）')}</div>
+        <div class="ec-count${cnt===0?' none':' ok'}">${cnt} 人已點餐</div>
       </div>
     </div>`;
   });
@@ -642,6 +652,7 @@ function renderHome(){
   return html;
 }
 function openEvent(eid){
+  if(isEventClosed(S.events.find(e=>e.id===eid))){ toast('此場次已截止','warn'); return; }
   S.activeEventId=eid; S.cart={}; S.menuSearchQ='';
   render();
 }
@@ -659,17 +670,46 @@ function renderOrderPage(){
       <div class="event-info-banner">
         ${ev.date?`<span style="display:block;font-size:.7rem;font-weight:800;color:var(--or);margin-bottom:2px">📅 ${esc(fmtEventDate(ev.date))}</span>`:''}
         <strong>${esc(ev.title)}</strong>
-        ${ev.organizer?`負責老師：${esc(ev.organizer)}`:''}
+        ${ev.organizer?`負責老師：${esc(ev.organizer)}　`:''}${ev.store_name?`店家：${esc(ev.store_name)}`:''}
       </div>
     </div>`;
 
   if(closed) html+=`<div style="background:var(--rdl);border:1.5px solid #fca5a5;border-radius:var(--rmd);padding:10px 13px;font-size:.8rem;color:var(--rd);font-weight:700;margin-bottom:12px;text-align:center">⛔ 此場次已截止，無法點餐</div>`;
 
-  // 已點餐入口：只提供查看已送出的內容。
+  // 已點餐入口；詳細內容、取消與修改集中在提醒畫面
   const myExisting=(S.orders[S.activeEventId]||[]).find(o=>o.user_name===S.myName);
-  if(myExisting){
-    html+=`<button class="btn btn-gr btn-full" style="margin-bottom:12px;padding:11px" onclick="showSubmittedOrderNotice('${myExisting.id}')">✅ 查看已送出的餐點</button>`;
+  if(myExisting && !isEventClosed(ev)){
+    html+=`<button class="btn btn-gr btn-full" style="margin-bottom:12px;padding:11px" onclick="showSubmittedOrderNotice('${myExisting.id}')">✅ 查看已送出的點餐／取消／修改</button>`;
   }
+
+  // 三步驟點餐指導
+  html+=`<div class="order-guide" style="background:var(--ca);border:1px solid var(--bo);border-radius:var(--rlg);padding:14px 16px;margin-bottom:14px;box-shadow:var(--shsm)">
+    <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:.85rem;color:var(--slm);margin-bottom:12px;text-align:center;letter-spacing:.3px">📖 點餐步驟</div>
+    <div style="display:flex;align-items:flex-start;justify-content:center;gap:0">
+      <!-- 步驟1 -->
+      <div style="flex:1;text-align:center;padding:0 6px">
+        <div style="width:44px;height:44px;border-radius:50%;background:var(--orll);display:flex;align-items:center;justify-content:center;font-size:1.4rem;margin:0 auto 7px">✍️</div>
+        <div style="font-size:.72rem;font-weight:700;color:var(--sl);margin-bottom:2px">填寫姓名</div>
+        <div style="font-size:.65rem;color:var(--sll);line-height:1.4">輸入您的姓名</div>
+      </div>
+      <!-- 箭頭 -->
+      <div style="color:var(--or);font-size:1rem;margin-top:14px;flex-shrink:0">›</div>
+      <!-- 步驟2 -->
+      <div style="flex:1;text-align:center;padding:0 6px">
+        <div style="width:44px;height:44px;border-radius:50%;background:var(--orll);display:flex;align-items:center;justify-content:center;font-size:1.4rem;margin:0 auto 7px">🍱</div>
+        <div style="font-size:.72rem;font-weight:700;color:var(--sl);margin-bottom:2px">選擇餐點</div>
+        <div style="font-size:.65rem;color:var(--sll);line-height:1.4">按 ＋ 加入清單</div>
+      </div>
+      <!-- 箭頭 -->
+      <div style="color:var(--or);font-size:1rem;margin-top:14px;flex-shrink:0">›</div>
+      <!-- 步驟3 -->
+      <div style="flex:1;text-align:center;padding:0 6px">
+        <div style="width:44px;height:44px;border-radius:50%;background:var(--orll);display:flex;align-items:center;justify-content:center;font-size:1.4rem;margin:0 auto 7px">✅</div>
+        <div style="font-size:.72rem;font-weight:700;color:var(--sl);margin-bottom:2px">送出點餐</div>
+        <div style="font-size:.65rem;color:var(--sll);line-height:1.4">按下方送出鍵</div>
+      </div>
+    </div>
+  </div>`;
 
   html+=`<div class="id-card">
     <div class="fld"><label>姓名</label><input class="inp" id="uName" placeholder="王小明" value="${esc(S.myName)}" oninput="S.myName=this.value"></div>
@@ -694,15 +734,13 @@ function renderOrderPage(){
     const orderedCats=[...CAT_ORDER,...Object.keys(byCat).filter(c=>!CAT_ORDER.includes(c))].filter(c=>byCat[c]);
     orderedCats.forEach(cat=>{
       const its=byCat[cat];
-      const catStores=[...new Set(its.map(item=>String(item.restaurant||'').trim()).filter(store=>store&&store!=='未知店家'&&store!=='本日菜單'))];
-      if(!catStores.length&&ev.store_name) catStores.push(ev.store_name);
       const collapsed=S.collapsedCats[cat]||false;
       const catCount=its.reduce((s,item)=>{const keys=Object.keys(S.cart).filter(k=>k.startsWith(item.id+'__'));return s+keys.reduce((ss,k)=>ss+(S.cart[k]?.qty||0),0);},0);
       html+=`<div class="rest-block">
         <button type="button" class="cat-toggle${collapsed?' is-collapsed':''}"
           aria-expanded="${!collapsed}" aria-label="${collapsed?'展開':'收合'}${esc(cat)}分類"
           onclick="S.collapsedCats['${cat}']=!S.collapsedCats['${cat}'];render()">
-          <span class="cat-toggle-main"><span>${CAT_ICON[cat]||'🍽️'}</span><span>${esc(cat)}</span>${catStores.length?`<span class="cat-toggle-store">· ${esc(catStores.join('／'))}</span>`:''}${catCount>0?`<span class="cat-toggle-count">已選 ${catCount}</span>`:''}</span>
+          <span class="cat-toggle-main"><span>${CAT_ICON[cat]||'🍽️'}</span><span>${esc(cat)}</span>${catCount>0?`<span class="cat-toggle-count">已選 ${catCount}</span>`:''}</span>
           <span class="cat-toggle-state"><span class="cat-toggle-arrow">▶</span>${collapsed?'展開':'收合'}</span>
         </button>
         ${collapsed?'':`<div class="menu-grid" style="margin-top:8px">`}`;
@@ -1326,6 +1364,34 @@ function closeSpec(){document.getElementById('specOverlay').style.display='none'
 
 /* ── SUBMIT ── */
 
+async function cancelMyOrder(orderId){
+  if(!confirm('確定取消此筆點餐？')) return;
+  const eid=S.activeEventId;
+  const{error}=await dbDeleteOrder(orderId, eid);
+  if(error){toast('取消失敗：'+error.message,'err');return;}
+  S.myLastOrderId=null;
+  toast('已取消點餐','ok');
+  render();
+}
+
+async function editMyOrder(orderId){
+  // 取消舊的，讓使用者重新點
+  const eid=S.activeEventId;
+  const oldOrder=(S.orders[eid]||[]).find(o=>o.id===orderId);
+  if(!oldOrder) return;
+  if(!confirm('取消舊點餐並重新選擇？')) return;
+  const{error}=await dbDeleteOrder(orderId, eid);
+  if(error){toast('操作失敗','err');return;}
+  // 把舊的品項預填回購物車
+  S.cart={};
+  (oldOrder.order_items||[]).forEach((oi,i)=>{
+    const k=oi.item_id+'__'+(oi.specs_str||'')+'__'+(Date.now()+i);
+    S.cart[k]={itemId:oi.item_id,name:oi.item_name,emoji:oi.item_emoji,qty:oi.quantity,price:oi.unit_price,specsStr:oi.specs_str||'',note:oi.note||''};
+  });
+  toast('已取消舊點餐，請重新確認清單後送出','warn');
+  render();
+}
+
 function showDuplicateWarning(name, existingOrder){
   return new Promise(resolve=>{
     const items=(existingOrder.order_items||[]).map(oi=>oi.item_emoji+oi.item_name+'×'+oi.quantity).join('、');
@@ -1410,7 +1476,7 @@ function showSubmittedOrderNotice(orderId){
   box.innerHTML=`<div class="modal-box" style="max-width:430px;text-align:left;padding:24px 20px">
       <div style="text-align:center;font-size:2.4rem;margin-bottom:7px">✅</div>
       <div class="modal-title" style="text-align:center;color:var(--gr)">已送出的點餐</div>
-      <p class="modal-sub" style="text-align:center;line-height:1.6">以下為您已送出的餐點內容。</p>
+      <p class="modal-sub" style="text-align:center;line-height:1.6">可在這裡查看內容、修改或取消餐點。</p>
       <div style="background:var(--grl);border:1.5px solid #86efac;border-radius:var(--rmd);padding:9px 11px;margin-bottom:10px;font-size:.76rem;line-height:1.65;color:#166534">
         <strong style="display:block;font-size:.85rem">${esc(ev?.title||'點餐場次')}</strong>
         姓名：${esc(order.user_name||S.myName)}${ev?.store_name?`　店家：${esc(ev.store_name)}`:''}
@@ -1432,9 +1498,15 @@ function showSubmittedOrderNotice(orderId){
         <span style="font-size:.8rem;color:var(--slm)">共 ${totalQty} 份</span>
         <span style="font-size:1.08rem;color:var(--or)">${total>0?'合計 $'+total:'價格另計'}</span>
       </div>
-      <button class="btn btn-out btn-full" id="submittedClose">關閉</button>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <button class="btn btn-rd btn-full" id="submittedCancel">取消點餐</button>
+        <button class="btn btn-or btn-full" id="submittedEdit">修改點餐</button>
+      </div>
+      <button class="btn btn-out btn-full" style="margin-top:8px" id="submittedClose">關閉</button>
   </div>`;
   document.body.appendChild(box);
+  box.querySelector('#submittedCancel').onclick=()=>{box.remove();cancelMyOrder(orderId);};
+  box.querySelector('#submittedEdit').onclick=()=>{box.remove();editMyOrder(orderId);};
   box.querySelector('#submittedClose').onclick=()=>box.remove();
 }
 
@@ -1473,8 +1545,11 @@ async function submitOrder(){
     return;
   }
   S.cart={};
-  // 重新載入場次，讓「查看已送出的餐點」立即出現。
+  S.myLastOrderId=null;
+  // 找剛送出的訂單 id
   await loadEventDetail(S.activeEventId);
+  const myOrder=(S.orders[S.activeEventId]||[]).find(o=>o.user_name===S.myName);
+  if(myOrder) S.myLastOrderId=myOrder.id;
   orderFlowBox.remove();
   render();
   toast('點餐已成功送出 ✓','ok');
@@ -1536,25 +1611,51 @@ async function doDelete(id,menuId){
 }
 
 /* ═══ ADMIN ═══ */
+function groupEventsByOrganizer(events){
+  const groups={};
+  (events||[]).forEach(event=>{
+    const organizer=(event.organizer||'未指定').trim()||'未指定';
+    if(!groups[organizer]) groups[organizer]=[];
+    groups[organizer].push(event);
+  });
+  return groups;
+}
+function renderOrganizerEventGroups(events,mode){
+  const groups=groupEventsByOrganizer(events);
+  if(!Object.keys(groups).length) return '<div style="padding:8px 2px;color:var(--sll);font-size:.76rem">目前沒有場次</div>';
+  return Object.entries(groups).map(([organizer,events])=>{
+    const buttons=events.map(event=>{
+      const action=mode==='menu'
+        ?`S.eventSection='${event.archived_at?'archived':'active'}';S.adminEid='${event.id}';S.pendingItems=[];S.loadedHistoryKeys=[];S.parseStatus='idle';S.parseComparison=null;window._pendingMainFile=null;window._pendingDrinkFile=null;render()`
+        :`S.eventSection='${event.archived_at?'archived':'active'}';S.adminEid='${event.id}';S.loadedHistoryKeys=[];render()`;
+      return `<button class="btn ${S.adminEid===event.id?'btn-or':'btn-out'} btn-sm" style="padding:7px 13px;font-size:.8rem" onclick="${action}">${esc(event.title)}</button>`;
+    }).join('');
+    return `<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin:7px 0">
+      <span style="background:var(--inl);color:var(--in);border-radius:20px;padding:5px 12px;font-size:.78rem;font-weight:800;flex-shrink:0">👤 ${esc(organizer)}</span>
+      ${buttons}
+    </div>`;
+  }).join('');
+}
+function renderFoldableEventSection(title,events,mode,sectionKey){
+  const open=(S.eventSection||'active')===sectionKey;
+  return `<details data-event-section="${sectionKey}" ${open?'open':''} style="margin-bottom:10px;border:1px solid var(--bo);border-radius:12px;background:#fff;overflow:hidden">
+    <summary onclick="event.preventDefault();S.eventSection='${sectionKey}';render()" style="cursor:pointer;list-style:none;padding:11px 13px;background:var(--bos);font-size:.82rem;font-weight:800;color:var(--sl);display:flex;align-items:center;justify-content:space-between">
+      <span>${title}</span><span style="font-size:.72rem;color:var(--sll)">${events.length} 個場次　⌄</span>
+    </summary>
+    <div style="padding:8px 12px 10px">${renderOrganizerEventGroups(events,mode)}</div>
+  </details>`;
+}
 function renderAdmin(){
-  if(!S.adminEid&&S.events.length) S.adminEid=S.events[0].id;
+  if(!S.adminEid&&S.events.length) S.adminEid=(S.events.find(e=>!e.archived_at)||S.events[0]).id;
   const ev=S.events.find(e=>e.id===S.adminEid);
 
-  let html=`
-    <!-- 場次切換 -->
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:13px;align-items:center">
-      ${S.events.map(e=>`<button class="btn ${S.adminEid===e.id?'btn-or':'btn-out'}" style="padding:8px 16px;font-size:.85rem"
-        onclick="S.adminEid='${e.id}';S.loadedHistoryKeys=[];render()">${e.is_closed?'📦 ':''}${esc(e.title)}</button>`).join('')}
-    </div>`;
+  const activeEvents=S.events.filter(e=>!e.archived_at);
+  const archivedEvents=S.events.filter(e=>e.archived_at);
+
+  let html=renderFoldableEventSection('🟢 進行中',activeEvents,'admin','active')
+    +renderFoldableEventSection('📦 已儲存',archivedEvents,'admin','archived');
 
   if(!ev){ html+='<div class="empty"><span class="ei">📭</span><p>請先建立場次</p></div>'; return html; }
-
-  if(isEventClosed(ev)){
-    html+=`<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;background:#eef2ff;border:1.5px solid #a5b4fc;border-radius:var(--rmd);padding:10px 12px;margin-bottom:13px;color:#3730a3">
-      <div><strong style="display:block;font-size:.84rem">📦 已儲存場次</strong><span style="font-size:.72rem">目前已從前台與「菜單與點餐」隱藏。</span></div>
-      <button class="btn btn-save-event btn-sm" onclick="restoreEvent('${ev.id}')">↩ 恢復場次</button>
-    </div>`;
-  }
 
   // 統計
   const ords=S.orders[S.adminEid]||[];
@@ -1564,12 +1665,17 @@ function renderAdmin(){
     if(!kitch[k])kitch[k]={qty:0,price:oi.unit_price};
     kitch[k].qty+=oi.quantity;
   }));
-  const totPort=Object.values(kitch).reduce((s,r)=>s+r.qty,0);
+  // 後台人數以「班級＋姓名」去重；同一人點多個品項仍只計 1 人。
+  const totalPeople=new Set(ords.map(o=>{
+    const name=String(o.user_name||'').trim();
+    const className=String(o.class_name||'').trim();
+    return name?`${className}__${name}`:`order__${o.id}`;
+  })).size;
   const totAmt=Object.values(kitch).reduce((s,r)=>s+r.qty*r.price,0);
 
   html+=`<div class="stat-grid" style="margin-top:4px">
     <div class="stat-box"><div class="stat-n" style="color:var(--or)">${ords.length}</div><div class="stat-l">筆點餐</div></div>
-    <div class="stat-box"><div class="stat-n" style="color:var(--gr)">${totPort}</div><div class="stat-l">總份數</div></div>
+    <div class="stat-box"><div class="stat-n" style="color:var(--gr)">${totalPeople}</div><div class="stat-l">總人數</div></div>
     <div class="stat-box"><div class="stat-n" style="color:var(--am)">${totAmt>0?'$'+totAmt:'—'}</div><div class="stat-l">總金額</div></div>
   </div>
   <div class="exp-row" style="margin-top:4px">
@@ -1595,31 +1701,13 @@ function renderAdmin(){
 /* 場次 & 菜單管理 */
 
 function renderMenuTab(){
-  // 「菜單與點餐」只顯示尚未收存的場次；已儲存場次集中在後台。
-  const activeEvents=S.events.filter(e=>!isEventClosed(e));
-  if(!activeEvents.some(e=>e.id===S.adminEid)) S.adminEid=activeEvents[0]?.id||null;
-  const ev=activeEvents.find(e=>e.id===S.adminEid);
-
-  // 按承辦人分組
-  const byOrganizer={};
-  activeEvents.forEach(e=>{
-    const org=e.organizer||'未指定';
-    if(!byOrganizer[org]) byOrganizer[org]=[];
-    byOrganizer[org].push(e);
-  });
-
-  let html='<div style="margin-bottom:14px">';
-  Object.entries(byOrganizer).forEach(([org, evs])=>{
-    html+='<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:8px">'
-      // 人名膠囊
-      +'<span style="background:var(--inl);color:var(--in);border-radius:20px;padding:5px 13px;font-size:.82rem;font-weight:700;flex-shrink:0">👤 '+esc(org)+'</span>'
-      // 該承辦人的場次
-      +evs.map(e=>'<button class="btn '+(S.adminEid===e.id?'btn-or':'btn-out')+'" style="padding:7px 14px;font-size:.82rem" '
-        +'onclick="S.adminEid=\''+e.id+'\';S.pendingItems=[];S.loadedHistoryKeys=[];S.parseStatus=\'idle\';S.parseComparison=null;window._pendingMainFile=null;window._pendingDrinkFile=null;render()">'+esc(e.title)+'</button>').join('')
-      +'</div>';
-  });
-  html+='<button class="btn btn-out btn-sm" onclick="createNewEvent()">＋ 新增場次</button>';
-  html+='</div>';
+  if(!S.adminEid&&S.events.length) S.adminEid=(S.events.find(e=>!e.archived_at)||S.events[0]).id;
+  const ev=S.events.find(e=>e.id===S.adminEid);
+  const activeEvents=S.events.filter(e=>!e.archived_at);
+  const archivedEvents=S.events.filter(e=>e.archived_at);
+  let html=renderFoldableEventSection('🟢 進行中',activeEvents,'menu','active')
+    +renderFoldableEventSection('📦 已儲存',archivedEvents,'menu','archived')
+    +'<div style="margin:5px 0 16px"><button class="btn btn-or" style="width:100%;padding:14px 20px;font-size:1rem;font-weight:900;border-radius:12px;box-shadow:0 5px 14px rgba(249,115,22,.25)" onclick="S.eventSection=\'active\';createNewEvent()">＋ 新增場次</button></div>';
 
   if(!ev){
     html+='<div class="empty"><span class="ei">📭</span><p>請先建立場次</p></div>';
@@ -1650,10 +1738,8 @@ function renderEventMgmt(ev){
   const items=S.pendingItems; // 後台只顯示本次解析的暫存品項
   return `<div class="panel"><div class="panel-head">
     <div class="panel-title">✏️ 場次設定 & 菜單管理</div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
-      <button class="btn btn-out btn-sm" onclick="addItem()">＋ 品項</button>
-      <button class="btn btn-out btn-sm" onclick="showMenuCache()">📂 歷史菜單</button>
-    </div>
+    <button class="btn btn-or btn-sm" onclick="addItem()">＋ 品項</button>
+    <button class="btn btn-out btn-sm" onclick="showMenuCache()">📂 歷史菜單</button>
   </div><div class="panel-body">
 
     <!-- 場次基本資訊 -->
@@ -1687,36 +1773,40 @@ function renderEventMgmt(ev){
 
       <!-- 主餐上傳 -->
       <div>
-        <div class="upload-zone parse-upload-zone" onclick="document.getElementById('imgInpMain').click()" id="zoneMain">
+        <span class="mg-lbl" style="display:flex;align-items:center;gap:5px;margin-bottom:6px">🍱 主餐菜單</span>
+        <div class="upload-zone" onclick="document.getElementById('imgInpMain').click()" style="min-height:90px" id="zoneMain">
           <input type="file" id="imgInpMain" accept="image/*,application/pdf" style="display:none" onchange="previewFile(event,'main')">
-          <span class="parse-upload-title">🍱 主菜菜單</span>
-          <span class="parse-upload-icon" id="iconMain">📎</span>
-          <div class="parse-upload-label" id="labelMain">上傳主餐圖片</div>
-          <div class="upload-sub">PDF/JPG/PNG</div>
+          <span style="font-size:1.5rem;display:block;margin-bottom:4px" id="iconMain">📎</span>
+          <div style="font-weight:700;font-size:.82rem;color:var(--slm)" id="labelMain">上傳主餐圖片/PDF</div>
+          <div class="upload-sub">JPG / PNG / PDF</div>
         </div>
         <div id="aiStatusMain"></div>
       </div>
 
       <!-- 飲料上傳 -->
       <div>
-        <div class="upload-zone parse-upload-zone" onclick="document.getElementById('imgInpDrink').click()" id="zoneDrink">
+        <span class="mg-lbl" style="display:flex;align-items:center;gap:5px;margin-bottom:6px">🧋 飲料菜單</span>
+        <div class="upload-zone" onclick="document.getElementById('imgInpDrink').click()" style="min-height:90px" id="zoneDrink">
           <input type="file" id="imgInpDrink" accept="image/*,application/pdf" style="display:none" onchange="previewFile(event,'drink')">
-          <span class="parse-upload-title">🧋 飲料菜單</span>
-          <span class="parse-upload-icon" id="iconDrink">📎</span>
-          <div class="parse-upload-label" id="labelDrink">上傳飲料圖片</div>
-          <div class="upload-sub">PDF/JPG/PNG</div>
+          <span style="font-size:1.5rem;display:block;margin-bottom:4px" id="iconDrink">📎</span>
+          <div style="font-weight:700;font-size:.82rem;color:var(--slm)" id="labelDrink">上傳飲料圖片/PDF</div>
+          <div class="upload-sub">JPG / PNG / PDF</div>
         </div>
         <div id="aiStatusDrink"></div>
       </div>
 
     </div>
 
+    ${ev.archived_at?`<div style="margin:10px 0;padding:10px 12px;border-radius:10px;background:var(--grl);color:var(--gr);font-size:.78rem;font-weight:700">📦 此場次已儲存到後台，不會顯示在前台點餐列表；菜單、訂單與匯出資料均保留。</div>`:''}
+
     <!-- 動作按鈕 -->
     <div style="display:flex;gap:7px;margin:12px 0 8px;flex-wrap:wrap">
       <button class="btn btn-gr" onclick="parseAll()">🤖 一鍵解析</button>
-      <button class="btn btn-or" onclick="saveMenu()">💾 儲存</button>
+      <button class="btn btn-or" onclick="saveAll()">💾 儲存</button>
       <button class="btn btn-rd btn-sm" onclick="if(confirm('確定刪除整個場次？所有訂單和品項也會一併刪除。'))deleteEvent('${ev.id}')">🗑️ 刪除場次</button>
-      <button class="btn btn-save-event" onclick="saveEvent()">💾 儲存場次</button>
+      ${ev.archived_at
+        ?`<button class="btn btn-out btn-sm" onclick="restoreEvent('${ev.id}')">↩️ 恢復場次</button>`
+        :`<button class="btn btn-gr btn-sm" onclick="archiveEvent('${ev.id}')">📦 儲存場次</button>`}
     </div>
     <div id="parseCheckStatus">${renderParseCheckStatus()}</div>
 
@@ -1799,12 +1889,36 @@ function splitHistoryEntries(entries){
   return result;
 }
 
+function getHistoryEntries(){
+  let localEntries=[];
+  try{localEntries=JSON.parse(localStorage.getItem('menuCache')||'[]');}catch(e){}
+  const archivedEntries=[];
+  S.events.filter(ev=>ev.archived_at).forEach(ev=>{
+    const groups={};
+    (S.items[ev.id]||[]).forEach(item=>{
+      const store=(item.restaurant||ev.store_name||'').trim();
+      if(!store||store==='未知店家') return;
+      if(!groups[store]) groups[store]=[];
+      groups[store].push(item);
+    });
+    Object.entries(groups).forEach(([store,items])=>archivedEntries.push({
+      key:'archive-'+ev.id+'-'+store,
+      store,
+      items,
+      savedAt:ev.archived_at,
+      sourceEventId:ev.id
+    }));
+  });
+  const unique=new Map();
+  splitHistoryEntries([...archivedEntries,...PRESET_MENUS,...localEntries]).forEach(entry=>{
+    const key=normalizeCompareText(entry.store)+'__'+entry.type;
+    if(!unique.has(key)) unique.set(key,entry);
+  });
+  return [...unique.values()];
+}
+
 function showMenuCache(){
-  const stored=JSON.parse(localStorage.getItem('menuCache')||'[]');
-  // 合併預設菜單（不重複）
-  const presetStores=PRESET_MENUS.map(p=>p.store);
-  const extra=stored.filter(s=>!presetStores.includes(s.store));
-  const cached=splitHistoryEntries([...PRESET_MENUS,...extra]);
+  const cached=getHistoryEntries();
   if(!cached.length){toast('尚無歷史菜單紀錄','warn');return;}
   window._historyCacheEntries=cached;
   // 建立選單覆蓋層
@@ -1873,22 +1987,30 @@ async function toggleClose(eid){
   await sb.from('menus').update({is_closed:next}).eq('id',eid);
   ev.is_closed=next; toast(next?'場次已關閉':'場次已開放',next?'warn':'ok'); render();
 }
+async function archiveEvent(eid){
+  const ev=S.events.find(e=>e.id===eid); if(!ev) return;
+  if(!confirm(`確定將「${ev.title}」儲存到後台？\n\n前台將不再顯示此場次，但菜單、訂單與匯出資料都會保留。`)) return;
+  const archivedAt=new Date().toISOString();
+  if(DEMO){ev.archived_at=archivedAt;ev.is_closed=true;S.eventSection='archived';render();toast('場次已儲存到後台','ok');return;}
+  const{error}=await sb.from('menus').update({archived_at:archivedAt,is_closed:true}).eq('id',eid);
+  if(error){toast('儲存場次失敗：'+error.message,'err');return;}
+  ev.archived_at=archivedAt;
+  ev.is_closed=true;
+  S.eventSection='archived';
+  toast('📦 場次已儲存到後台','ok');
+  render();
+}
 async function restoreEvent(eid){
   const ev=S.events.find(e=>e.id===eid); if(!ev) return;
-  if(!confirm(`確定恢復「${ev.title}」？\n恢復後會重新出現在「菜單與點餐」及前台點餐場次。`)) return;
-  if(DEMO){
-    ev.is_closed=false;
-    S.adminEid=eid;
-    goTab('menu');
-    toast('✅ 場次已恢復','ok');
-    return;
-  }
-  const{data,error}=await sb.from('menus').update({is_closed:false}).eq('id',eid).select('id');
-  if(error||!data?.length){toast('恢復失敗：'+(error?.message||'資料未更新'),'err');return;}
+  if(!confirm(`確定恢復「${ev.title}」？\n\n恢復後會重新出現在前台場次列表，並立即開放點餐。`)) return;
+  if(DEMO){ev.archived_at=null;ev.is_closed=false;S.eventSection='active';render();toast('場次已恢復並開放點餐','ok');return;}
+  const{error}=await sb.from('menus').update({archived_at:null,is_closed:false}).eq('id',eid);
+  if(error){toast('恢復失敗：'+error.message,'err');return;}
+  ev.archived_at=null;
   ev.is_closed=false;
-  S.adminEid=eid;
-  goTab('menu');
-  toast('✅ 場次已恢復至「菜單與點餐」及前台','ok');
+  S.eventSection='active';
+  toast('↩️ 場次已恢復並開放點餐','ok');
+  render();
 }
 async function deleteEvent(eid){
   if(DEMO){S.events=S.events.filter(e=>e.id!==eid);delete S.items[eid];delete S.orders[eid];S.adminEid=S.events[0]?.id||null;S.pendingItems=[];S.loadedHistoryKeys=[];S.parseStatus='idle';S.parseComparison=null;toast('已刪除','ok');render();return;}
@@ -1983,29 +2105,39 @@ async function clearOrders(){
 
 function renderStoreCapsules(currentStore){
   try{
-    // 只顯示本場次已解析、已儲存或從右上角歷史菜單載入的項目。
-    const currentItems=[...(S.pendingItems||[]),...(((S.items||{})[S.adminEid])||[])];
-    const capsuleMap=new Map();
-    currentItems.forEach(item=>{
-      const store=String(item.restaurant||'').trim();
-      if(!store||store==='未知店家'||store==='本日菜單') return;
-      const type=item.category==='飲料'||item._uploadType==='drink'?'飲料':'便當';
-      const key=normalizeCompareText(store)+'__'+type;
-      if(!capsuleMap.has(key)) capsuleMap.set(key,{store,type});
-    });
-    const currentCapsules=[...capsuleMap.values()];
-    if(!currentCapsules.length) return '';
+    // 本次解析或已儲存的品項店家
+    const pendingStores=(S.pendingItems||[]).map(it=>it.restaurant).filter(s=>s&&s!=='未知店家');
+    const savedStores=((S.items||{})[S.adminEid]||[]).map(it=>it.restaurant).filter(s=>s&&s!=='未知店家');
+    const parsedStores=[...new Set([...pendingStores,...savedStores])];
+    const historyEntries=getHistoryEntries()
+      .filter(entry=>entry.store&&entry.store!=='未知店家');
+    if(!parsedStores.length&&!historyEntries.length) return '';
 
-    const buttons=currentCapsules.map(entry=>{
+    function makeBtn(s){
+      const active=currentStore===s;
+      return '<button type="button" data-store="'+esc(s)+'" onclick="pickStore(this.dataset.store)" title="點擊選擇此店家" style="font-size:.72rem;padding:4px 12px;border:1.5px solid '+(active?'var(--or)':'var(--bo)')+';border-radius:20px;background:'+(active?'var(--or)':'var(--bos)')+';color:'+(active?'#fff':'var(--slm)')+';cursor:pointer;font-weight:600;margin:0;display:flex;align-items:center;gap:3px">'+esc(s)+'</button>';
+    }
+    function makeHistoryBtn(entry,index){
       const isDrink=entry.type==='飲料';
-      const active=currentStore===entry.store;
-      const color=isDrink?'#3730a3':'#9a3412';
-      const light=isDrink?'#eef2ff':'#fff7ed';
-      const border=isDrink?'#a5b4fc':'#fdba74';
-      return '<button type="button" data-store="'+esc(entry.store)+'" onclick="pickStore(this.dataset.store)" aria-pressed="'+active+'" title="點擊選擇此店家" style="font-size:.72rem;padding:5px 12px;border:1.5px solid '+(active?'var(--or)':border)+';border-radius:999px;background:'+(active?'var(--or)':light)+';color:'+(active?'#fff':color)+';cursor:pointer;font-weight:700;margin:0;display:flex;align-items:center;gap:3px">'+(isDrink?'🧋':'🍱')+' '+esc(entry.store)+' · '+entry.type+'</button>';
-    }).join('');
-    return '<div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">'
-      +'<span style="font-size:.65rem;color:var(--sll);font-weight:700;white-space:nowrap">本次</span>'+buttons+'</div>';
+      const active=(S.loadedHistoryKeys||[]).includes(entry.key);
+      const border=active?(isDrink?'#4f46e5':'#f97316'):(isDrink?'#a5b4fc':'#fdba74');
+      const background=active?(isDrink?'#4f46e5':'#f97316'):(isDrink?'#eef2ff':'#fff7ed');
+      const color=active?'#fff':(isDrink?'#3730a3':'#9a3412');
+      return '<button type="button" data-history-idx="'+index+'" aria-pressed="'+active+'" onclick="loadHistoryCapsule(Number(this.dataset.historyIdx))" title="只載入'+entry.type+'歷史菜單" style="font-size:.72rem;padding:5px 12px;border:1.5px solid '+border+';border-radius:999px;background:'+background+';color:'+color+';box-shadow:'+(active?'0 3px 10px rgba(15,23,42,.2)':'none')+';cursor:pointer;font-weight:700;margin:0;display:flex;align-items:center;gap:3px">'+(isDrink?'🧋':'🍱')+' '+esc(entry.store)+' · '+entry.type+'</button>';
+    }
+
+    let html='';
+    if(parsedStores.length){
+      html+='<div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-bottom:5px">'
+        +'<span style="font-size:.65rem;color:var(--sll);font-weight:700;white-space:nowrap">本次</span>'
+        +parsedStores.map(s=>makeBtn(s)).join('')+'</div>';
+    }
+    if(historyEntries.length){
+      html+='<div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">'
+        +'<span style="font-size:.65rem;color:var(--sll);font-weight:700;white-space:nowrap">歷史</span>'
+        +historyEntries.map((entry,index)=>makeHistoryBtn(entry,index)).join('')+'</div>';
+    }
+    return html;
   }catch(e){return '';}
 }
 
@@ -2020,6 +2152,14 @@ function pickStore(storeName){
   const capsDiv=document.getElementById('storeCapsules');
   if(capsDiv) capsDiv.innerHTML=renderStoreCapsules(newVal);
 
+}
+
+function loadHistoryCapsule(index){
+  const entries=getHistoryEntries()
+    .filter(entry=>entry.store&&entry.store!=='未知店家');
+  const entry=entries[index];
+  if(!entry){toast('找不到這筆歷史菜單','warn');return;}
+  requestHistoryAddition(entry,false);
 }
 
 function showHistoryMessage(entry,alreadyAdded=false){
@@ -2109,31 +2249,30 @@ function addItem(){
   render();
 }
 function removeItem(i){ S.pendingItems.splice(i,1); render(); }
-async function saveEvent(){
+async function saveMenu(){
   const eid=S.adminEid; if(!eid){toast('請先選擇場次','err');return;}
   if(DEMO){toast('示範模式：變更不會寫入','warn');return;}
-  if(S.pendingItems.length||window._pendingMainFile||window._pendingDrinkFile){
-    toast('尚有未儲存的內容，請先按「儲存」','warn');
-    return;
+  // 先刪此場次的 order_items → orders → menu_items
+  const{data:_ords}=await sb.from('orders').select('id').eq('menu_id',eid);
+  const _oids=(_ords||[]).map(r=>r.id);
+  if(_oids.length){
+    for(const oid of _oids) await sb.from('order_items').delete().eq('order_id',oid);
+    await sb.from('orders').delete().in('id',_oids);
   }
-  const date=document.getElementById('evDate')?.value||'';
-  const title=document.getElementById('evTitle')?.value.trim();
-  const activity_note=document.getElementById('evActivityNote')?.value.trim()||'';
-  const store_name=document.getElementById('evStore')?.value.trim()||'';
-  const orgInput=document.getElementById('evOrganizer')?.value.trim()||'';
-  const evNow=S.events.find(e=>e.id===eid);
-  const organizer=orgInput||evNow?.organizer||'';
-  if(!date){toast('請選擇場次日期','err');return;}
-  if(!title){toast('請填場次標題','err');return;}
-  if(!confirm('儲存場次後會移至後台，並從前台點餐場次隱藏。\n確定儲存場次？')) return;
-  // 儲存場次代表完成收存：寫入基本資訊並關閉，後台仍可重新開放。
-  const{data,error}=await sb.from('menus').update({date,title,activity_note,organizer,store_name,is_closed:true}).eq('id',eid).select('id');
-  if(error||!data?.length){toast('場次儲存失敗：'+(error?.message||'資料未更新'),'err');return;}
-  if(evNow) Object.assign(evNow,{date,title,activity_note,organizer,store_name,is_closed:true});
-  goTab('admin');
-  toast('✅ 場次已移至後台，前台已隱藏','ok');
+  await sb.from('menu_items').delete().eq('menu_id',eid);
+  const items=(S.items[eid]||[]).map((it,i)=>({
+    emoji:document.getElementById('me-'+i)?.value||it.emoji,
+    category:document.getElementById('mc-'+i)?.value||it.category||'其他',
+    restaurant:document.getElementById('mr-'+i)?.value||it.restaurant,
+    name:document.getElementById('mn-'+i)?.value||it.name,
+    price:(()=>{const v=document.getElementById('mp-'+i)?.value;return v!==undefined&&v!==''?+v:it.price;})(),
+    description:document.getElementById('md-'+i)?.value||it.description||'',specs:it.specs||[],sort_order:i,ai_parsed:it.ai_parsed||false,menu_id:eid
+  }));
+  if(items.length){ const{error}=await sb.from('menu_items').insert(items); if(error){toast('儲存失敗：'+error.message,'err');return;} }
+  await loadEventDetail(eid);
+  toast('菜單已儲存 ✓','ok'); render();
 }
-async function saveMenu(){
+async function saveAll(){
   const eid=S.adminEid; if(!eid){toast('請先選擇場次','err');return;}
   if(DEMO){toast('示範模式：變更不會寫入','warn');return;}
   const hasSelectedFiles=!!window._pendingMainFile||!!window._pendingDrinkFile;
@@ -2150,8 +2289,8 @@ async function saveMenu(){
   }else if(S.pendingItems.length){
     if(!confirm('本次品項來自歷史菜單或手動新增，尚未執行一鍵解析。\n確定仍要儲存？')) return;
   }
-  // 「儲存」會保留目前畫面上的場次設定；若有新菜單品項則一併儲存。
-  // 不變更 is_closed，因此不會把場次移到後台或從前台隱藏。
+
+  // 儲存場次基本資訊
   const date=document.getElementById('evDate')?.value||'';
   const title=document.getElementById('evTitle')?.value.trim();
   const activity_note=document.getElementById('evActivityNote')?.value.trim()||'';
@@ -2161,20 +2300,11 @@ async function saveMenu(){
   const organizer=orgInput||evNow?.organizer||'';
   if(!date){toast('請選擇場次日期','err');return;}
   if(!title){toast('請填場次標題','err');return;}
-  const{data:settingRows,error:settingError}=await sb.from('menus')
-    .update({date,title,activity_note,organizer,store_name})
-    .eq('id',eid)
-    .select('id');
-  if(settingError||!settingRows?.length){
-    toast('設定儲存失敗：'+(settingError?.message||'資料未更新'),'err');
-    return;
-  }
+
+  const{error:e1}=await sb.from('menus').update({date,title,activity_note,organizer,store_name}).eq('id',eid);
+  if(e1){toast('儲存失敗：'+e1.message,'err');return;}
+  const ev=S.events.find(e=>e.id===eid);
   if(evNow) Object.assign(evNow,{date,title,activity_note,organizer,store_name});
-  if(!S.pendingItems.length){
-    toast('✅ 目前畫面設定已儲存','ok');
-    render();
-    return;
-  }
 
   // 把 pendingItems 讀取欄位後 append 到資料庫（不刪除既有品項）
   const existingCount=(S.items[eid]||[]).length;
@@ -2202,13 +2332,13 @@ async function saveMenu(){
       const cached=JSON.parse(localStorage.getItem('menuCache')||'[]');
       const allItems=S.items[eid]||[];
       const storeRaw=(document.getElementById('evStore')?.value.trim()||evNow?.store_name||'').replace('未知店家','').trim();
+      if(!storeRaw) return;
       const date=new Date().toLocaleDateString('zh-TW');
       const bentoCats=['便當','點心'];
       // 每個店家獨立存快取（依 restaurant 欄位分組）
       const storeGroups={};
       allItems.forEach(it=>{
         const s=it.restaurant||storeRaw;
-        if(!s) return;
         if(!storeGroups[s]) storeGroups[s]={bento:[],drink:[]};
         if((it.category||'其他')==='飲料') storeGroups[s].drink.push(it);
         else if(bentoCats.includes(it.category||'其他')) storeGroups[s].bento.push(it);
@@ -2234,7 +2364,9 @@ async function saveMenu(){
     S.parseRunId=null;
     window._pendingMainFile=null;
     window._pendingDrinkFile=null;
-    toast('✅ 設定與菜單已儲存！本場次共 '+total+' 個品項','ok');
+    toast('✅ 已儲存！場次共 '+total+' 個品項','ok');
+  } else {
+    toast('✅ 場次資訊已儲存','ok');
   }
   render();
   // 儲存後更新店家膠囊
@@ -2294,7 +2426,7 @@ function compareParsedWithHistory(runId){
   const ev=S.events.find(e=>e.id===S.adminEid);
   const fallbackStore=(document.getElementById('evStore')?.value||ev?.store_name||'').trim();
   let history=[];
-  try{history=splitHistoryEntries(JSON.parse(localStorage.getItem('menuCache')||'[]'));}catch(e){}
+  try{history=getHistoryEntries();}catch(e){}
   const groups={};
   parsed.forEach(item=>{
     const type=item.category==='飲料'||item._uploadType==='drink'?'飲料':'便當';
@@ -2418,7 +2550,7 @@ async function handleImg(event, uploadType='main'){
   }
   const reader=new FileReader();
   reader.onload=e=>{
-    if(zone) zone.innerHTML=`<img src="${e.target.result}" class="menu-preview-img"><div style="margin-top:6px;font-size:.72rem;color:var(--in)">點擊更換圖片</div><input type="file" id="imgInp" accept="image/*,application/pdf" style="display:none" onchange="handleImg(event)">`;
+    if(zone) zone.innerHTML=`<img src="${e.target.result}" class="menu-preview-img"><div style="margin-top:6px;font-size:.72rem;color:var(--in)">點擊更換圖片/PDF</div><input type="file" id="imgInp" accept="image/*,application/pdf" style="display:none" onchange="handleImg(event)">`;
   };
   reader.readAsDataURL(file);
   if(!DEMO){
@@ -2462,12 +2594,12 @@ async function aiParsePdf(file,uploadType='main'){
       const base64=out.toDataURL('image/jpeg',0.72).split(',')[1];
       // 更新預覽
       const zone=(uploadType==='drink')?document.querySelector('#imgInpDrink')?.closest('.upload-zone'):document.querySelector('#imgInpMain')?.closest('.upload-zone');
-      if(zone) zone.innerHTML=`<img src="data:image/jpeg;base64,${base64}" class="menu-preview-img"><div style="margin-top:6px;font-size:.72rem;color:var(--in)">點擊更換圖片</div><input type="file" id="imgInp" accept="image/*,application/pdf" style="display:none" onchange="handleImg(event)">`;
+      if(zone) zone.innerHTML=`<img src="data:image/jpeg;base64,${base64}" class="menu-preview-img"><div style="margin-top:6px;font-size:.72rem;color:var(--in)">點擊更換圖片/PDF</div><input type="file" id="imgInp" accept="image/*,application/pdf" style="display:none" onchange="handleImg(event)">`;
       return await aiParseBase64(base64,'image/jpeg',uploadType);
     } else {
       const base64=canvas.toDataURL('image/jpeg',0.72).split(',')[1];
       const zone=(uploadType==='drink')?document.querySelector('#imgInpDrink')?.closest('.upload-zone'):document.querySelector('#imgInpMain')?.closest('.upload-zone');
-      if(zone) zone.innerHTML=`<img src="data:image/jpeg;base64,${base64}" class="menu-preview-img"><div style="margin-top:6px;font-size:.72rem;color:var(--in)">點擊更換圖片</div><input type="file" id="imgInp" accept="image/*,application/pdf" style="display:none" onchange="handleImg(event)">`;
+      if(zone) zone.innerHTML=`<img src="data:image/jpeg;base64,${base64}" class="menu-preview-img"><div style="margin-top:6px;font-size:.72rem;color:var(--in)">點擊更換圖片/PDF</div><input type="file" id="imgInp" accept="image/*,application/pdf" style="display:none" onchange="handleImg(event)">`;
       return await aiParseBase64(base64,'image/jpeg',uploadType);
     }
   }catch(err){
