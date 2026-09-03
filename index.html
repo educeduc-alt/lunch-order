@@ -1564,9 +1564,10 @@ function renderAdmin(){
     if(!kitch[k])kitch[k]={qty:0,price:oi.unit_price};
     kitch[k].qty+=oi.quantity;
   }));
-  const totPort=Object.values(kitch).reduce((s,r)=>s+r.qty,0);
-  const totAmt=Object.values(kitch).reduce((s,r)=>s+r.qty*r.price,0);
   const totalPeople=countUniqueDiners(ords);
+  // 後台總份數以實際點餐者計算：同一人在同一場次不論點幾個品項都只算 1 份。
+  const totPort=totalPeople;
+  const totAmt=Object.values(kitch).reduce((s,r)=>s+r.qty*r.price,0);
 
   html+=`<div class="stat-grid" style="margin-top:4px">
     <div class="stat-box"><div class="stat-n" style="color:var(--or)">${totalPeople}</div><div class="stat-l">總人數</div></div>
