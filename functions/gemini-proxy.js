@@ -61,42 +61,73 @@ export const onRequest = async ({ request, env }) => {
     return jsonResponse({ error: '請求必須包含圖片和文字提示' }, 400);
   }
 
-  const model = (env.GEMINI_MODEL || 'gemini-3.6-flash').trim();
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
+  // 優先使用環境變數指定的模型；遇到高流量或暫時性錯誤時改用穩定備援模型。
+  const models = [
+    (env.GEMINI_MODEL || '').trim(),
+    'gemini-2.5-flash',
+    'gemini-2.5-flash-lite',
+  ].filter((model, index, list) => model && list.indexOf(model) === index);
+  const retryableStatuses = new Set([429, 500, 502, 503, 504, 524]);
+  const requestBody = JSON.stringify({
+    contents: [{ role: 'user', parts }],
+    generationConfig: {
+      responseMimeType: 'application/json',
+      temperature: 0.1,
+      maxOutputTokens: 8192,
+    },
+  });
 
-  let geminiResponse;
-  try {
-    geminiResponse = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': apiKey,
-      },
-      body: JSON.stringify({
-        contents: [{ role: 'user', parts }],
-        generationConfig: {
-          responseMimeType: 'application/json',
-          temperature: 0.1,
-          maxOutputTokens: 8192,
+  let geminiData = null;
+  let model = models[0];
+  let lastStatus = 503;
+  let lastError = 'Gemini 目前忙碌，請稍後再試';
+
+  for (const candidateModel of models) {
+    model = candidateModel;
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
+    let geminiResponse;
+    try {
+      geminiResponse = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': apiKey,
         },
-      }),
-    });
-  } catch (error) {
-    return jsonResponse({ error: `無法連線 Gemini API：${error.message}` }, 502);
+        body: requestBody,
+      });
+    } catch (error) {
+      lastStatus = 502;
+      lastError = `無法連線 Gemini API：${error.message}`;
+      continue;
+    }
+
+    lastStatus = geminiResponse.status;
+    const responseText = await geminiResponse.text();
+    try {
+      geminiData = JSON.parse(responseText);
+    } catch {
+      geminiData = null;
+      lastError = geminiResponse.status === 524
+        ? 'Gemini 回應逾時'
+        : `Gemini 回應格式錯誤：${responseText.slice(0, 120)}`;
+      if (retryableStatuses.has(geminiResponse.status)) continue;
+      return jsonResponse({ error: lastError, retryable: false }, 502);
+    }
+
+    if (geminiResponse.ok) break;
+
+    lastError = geminiData?.error?.message || `Gemini API 錯誤 ${geminiResponse.status}`;
+    if (!retryableStatuses.has(geminiResponse.status)) {
+      return jsonResponse({ error: lastError, retryable: false }, geminiResponse.status);
+    }
+    geminiData = null;
   }
 
-  const responseText = await geminiResponse.text();
-  let geminiData;
-  try {
-    geminiData = JSON.parse(responseText);
-  } catch {
-    return jsonResponse({ error: `Gemini 回應格式錯誤：${responseText.slice(0, 160)}` }, 502);
-  }
-
-  if (!geminiResponse.ok) {
+  if (!geminiData) {
     return jsonResponse({
-      error: geminiData?.error?.message || `Gemini API 錯誤 ${geminiResponse.status}`,
-    }, geminiResponse.status);
+      error: `${lastError}，系統已嘗試備援模型，請稍候再試`,
+      retryable: true,
+    }, retryableStatuses.has(lastStatus) ? 503 : 502);
   }
 
   const outputText = (geminiData.candidates?.[0]?.content?.parts || [])
