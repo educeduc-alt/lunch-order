@@ -736,9 +736,9 @@ function renderOrderPage(){
   const items=S.items[S.activeEventId]||[];
   const closed=isEventClosed(ev);
 
-  let html=S.sharedEventMode?'':`
+  let html=`
     <div class="order-page-header">
-      <button class="back-btn" onclick="closeEvent()">← 返回場次</button>
+      ${S.sharedEventMode?'':'<button class="back-btn" onclick="closeEvent()">← 返回場次</button>'}
       <div class="event-info-banner">
         ${ev.date?`<span style="display:block;font-size:.7rem;font-weight:800;color:var(--or);margin-bottom:2px">📅 ${esc(fmtEventDate(ev.date))}</span>`:''}
         <strong>${esc(ev.title)}</strong>
@@ -757,7 +757,7 @@ function renderOrderPage(){
     <div class="activity-meal-help"><span style="font-size:1.15rem">☀️</span><div><strong>活動餐點說明</strong><br>${ev.activity_note?esc(ev.activity_note):'承辦人尚未填寫本場次活動說明。'}<br>請確認餐點規格與數量後再送出。</div></div>
   </div>`;
 
-  // 分享頁永遠從姓名開始；截止與已送出提示移到姓名區塊之後。
+  // 分享頁只在橘色場次資訊後顯示姓名與點餐內容；不提供返回或管理入口。
   if(S.sharedEventMode) html+=closedNotice+submittedNotice;
 
 
@@ -2728,12 +2728,12 @@ function exportCSV(){
     }
   }));
   rows.push([],['餐點彙整']);
-  rows.push(['點餐人數','點餐姓名','餐點']);
+  rows.push(['餐點','點餐人數','點餐姓名']);
   Object.values(summary)
     .sort((a,b)=>a.workType.localeCompare(b.workType,'zh-TW')||a.restaurant.localeCompare(b.restaurant,'zh-TW')||a.category.localeCompare(b.category,'zh-TW')||a.name.localeCompare(b.name,'zh-TW'))
     .forEach(x=>{
       const names=[...x.diners.values()];
-      rows.push([names.length,names.join('、'),formatMealSummary(x.name,x.specs,x.itemNote)]);
+      rows.push([formatMealSummary(x.name,x.specs,x.itemNote),names.length,names.join('、')]);
     });
   dlCSV(rows,`點餐紀錄_${ev?.title||''}`);
 }
