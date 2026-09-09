@@ -95,6 +95,9 @@ input,select,textarea{font-family:inherit}
 .id-card{background:var(--ca);border:1px solid var(--bo);border-radius:var(--rlg);padding:15px 16px;margin-bottom:16px;box-shadow:none;display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
 .id-card .fld{flex:1;min-width:120px}
 .id-card label{display:block;font-size:.68rem;font-weight:700;color:var(--sll);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.name-url-row{display:flex;align-items:stretch;gap:7px}
+.name-url-row .inp{flex:1;min-width:0}
+.copy-event-url{flex:0 0 auto;white-space:nowrap;padding:8px 12px;font-size:.78rem}
 .activity-meal-help{width:100%;display:flex;align-items:flex-start;gap:9px;background:#f8fafc;border:1px solid var(--bo);border-radius:var(--rmd);padding:10px 12px;color:var(--slm);font-size:.75rem;line-height:1.65}
 .activity-meal-help strong{color:#0e7490}
 .inp,.sel{width:100%;border:1.5px solid var(--bo);border-radius:var(--rsm);padding:8px 10px;font-size:.85rem;color:var(--sl);background:var(--ca);outline:none;transition:border-color .18s,box-shadow .18s}
@@ -303,6 +306,7 @@ input,select,textarea{font-family:inherit}
   .event-info-banner{font-size:.72rem;padding:6px 10px}
   .id-card{padding:11px 12px;gap:8px}
   .inp,.sel{padding:7px 9px;font-size:.82rem}
+  .copy-event-url{padding:7px 9px;font-size:.72rem}
 
   /* 菜單格子：手機兩欄 */
   .menu-grid{grid-template-columns:1fr 1fr;gap:7px}
@@ -465,6 +469,11 @@ let S = {
 /* ═══ BOOT ═══ */
 (async()=>{
   await loadEvents();
+  const requestedEventId=getEventIdFromUrl();
+  if(requestedEventId&&S.events.some(ev=>ev.id===requestedEventId)){
+    S.activeEventId=requestedEventId;
+    S.tab='home';
+  }
   subscribeRT();
   render();
 })();
@@ -555,7 +564,10 @@ function goTab(t){
     const el=document.getElementById('tab-'+x);
     if(el) el.className='tab-btn'+(x===t?(t==='admin'?' on-admin':' on'):'');
   });
-  if(t!=='home'&&t!=='menu') S.activeEventId=null;
+  if(t!=='home'){
+    S.activeEventId=null;
+    setEventUrl(null,true);
+  }
   render();
 }
 function doLogin(){
@@ -581,8 +593,14 @@ function render(){
   const sb2=document.getElementById('subBar');
   const hasCart=Object.keys(S.cart).length>0;
   if(S.tab==='home'){
-    if(S.activeEventId) mc.innerHTML=renderOrderPage();
-    else mc.innerHTML=renderHome();
+    if(S.activeEventId){
+      const currentEvent=S.events.find(e=>e.id===S.activeEventId);
+      document.title=(currentEvent?.title||'點餐場次')+'｜資源教室點餐小助手';
+      mc.innerHTML=renderOrderPage();
+    }else{
+      document.title='資源教室點餐小助手';
+      mc.innerHTML=renderHome();
+    }
     sb2.style.display=(hasCart&&S.activeEventId)?'block':'none';
     const btn=document.getElementById('subBtn');
     if(btn){ const ev=S.events.find(e=>e.id===S.activeEventId); btn.disabled=isEventClosed(ev); }
@@ -643,8 +661,53 @@ function renderHome(){
 }
 function openEvent(eid){
   S.activeEventId=eid; S.cart={}; S.menuSearchQ='';
+  setEventUrl(eid);
   render();
 }
+function getEventIdFromUrl(){
+  try{return new URLSearchParams(window.location.search).get('event')||'';}
+  catch(e){return '';}
+}
+function setEventUrl(eid,replace=false){
+  try{
+    const url=new URL(window.location.href);
+    if(eid) url.searchParams.set('event',eid);
+    else url.searchParams.delete('event');
+    window.history[replace?'replaceState':'pushState']({eventId:eid||null},'',url.href);
+  }catch(e){}
+}
+function closeEvent(){
+  const openedFromList=window.history.state?.eventId===S.activeEventId;
+  S.activeEventId=null;
+  S.cart={};
+  S.menuSearchQ='';
+  if(openedFromList){
+    window.history.back();
+    return;
+  }
+  // 直接開啟分享網址時沒有上一個場次列表紀錄，改為就地回到列表。
+  setEventUrl(null,true);
+  render();
+}
+function copyEventUrl(){
+  if(!S.activeEventId){toast('找不到目前場次','err');return;}
+  try{
+    // 本機預覽時改複製正式站網址，避免把只能在自己電腦開啟的 file:// 路徑分享出去。
+    const isLocal=window.location.protocol==='file:'||window.location.hostname==='localhost'||window.location.hostname==='127.0.0.1';
+    const url=new URL(isLocal?'https://lunch-order-2bw.pages.dev/':window.location.href);
+    url.searchParams.set('event',S.activeEventId);
+    copyText(url.href);
+  }catch(e){toast('場次網址複製失敗','err');}
+}
+window.addEventListener('popstate',()=>{
+  S.activeEventId=getEventIdFromUrl()||null;
+  S.tab='home';
+  ['home','menu','admin'].forEach(x=>{
+    const el=document.getElementById('tab-'+x);
+    if(el) el.className='tab-btn'+(x==='home'?' on':'');
+  });
+  render();
+});
 
 /* ── ORDER PAGE ── */
 function renderOrderPage(){
@@ -655,7 +718,7 @@ function renderOrderPage(){
 
   let html=`
     <div class="order-page-header">
-      <button class="back-btn" onclick="S.activeEventId=null;S.cart={};render()">← 返回場次</button>
+      <button class="back-btn" onclick="closeEvent()">← 返回場次</button>
       <div class="event-info-banner">
         ${ev.date?`<span style="display:block;font-size:.7rem;font-weight:800;color:var(--or);margin-bottom:2px">📅 ${esc(fmtEventDate(ev.date))}</span>`:''}
         <strong>${esc(ev.title)}</strong>
@@ -672,7 +735,7 @@ function renderOrderPage(){
   }
 
   html+=`<div class="id-card">
-    <div class="fld"><label>姓名</label><input class="inp" id="uName" placeholder="王小明" value="${esc(S.myName)}" oninput="S.myName=this.value"></div>
+    <div class="fld"><label>姓名</label><div class="name-url-row"><input class="inp" id="uName" placeholder="王小明" value="${esc(S.myName)}" oninput="S.myName=this.value"><button type="button" class="btn btn-out copy-event-url" onclick="copyEventUrl()">🔗 複製場次網址</button></div></div>
     <div class="activity-meal-help"><span style="font-size:1.15rem">☀️</span><div><strong>活動餐點說明</strong><br>${ev.activity_note?esc(ev.activity_note):'承辦人尚未填寫本場次活動說明。'}<br>請確認餐點規格與數量後再送出。</div></div>
   </div>`;
 
@@ -2612,6 +2675,11 @@ function copyKitchen(){
   txt+=`\n合計：${Object.values(kitch).reduce((s,q)=>s+q,0)} 份`;
   copyText(txt);
 }
+function formatMealSummary(name,specs,qty,names){
+  const itemLabel=String(name||'')+(specs?'（'+specs+'）':'');
+  const dinerNames=(names||[]).filter(Boolean);
+  return `${itemLabel} ×${Number(qty)||0}${dinerNames.length?' / '+dinerNames.join('、'):''}`;
+}
 function exportCSV(){
   const ords=S.orders[S.adminEid]||[];
   const ev=S.events.find(e=>e.id===S.adminEid);
@@ -2632,19 +2700,26 @@ function exportCSV(){
     rows.push([ev?.title||'',ev?.date||'',ev?.organizer||'',fmtTime(o.created_at),o.user_name||'',restaurant,workType,category,
       oi.item_emoji+oi.item_name,oi.specs_str||'',oi.note||'',qty,unitPrice,subtotal,o.note||'']);
     const key=[restaurant,workType,category,oi.item_name,oi.specs_str||'',oi.note||'',unitPrice].join('__');
-    if(!summary[key]) summary[key]={event:ev?.title||'',date:ev?.date||'',names:new Set(),restaurant,workType,category,name:oi.item_name,specs:oi.specs_str||'',itemNote:oi.note||'',qty:0,unitPrice,subtotal:0};
-    if(o.user_name) summary[key].names.add(o.user_name);
+    if(!summary[key]) summary[key]={event:ev?.title||'',date:ev?.date||'',diners:new Map(),restaurant,workType,category,name:oi.item_name,specs:oi.specs_str||'',itemNote:oi.note||'',qty:0,unitPrice,subtotal:0};
+    if(o.user_name){
+      const dinerKey=(o.class_name||'')+'\u0000'+o.user_name;
+      summary[key].diners.set(dinerKey,o.user_name);
+    }
     summary[key].qty+=qty;
     summary[key].subtotal+=subtotal;
     totalQty+=qty;
     totalAmount+=subtotal;
   }));
   rows.push([],['餐點彙整']);
-  rows.push(['場次','場次日期','點餐姓名','店家','分工分類','原始分類','餐點','規格','糖度冰塊／品項備註','總份數','單價','金額小計']);
+  rows.push(['場次','場次日期','店家','分工分類','原始分類','餐點統整','點餐人數','點餐姓名','餐點','規格','糖度冰塊／品項備註','總份數','單價','金額小計']);
   Object.values(summary)
     .sort((a,b)=>a.workType.localeCompare(b.workType,'zh-TW')||a.restaurant.localeCompare(b.restaurant,'zh-TW')||a.category.localeCompare(b.category,'zh-TW')||a.name.localeCompare(b.name,'zh-TW'))
-    .forEach(x=>rows.push([x.event,x.date,[...x.names].join('、'),x.restaurant,x.workType,x.category,x.name,x.specs,x.itemNote,x.qty,x.unitPrice,x.subtotal]));
-  rows.push(['彙整總計','','','','','','','','',totalQty,'',totalAmount]);
+    .forEach(x=>{
+      const names=[...x.diners.values()];
+      const summaryLabel=formatMealSummary(x.name,x.specs,x.qty,names);
+      rows.push([x.event,x.date,x.restaurant,x.workType,x.category,summaryLabel,names.length,names.join('、'),x.name,x.specs,x.itemNote,x.qty,x.unitPrice,x.subtotal]);
+    });
+  rows.push(['彙整總計','','','','','',countUniqueDiners(ords),'','','','',totalQty,'',totalAmount]);
   dlCSV(rows,`點餐紀錄_${ev?.title||''}`);
 }
 function dlCSV(rows,name){
