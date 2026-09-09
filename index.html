@@ -40,6 +40,8 @@ input,select,textarea{font-family:inherit}
 
 /* ── MAIN ── */
 .main{max-width:1000px;margin:0 auto;width:100%;padding:26px 18px 100px}
+body.shared-event-mode .topbar,body.shared-event-mode .tab-bar{display:none}
+body.shared-event-mode .main{padding-top:18px}
 
 /* ── SESSION LIST (首頁) ── */
 .page-title{font-family:'Nunito',sans-serif;font-weight:900;font-size:1.35rem;letter-spacing:-.02em;margin-bottom:4px}
@@ -444,6 +446,7 @@ let S = {
   items:{},         // { menuId: [items] }
   orders:{},        // { menuId: [orders] }
   activeEventId:null,
+  sharedEventMode:false, // 從分享網址直接進入時，只顯示純點餐內容
   pendingItems:[],   // 本次 AI 解析暫存，尚未儲存
   loadedHistoryKeys:[], // 本場次已新增的歷史菜單（防止重複載入）
   parseStatus:'idle', // idle | ready | parsing | complete | failed
@@ -468,11 +471,15 @@ let S = {
 
 /* ═══ BOOT ═══ */
 (async()=>{
-  await loadEvents();
   const requestedEventId=getEventIdFromUrl();
+  S.sharedEventMode=isSharedEventUrl();
+  document.body.classList.toggle('shared-event-mode',S.sharedEventMode);
+  await loadEvents();
   if(requestedEventId&&S.events.some(ev=>ev.id===requestedEventId)){
     S.activeEventId=requestedEventId;
     S.tab='home';
+  }else{
+    S.sharedEventMode=false;
   }
   subscribeRT();
   render();
@@ -551,6 +558,7 @@ function demoOrders(mid){ return [
 
 /* ═══ TAB ═══ */
 function goTab(t){
+  if(S.sharedEventMode&&t!=='home') return;
   if((t==='admin'||t==='menu')&&!S.authed){
     S._pendingTab=t;
     document.getElementById('adminModal').style.display='flex';
@@ -589,6 +597,7 @@ function closeLogin(){ document.getElementById('adminModal').style.display='none
 
 /* ═══ RENDER ═══ */
 function render(){
+  document.body.classList.toggle('shared-event-mode',S.sharedEventMode&&!!S.activeEventId);
   const mc=document.getElementById('main');
   const sb2=document.getElementById('subBar');
   const hasCart=Object.keys(S.cart).length>0;
@@ -660,7 +669,7 @@ function renderHome(){
   return html;
 }
 function openEvent(eid){
-  S.activeEventId=eid; S.cart={}; S.menuSearchQ='';
+  S.activeEventId=eid; S.sharedEventMode=false; S.cart={}; S.menuSearchQ='';
   setEventUrl(eid);
   render();
 }
@@ -668,17 +677,26 @@ function getEventIdFromUrl(){
   try{return new URLSearchParams(window.location.search).get('event')||'';}
   catch(e){return '';}
 }
+function isSharedEventUrl(){
+  try{
+    const params=new URLSearchParams(window.location.search);
+    const eid=params.get('event')||'';
+    return !!eid&&(params.get('view')==='order'||window.history.state?.eventId!==eid);
+  }catch(e){return false;}
+}
 function setEventUrl(eid,replace=false){
   try{
     const url=new URL(window.location.href);
     if(eid) url.searchParams.set('event',eid);
     else url.searchParams.delete('event');
+    url.searchParams.delete('view');
     window.history[replace?'replaceState':'pushState']({eventId:eid||null},'',url.href);
   }catch(e){}
 }
 function closeEvent(){
   const openedFromList=window.history.state?.eventId===S.activeEventId;
   S.activeEventId=null;
+  S.sharedEventMode=false;
   S.cart={};
   S.menuSearchQ='';
   if(openedFromList){
@@ -696,11 +714,13 @@ function copyEventUrl(){
     const isLocal=window.location.protocol==='file:'||window.location.hostname==='localhost'||window.location.hostname==='127.0.0.1';
     const url=new URL(isLocal?'https://lunch-order-2bw.pages.dev/':window.location.href);
     url.searchParams.set('event',S.activeEventId);
+    url.searchParams.set('view','order');
     copyText(url.href);
   }catch(e){toast('場次網址複製失敗','err');}
 }
 window.addEventListener('popstate',()=>{
   S.activeEventId=getEventIdFromUrl()||null;
+  S.sharedEventMode=isSharedEventUrl();
   S.tab='home';
   ['home','menu','admin'].forEach(x=>{
     const el=document.getElementById('tab-'+x);
@@ -716,7 +736,7 @@ function renderOrderPage(){
   const items=S.items[S.activeEventId]||[];
   const closed=isEventClosed(ev);
 
-  let html=`
+  let html=S.sharedEventMode?'':`
     <div class="order-page-header">
       <button class="back-btn" onclick="closeEvent()">← 返回場次</button>
       <div class="event-info-banner">
@@ -726,18 +746,19 @@ function renderOrderPage(){
       </div>
     </div>`;
 
-  if(closed) html+=`<div style="background:var(--rdl);border:1.5px solid #fca5a5;border-radius:var(--rmd);padding:10px 13px;font-size:.8rem;color:var(--rd);font-weight:700;margin-bottom:12px;text-align:center">⛔ 此場次已截止，無法點餐</div>`;
-
   // 已點餐入口：只提供查看已送出的內容。
   const myExisting=(S.orders[S.activeEventId]||[]).find(o=>o.user_name===S.myName);
-  if(myExisting){
-    html+=`<button class="btn btn-gr btn-full" style="margin-bottom:12px;padding:11px" onclick="showSubmittedOrderNotice('${myExisting.id}')">✅ 查看已送出的餐點</button>`;
-  }
+  const closedNotice=closed?`<div style="background:var(--rdl);border:1.5px solid #fca5a5;border-radius:var(--rmd);padding:10px 13px;font-size:.8rem;color:var(--rd);font-weight:700;margin-bottom:12px;text-align:center">⛔ 此場次已截止，無法點餐</div>`:'';
+  const submittedNotice=myExisting?`<button class="btn btn-gr btn-full" style="margin-bottom:12px;padding:11px" onclick="showSubmittedOrderNotice('${myExisting.id}')">✅ 查看已送出的餐點</button>`:'';
+  if(!S.sharedEventMode) html+=closedNotice+submittedNotice;
 
   html+=`<div class="id-card">
-    <div class="fld"><label>姓名</label><div class="name-url-row"><input class="inp" id="uName" placeholder="王小明" value="${esc(S.myName)}" oninput="S.myName=this.value"><button type="button" class="btn btn-out copy-event-url" onclick="copyEventUrl()">🔗 複製場次網址</button></div></div>
+    <div class="fld"><label>姓名</label><div class="name-url-row"><input class="inp" id="uName" placeholder="王小明" value="${esc(S.myName)}" oninput="S.myName=this.value">${S.sharedEventMode?'':'<button type="button" class="btn btn-out copy-event-url" onclick="copyEventUrl()">🔗 複製場次網址</button>'}</div></div>
     <div class="activity-meal-help"><span style="font-size:1.15rem">☀️</span><div><strong>活動餐點說明</strong><br>${ev.activity_note?esc(ev.activity_note):'承辦人尚未填寫本場次活動說明。'}<br>請確認餐點規格與數量後再送出。</div></div>
   </div>`;
+
+  // 分享頁永遠從姓名開始；截止與已送出提示移到姓名區塊之後。
+  if(S.sharedEventMode) html+=closedNotice+submittedNotice;
 
 
 
