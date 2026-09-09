@@ -1707,10 +1707,7 @@ function renderMenuTab(){
         +'onclick="S.adminEid=\''+e.id+'\';S.pendingItems=[];S.loadedHistoryKeys=[];S.parseStatus=\'idle\';S.parseComparison=null;window._pendingMainFile=null;window._pendingDrinkFile=null;render()">'+esc(e.title)+'</button>').join('')
       +'</div>';
   });
-  html+='<div style="display:flex;gap:7px;flex-wrap:wrap">'
-    +'<button class="btn btn-out btn-sm" onclick="createNewEvent()">＋ 新增場次</button>'
-    +(ev?'<button class="btn btn-out btn-sm" onclick="copyEventUrlById(S.adminEid)">🔗 複製目前場次網址</button>':'')
-    +'</div>';
+  html+='<button class="btn btn-out btn-sm" onclick="createNewEvent()">＋ 新增場次</button>';
   html+='</div>';
 
   if(!ev){
@@ -1747,6 +1744,9 @@ function renderEventMgmt(ev){
       <button class="btn btn-out btn-sm" onclick="showMenuCache()">📂 歷史菜單</button>
     </div>
   </div><div class="panel-body">
+    <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
+      <button class="btn btn-out btn-sm" onclick="copyEventUrlById(S.adminEid)">🔗 複製目前場次網址</button>
+    </div>
 
     <!-- 場次基本資訊 -->
     <div style="margin-bottom:10px">
