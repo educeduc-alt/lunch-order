@@ -708,12 +708,15 @@ function closeEvent(){
   render();
 }
 function copyEventUrl(){
-  if(!S.activeEventId){toast('找不到目前場次','err');return;}
+  copyEventUrlById(S.activeEventId);
+}
+function copyEventUrlById(eid){
+  if(!eid){toast('請先選擇場次','err');return;}
   try{
     // 本機預覽時改複製正式站網址，避免把只能在自己電腦開啟的 file:// 路徑分享出去。
     const isLocal=window.location.protocol==='file:'||window.location.hostname==='localhost'||window.location.hostname==='127.0.0.1';
     const url=new URL(isLocal?'https://lunch-order-2bw.pages.dev/':window.location.href);
-    url.searchParams.set('event',S.activeEventId);
+    url.searchParams.set('event',eid);
     url.searchParams.set('view','order');
     copyText(url.href);
   }catch(e){toast('場次網址複製失敗','err');}
@@ -1704,7 +1707,10 @@ function renderMenuTab(){
         +'onclick="S.adminEid=\''+e.id+'\';S.pendingItems=[];S.loadedHistoryKeys=[];S.parseStatus=\'idle\';S.parseComparison=null;window._pendingMainFile=null;window._pendingDrinkFile=null;render()">'+esc(e.title)+'</button>').join('')
       +'</div>';
   });
-  html+='<button class="btn btn-out btn-sm" onclick="createNewEvent()">＋ 新增場次</button>';
+  html+='<div style="display:flex;gap:7px;flex-wrap:wrap">'
+    +'<button class="btn btn-out btn-sm" onclick="createNewEvent()">＋ 新增場次</button>'
+    +(ev?'<button class="btn btn-out btn-sm" onclick="copyEventUrlById(S.adminEid)">🔗 複製目前場次網址</button>':'')
+    +'</div>';
   html+='</div>';
 
   if(!ev){
