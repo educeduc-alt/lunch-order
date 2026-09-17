@@ -1763,7 +1763,7 @@ function renderEventMgmt(ev){
     </div>
     <div style="margin-bottom:10px">
       <span class="mg-lbl">活動說明</span>
-      <textarea class="mg-inp mg-textarea" id="evActivityNote" placeholder="例如：本場次為資源教室研習午餐，請於截止時間前完成點餐。">${esc(ev.activity_note||'')}</textarea>
+      <textarea class="mg-inp mg-textarea" id="evActivityNote" placeholder="例如：本場次為資源教室研習午餐，請於截止時間前完成點餐。" oninput="const _e=S.events.find(x=>x.id===S.adminEid);if(_e)_e.activity_note=this.value">${esc(ev.activity_note||'')}</textarea>
     </div>
     <div style="margin-bottom:10px">
       <span class="mg-lbl" style="display:block;margin-bottom:6px">承辦人</span>
