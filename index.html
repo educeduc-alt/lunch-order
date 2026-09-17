@@ -1840,7 +1840,8 @@ function renderEventMgmt(ev){
               <button onclick="removeSpecCat(${i},${si})" style="font-size:.7rem;padding:2px 6px;border:none;background:var(--rdl);color:var(--rd);border-radius:5px;cursor:pointer">✕</button>
             </div>`).join('')
           : '';
-        return `<div class="mgmt-item-row" style="flex-wrap:wrap;flex-direction:column;align-items:stretch;padding:9px 8px">
+        return `<div class="mgmt-item-row" style="flex-wrap:wrap;flex-direction:column;align-items:stretch;padding:9px 8px;${it._historyMissing?'border-color:#f59e0b;background:#fffbeb':''}">
+          ${it._historyMissing?'<div style="font-size:.7rem;font-weight:800;color:#92400e;background:#fef3c7;border-radius:7px;padding:6px 8px;margin-bottom:7px">⚠️ 歷史菜單有此品項，但本次未解析到。請確認是否為解析遺漏；要保留可直接儲存，不需要請按「不保留」。</div>':''}
           <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
             <input class="mg-inp mi-em" value="${esc(it.emoji)}" id="me-${i}" placeholder="🍱" style="width:44px;text-align:center">
             <select class="mg-inp" id="mc-${i}" style="width:78px">
@@ -1849,7 +1850,7 @@ function renderEventMgmt(ev){
             <input class="mg-inp mi-rest" value="${esc(it.restaurant)}" id="mr-${i}" placeholder="店家" style="width:110px">
             <input class="mg-inp" value="${esc(it.name)}" id="mn-${i}" placeholder="品項名稱" style="flex:1;min-width:90px">
             <input class="mg-inp mi-price" type="number" value="${it.price}" id="mp-${i}" placeholder="價格" style="width:62px">
-            <button class="btn btn-rd btn-sm" onclick="removeItem(${i})">刪</button>
+            <button class="btn btn-rd btn-sm" onclick="removeItem(${i})">${it._historyMissing?'不保留':'刪'}</button>
           </div>
           <div style="display:flex;gap:5px;align-items:center;padding:3px 0">
             <input class="mg-inp" value="${esc(it.description||'')}" id="md-${i}" placeholder="甜度冰塊（如：微糖微冰）" style="flex:1;font-size:.75rem;padding:4px 7px">
@@ -2238,7 +2239,8 @@ async function saveMenu(){
     // 儲存前再依目前畫面中的解析結果重算，避免使用已過期的比對摘要。
     S.parseComparison=compareParsedWithHistory(S.parseRunId);
     const counts=(S.parseComparison||[]).reduce((sum,g)=>({added:sum.added+g.added.length,removed:sum.removed+g.removed.length,changed:sum.changed+g.changed.length}),{added:0,removed:0,changed:0});
-    if(!confirm(`已確認完成一鍵解析與歷史比對。\n新增 ${counts.added} 項、歷史未出現 ${counts.removed} 項、價格或規格變更 ${counts.changed} 項。\n\n確定儲存本次解析結果？`)) return;
+    const keptMissing=(S.pendingItems||[]).filter(item=>item._historyMissing&&item._parseRunId===S.parseRunId).length;
+    if(!confirm(`已確認完成一鍵解析與歷史比對。\n新增 ${counts.added} 項、疑似漏解析 ${counts.removed} 項（目前保留 ${keptMissing} 項）、價格或規格變更 ${counts.changed} 項。\n\n將以新解析內容為主更新歷史菜單，確定儲存？`)) return;
   }else if(S.pendingItems.length){
     if(!confirm('本次品項來自歷史菜單或手動新增，尚未執行一鍵解析。\n確定仍要儲存？')) return;
   }
@@ -2293,12 +2295,15 @@ async function saveMenu(){
     try{
       const cached=JSON.parse(localStorage.getItem('menuCache')||'[]');
       const allItems=S.items[eid]||[];
+      // AI 解析完成時，歷史菜單只以本次確認後的品項為主，避免舊場次品項或重複資料混入新版快取。
+      // 若只解析主餐或飲料，未解析的另一類歷史快取不會被更動。
+      const cacheSourceItems=S.parseStatus==='complete'?newItems:allItems;
       const storeRaw=(document.getElementById('evStore')?.value.trim()||evNow?.store_name||'').replace('未知店家','').trim();
       const date=new Date().toLocaleDateString('zh-TW');
       const bentoCats=['便當','點心'];
       // 每個店家獨立存快取（依 restaurant 欄位分組）
       const storeGroups={};
-      allItems.forEach(it=>{
+      cacheSourceItems.forEach(it=>{
         const s=it.restaurant||storeRaw;
         if(!s) return;
         if(!storeGroups[s]) storeGroups[s]={bento:[],drink:[]};
@@ -2382,7 +2387,8 @@ function menuItemFingerprint(item){
   return JSON.stringify({price:Number(item.price)||0,specs});
 }
 function compareParsedWithHistory(runId){
-  const parsed=(S.pendingItems||[]).filter(item=>item._parseRunId===runId);
+  // 疑似漏解析品項雖會拉回畫面供確認，但不列入「本次 AI 解析結果」。
+  const parsed=(S.pendingItems||[]).filter(item=>item._parseRunId===runId&&!item._historyMissing);
   const ev=S.events.find(e=>e.id===S.adminEid);
   const fallbackStore=(document.getElementById('evStore')?.value||ev?.store_name||'').trim();
   let history=[];
@@ -2400,13 +2406,60 @@ function compareParsedWithHistory(runId){
     const oldMap=new Map((old?.items||[]).map(item=>[normalizeCompareText(item.name),item]));
     const newMap=new Map(group.items.map(item=>[normalizeCompareText(item.name),item]));
     const added=group.items.filter(item=>!oldMap.has(normalizeCompareText(item.name))).map(item=>item.name);
-    const removed=(old?.items||[]).filter(item=>!newMap.has(normalizeCompareText(item.name))).map(item=>item.name);
+    const missingItems=(old?.items||[]).filter(item=>!newMap.has(normalizeCompareText(item.name)));
+    const removed=missingItems.map(item=>item.name);
     const changed=group.items.filter(item=>{
       const previous=oldMap.get(normalizeCompareText(item.name));
       return previous&&menuItemFingerprint(previous)!==menuItemFingerprint(item);
     }).map(item=>item.name);
-    return {store:group.store,type:group.type,hasHistory:!!old,added,removed,changed,currentCount:group.items.length,historyCount:(old?.items||[]).length};
+    return {store:group.store,type:group.type,hasHistory:!!old,added,removed,missingItems,changed,currentCount:group.items.length,historyCount:(old?.items||[]).length};
   });
+}
+
+function pullMissingHistoryItemsForReview(groups,runId){
+  // 若先載入過歷史菜單再執行解析，同店家同類型的舊載入內容先交由新解析結果取代；
+  // 之後只把真正未解析到的歷史品項拉回來逐項確認，避免新舊整份菜單重複。
+  const parsedGroupKeys=new Set((groups||[]).map(group=>normalizeCompareText(group.store)+'__'+group.type));
+  const replacedHistoryKeys=new Set();
+  S.pendingItems=(S.pendingItems||[]).filter(item=>{
+    if(!item._historyKey) return true;
+    const type=item.category==='飲料'||item._uploadType==='drink'?'飲料':'便當';
+    const key=normalizeCompareText(item.restaurant)+'__'+type;
+    if(!parsedGroupKeys.has(key)) return true;
+    replacedHistoryKeys.add(item._historyKey);
+    return false;
+  });
+  if(replacedHistoryKeys.size){
+    S.loadedHistoryKeys=(S.loadedHistoryKeys||[]).filter(key=>!replacedHistoryKeys.has(key));
+  }
+  const existingKeys=new Set((S.pendingItems||[]).map(item=>[
+    normalizeCompareText(item.restaurant),
+    item.category==='飲料'||item._uploadType==='drink'?'飲料':'便當',
+    normalizeCompareText(item.name)
+  ].join('__')));
+  const pulled=[];
+  (groups||[]).forEach(group=>{
+    (group.missingItems||[]).forEach((item,index)=>{
+      const key=[normalizeCompareText(group.store),group.type,normalizeCompareText(item.name)].join('__');
+      if(existingKeys.has(key)) return;
+      const reviewItem={
+        ...item,
+        id:'history-review-'+Date.now()+'-'+pulled.length+'-'+index,
+        menu_id:S.adminEid,
+        restaurant:item.restaurant||group.store,
+        category:item.category||(group.type==='飲料'?'飲料':'便當'),
+        specs:parseSpecs(item.specs),
+        ai_parsed:false,
+        _parseRunId:runId,
+        _uploadType:group.type==='飲料'?'drink':'main',
+        _historyMissing:true
+      };
+      existingKeys.add(key);
+      pulled.push(reviewItem);
+    });
+  });
+  if(pulled.length) S.pendingItems=[...(S.pendingItems||[]),...pulled];
+  return pulled;
 }
 
 function showParseComparison(groups){
@@ -2421,16 +2474,16 @@ function showParseComparison(groups){
     }else if(!group.added.length&&!group.removed.length&&!group.changed.length){
       rows='<div style="color:var(--gr);font-size:.74rem;font-weight:700">✓ 與歷史菜單相同，沒有增刪或價格規格變更</div>';
     }else{
-      if(group.added.length) rows+=`<div style="color:var(--gr);font-size:.74rem;margin-bottom:5px"><strong>新增 ${group.added.length} 項：</strong>${esc(group.added.join('、'))}</div>`;
-      if(group.removed.length) rows+=`<div style="color:var(--rd);font-size:.74rem;margin-bottom:5px"><strong>歷史中有、本次未出現 ${group.removed.length} 項：</strong>${esc(group.removed.join('、'))}</div>`;
-      if(group.changed.length) rows+=`<div style="color:var(--am);font-size:.74rem"><strong>價格或規格可能變更 ${group.changed.length} 項：</strong>${esc(group.changed.join('、'))}</div>`;
+      if(group.added.length) rows+=`<div style="color:var(--gr);font-size:.74rem;margin-bottom:5px"><strong>新解析新增 ${group.added.length} 項：</strong>${esc(group.added.join('、'))}</div>`;
+      if(group.removed.length) rows+=`<div style="color:var(--rd);font-size:.74rem;margin-bottom:5px"><strong>疑似漏解析 ${group.removed.length} 項：</strong>${esc(group.removed.join('、'))}<br><span style="color:var(--slm)">已拉到品項列表，請確認保留或不保留。</span></div>`;
+      if(group.changed.length) rows+=`<div style="color:var(--am);font-size:.74rem"><strong>以新解析覆蓋價格或規格 ${group.changed.length} 項：</strong>${esc(group.changed.join('、'))}</div>`;
     }
     return `<div style="border:1px solid var(--bo);border-radius:var(--rmd);padding:10px 12px;margin-bottom:8px;text-align:left"><div style="font-weight:800;font-size:.82rem;margin-bottom:7px">${icon} ${esc(group.store)} · ${group.type}</div>${rows}</div>`;
   }).join('')||'<div style="font-size:.78rem;color:var(--sll)">本次沒有可供比對的解析品項。</div>';
   box.innerHTML=`<div class="modal-box" style="max-width:480px;text-align:left;max-height:82vh;overflow-y:auto">
     <div style="text-align:center;font-size:2rem;margin-bottom:6px">🔎</div>
     <div class="modal-title" style="text-align:center">與歷史菜單比對完成</div>
-    <p class="modal-sub" style="text-align:center;line-height:1.6">便當與飲料分開比對品項名稱、價格及規格。</p>
+    <p class="modal-sub" style="text-align:center;line-height:1.6">以本次新解析為主；相同品項保留、新品項新增，疑似漏解析品項已拉回列表供確認。</p>
     ${body}
     <button class="btn btn-or btn-full" id="comparisonClose">確認，返回檢查</button>
   </div>`;
@@ -2475,6 +2528,8 @@ async function parseAll(){
     if(successful&&parsedCount>0){
       S.parseStatus='complete';
       S.parseComparison=compareParsedWithHistory(runId);
+      const pulled=pullMissingHistoryItemsForReview(S.parseComparison,runId);
+      if(pulled.length) toast(`已拉出 ${pulled.length} 個疑似漏解析品項，請確認是否保留`,'warn');
     }else{
       S.parseStatus='failed';
       S.parseComparison=null;
