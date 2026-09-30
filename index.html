@@ -242,6 +242,11 @@ body.shared-event-mode .main{padding-top:18px}
 .btn-save-event{background:#4f46e5;color:#fff;box-shadow:0 2px 9px rgba(79,70,229,.3)}.btn-save-event:hover{background:#4338ca}
 .btn-sm{padding:4px 10px;font-size:.7rem}
 .btn-full{width:100%;padding:10px;font-size:.86rem}
+.event-picker-group{display:flex;align-items:flex-start;gap:7px;flex-wrap:wrap;margin-bottom:10px}
+.organizer-capsule{background:var(--inl);color:var(--in);border-radius:999px;padding:6px 13px;font-size:.78rem;font-weight:800;flex:0 0 auto;line-height:1.25}
+.event-capsule-list{display:flex;align-items:center;gap:7px;row-gap:8px;flex:1 1 260px;min-width:0;flex-wrap:wrap}
+.event-capsule{border-radius:999px!important;padding:7px 14px!important;font-size:.78rem!important;line-height:1.25;flex:0 0 auto;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+@media(max-width:600px){.event-capsule-list{flex-basis:100%}.event-capsule{padding:7px 12px!important;font-size:.74rem!important}}
 
 /* ── MODAL ── */
 .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.48);z-index:300;display:flex;align-items:center;justify-content:center;padding:16px;animation:fi .18s}
@@ -1699,13 +1704,14 @@ function renderMenuTab(){
 
   let html='<div style="margin-bottom:14px">';
   Object.entries(byOrganizer).forEach(([org, evs])=>{
-    html+='<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:8px">'
+    html+='<div class="event-picker-group">'
       // 人名膠囊
-      +'<span style="background:var(--inl);color:var(--in);border-radius:20px;padding:5px 13px;font-size:.82rem;font-weight:700;flex-shrink:0">👤 '+esc(org)+'</span>'
+      +'<span class="organizer-capsule">👤 '+esc(org)+'</span>'
       // 該承辦人的場次
-      +evs.map(e=>'<button class="btn '+(S.adminEid===e.id?'btn-or':'btn-out')+'" style="padding:7px 14px;font-size:.82rem" '
+      +'<div class="event-capsule-list">'
+      +evs.map(e=>'<button class="btn event-capsule '+(S.adminEid===e.id?'btn-or':'btn-out')+'" '
         +'onclick="S.adminEid=\''+e.id+'\';S.pendingItems=[];S.loadedHistoryKeys=[];S.parseStatus=\'idle\';S.parseComparison=null;window._pendingMainFile=null;window._pendingDrinkFile=null;render()">'+esc(e.title)+'</button>').join('')
-      +'</div>';
+      +'</div></div>';
   });
   html+='<button class="btn btn-out btn-sm" onclick="createNewEvent()">＋ 新增場次</button>';
   html+='</div>';
