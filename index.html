@@ -1807,7 +1807,7 @@ function renderEventMgmt(ev){
     <div style="display:flex;gap:7px;margin:12px 0 8px;flex-wrap:wrap">
       <button class="btn btn-gr" onclick="parseAll()">🤖 一鍵解析</button>
       <button class="btn btn-or" onclick="saveMenu()">💾 儲存</button>
-      <button class="btn btn-rd btn-sm" onclick="if(confirm('確定刪除整個場次？所有訂單和品項也會一併刪除。'))deleteEvent('${ev.id}')">🗑️ 刪除場次</button>
+      <button class="btn btn-rd btn-sm" onclick="confirmDeleteEvent('${ev.id}')">🗑️ 刪除場次</button>
       <button class="btn btn-save-event" onclick="saveEvent()">💾 儲存場次</button>
     </div>
     <div id="parseCheckStatus">${renderParseCheckStatus()}</div>
@@ -1983,18 +1983,77 @@ async function restoreEvent(eid){
   goTab('menu');
   toast('✅ 場次已恢復至「菜單與點餐」及前台','ok');
 }
-async function deleteEvent(eid){
+function getDeleteConfirmText(ev){
+  return String(ev?.title||'').trim()||'刪除場次';
+}
+function confirmDeleteEvent(eid){
+  const ev=S.events.find(e=>e.id===eid);
+  if(!ev){toast('找不到要刪除的場次','err');return;}
+  const confirmText=getDeleteConfirmText(ev);
+  const orderCount=(S.orders[eid]||[]).length;
+  const itemCount=(S.items[eid]||[]).length;
+  const box=document.createElement('div');
+  box.className='modal-bg';
+  box.style.zIndex='620';
+  box.innerHTML=`<div class="modal-box" style="max-width:420px;text-align:left">
+    <div style="text-align:center;font-size:2.2rem;margin-bottom:7px">⚠️</div>
+    <div class="modal-title" style="text-align:center;color:var(--rd)">永久刪除場次</div>
+    <p class="modal-sub" style="text-align:center;line-height:1.7">此動作無法復原。若只是暫時不顯示，請改用「儲存場次」。</p>
+    <div style="background:var(--rdl);border:1.5px solid #fca5a5;border-radius:var(--rmd);padding:10px 12px;margin:10px 0;font-size:.76rem;line-height:1.7;color:#991b1b">
+      <strong>${esc(ev.title||'未命名場次')}</strong><br>
+      將一併刪除：${orderCount} 筆點餐紀錄、${itemCount} 個菜單品項及其相關資料。
+    </div>
+    <label style="display:block;font-size:.72rem;font-weight:800;color:var(--slm);margin-bottom:5px">請輸入「${esc(confirmText)}」確認永久刪除</label>
+    <input class="modal-inp" data-delete-confirm autocomplete="off" placeholder="輸入完整場次名稱">
+    <div style="display:flex;gap:7px;margin-top:12px">
+      <button class="btn btn-out" style="flex:1" data-delete-cancel>取消</button>
+      <button class="btn btn-rd" style="flex:1" data-delete-submit disabled>永久刪除</button>
+    </div>
+  </div>`;
+  document.body.appendChild(box);
+  const input=box.querySelector('[data-delete-confirm]');
+  const submit=box.querySelector('[data-delete-submit]');
+  const close=()=>box.remove();
+  input.addEventListener('input',()=>{
+    submit.disabled=input.value.trim()!==confirmText;
+  });
+  input.addEventListener('keydown',e=>{
+    if(e.key==='Enter'&&!submit.disabled) submit.click();
+  });
+  box.querySelector('[data-delete-cancel]').addEventListener('click',close);
+  box.addEventListener('click',e=>{if(e.target===box)close();});
+  submit.addEventListener('click',async()=>{
+    if(input.value.trim()!==confirmText){toast('場次名稱不一致，未執行刪除','warn');return;}
+    submit.disabled=true;
+    submit.textContent='刪除中…';
+    close();
+    await deleteEvent(eid,confirmText);
+  });
+  setTimeout(()=>input.focus(),50);
+}
+async function deleteEvent(eid,confirmationText){
+  const ev=S.events.find(e=>e.id===eid);
+  if(!ev||confirmationText!==getDeleteConfirmText(ev)){
+    toast('刪除確認未通過，場次已保留','warn');
+    return;
+  }
   if(DEMO){S.events=S.events.filter(e=>e.id!==eid);delete S.items[eid];delete S.orders[eid];S.adminEid=S.events[0]?.id||null;S.pendingItems=[];S.loadedHistoryKeys=[];S.parseStatus='idle';S.parseComparison=null;toast('已刪除','ok');render();return;}
   try{
     // 抓所有訂單 ID
-    const {data:ords}=await sb.from('orders').select('id').eq('menu_id',eid);
+    const {data:ords,error:ordersReadError}=await sb.from('orders').select('id').eq('menu_id',eid);
+    if(ordersReadError) throw new Error(ordersReadError.message);
     const orderIds=(ords||[]).map(o=>o.id);
     // 逐一刪除（避免空陣列 .in() 報錯）
     for(const oid of orderIds){
-      await sb.from('order_items').delete().eq('order_id',oid);
+      const{error:itemDeleteError}=await sb.from('order_items').delete().eq('order_id',oid);
+      if(itemDeleteError) throw new Error(itemDeleteError.message);
     }
-    if(orderIds.length) await sb.from('orders').delete().eq('menu_id',eid);
-    await sb.from('menu_items').delete().eq('menu_id',eid);
+    if(orderIds.length){
+      const{error:orderDeleteError}=await sb.from('orders').delete().eq('menu_id',eid);
+      if(orderDeleteError) throw new Error(orderDeleteError.message);
+    }
+    const{error:menuItemDeleteError}=await sb.from('menu_items').delete().eq('menu_id',eid);
+    if(menuItemDeleteError) throw new Error(menuItemDeleteError.message);
     const{error}=await sb.from('menus').delete().eq('id',eid);
     if(error) throw new Error(error.message);
   }catch(err){
