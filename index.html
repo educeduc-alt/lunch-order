@@ -1990,46 +1990,29 @@ function confirmDeleteEvent(eid){
   const ev=S.events.find(e=>e.id===eid);
   if(!ev){toast('找不到要刪除的場次','err');return;}
   const confirmText=getDeleteConfirmText(ev);
-  const orderCount=(S.orders[eid]||[]).length;
-  const itemCount=(S.items[eid]||[]).length;
   const box=document.createElement('div');
   box.className='modal-bg';
   box.style.zIndex='620';
-  box.innerHTML=`<div class="modal-box" style="max-width:420px;text-align:left">
+  box.innerHTML=`<div class="modal-box" style="max-width:360px">
     <div style="text-align:center;font-size:2.2rem;margin-bottom:7px">⚠️</div>
-    <div class="modal-title" style="text-align:center;color:var(--rd)">永久刪除場次</div>
-    <p class="modal-sub" style="text-align:center;line-height:1.7">此動作無法復原。若只是暫時不顯示，請改用「儲存場次」。</p>
-    <div style="background:var(--rdl);border:1.5px solid #fca5a5;border-radius:var(--rmd);padding:10px 12px;margin:10px 0;font-size:.76rem;line-height:1.7;color:#991b1b">
-      <strong>${esc(ev.title||'未命名場次')}</strong><br>
-      將一併刪除：${orderCount} 筆點餐紀錄、${itemCount} 個菜單品項及其相關資料。
-    </div>
-    <label style="display:block;font-size:.72rem;font-weight:800;color:var(--slm);margin-bottom:5px">請輸入「${esc(confirmText)}」確認永久刪除</label>
-    <input class="modal-inp" data-delete-confirm autocomplete="off" placeholder="輸入完整場次名稱">
+    <div class="modal-title" style="color:var(--rd)">確定刪除場次？</div>
+    <p class="modal-sub" style="line-height:1.7"><strong>${esc(ev.title||'未命名場次')}</strong><br>訂單與菜單會一起刪除，且無法復原。</p>
     <div style="display:flex;gap:7px;margin-top:12px">
       <button class="btn btn-out" style="flex:1" data-delete-cancel>取消</button>
-      <button class="btn btn-rd" style="flex:1" data-delete-submit disabled>永久刪除</button>
+      <button class="btn btn-rd" style="flex:1" data-delete-submit>確定刪除</button>
     </div>
   </div>`;
   document.body.appendChild(box);
-  const input=box.querySelector('[data-delete-confirm]');
   const submit=box.querySelector('[data-delete-submit]');
   const close=()=>box.remove();
-  input.addEventListener('input',()=>{
-    submit.disabled=input.value.trim()!==confirmText;
-  });
-  input.addEventListener('keydown',e=>{
-    if(e.key==='Enter'&&!submit.disabled) submit.click();
-  });
   box.querySelector('[data-delete-cancel]').addEventListener('click',close);
   box.addEventListener('click',e=>{if(e.target===box)close();});
   submit.addEventListener('click',async()=>{
-    if(input.value.trim()!==confirmText){toast('場次名稱不一致，未執行刪除','warn');return;}
     submit.disabled=true;
     submit.textContent='刪除中…';
     close();
     await deleteEvent(eid,confirmText);
   });
-  setTimeout(()=>input.focus(),50);
 }
 async function deleteEvent(eid,confirmationText){
   const ev=S.events.find(e=>e.id===eid);
