@@ -803,6 +803,7 @@ function renderOrderPage(){
           const keys=Object.keys(S.cart).filter(k=>k.startsWith(item.id+'__'));
           const totalQty=keys.reduce((s,k)=>s+(S.cart[k]?.qty||0),0);
           const hasSpec=item.specs&&item.specs.length>0;
+          const needsDetailSheet=hasSpec||cat==='飲料';
           const subsidyLimit=cat==='便當'?120:(cat==='飲料'?40:0);
           const overage=subsidyLimit&&item.price>subsidyLimit?item.price-subsidyLimit:0;
           html+=`<div class="m-card${totalQty>0?' sel':''}">
@@ -811,11 +812,11 @@ function renderOrderPage(){
           ${item.description?`<div class="m-desc">${esc(item.description)}</div>`:''}
           ${item.price>0?`<div class="m-price">$${item.price}</div>`:'<div class="m-price" style="color:var(--sll)">詢價</div>'}
           ${overage?`<div class="overage-tag">⚠️ 需補額 $${overage}</div>`:''}
-          ${hasSpec?`<div class="m-spec">點擊選規格 ›</div>`:''}
+          ${needsDetailSheet?`<div class="m-spec">${cat==='飲料'?'需填甜度冰塊':'點擊選規格'} ›</div>`:''}
           <div class="qty-row" onclick="event.stopPropagation()">
             <button class="qb" onclick="event.stopPropagation();adjCart('${item.id}',-1)">−</button>
             <span class="qn">${totalQty}</span>
-            <button class="qb" onclick="event.stopPropagation();${hasSpec?`openSpec('${item.id}')`:`quickAdd('${item.id}')`}">＋</button>
+            <button class="qb" onclick="event.stopPropagation();${needsDetailSheet?`openSpec('${item.id}')`:`quickAdd('${item.id}')`}">＋</button>
           </div>
         </div>`;
         });
@@ -1019,7 +1020,8 @@ function renderComboSheet(){
           <div><span style="font-size:1.1rem">${esc(item.emoji)}</span>
             <span style="font-weight:600;font-size:.88rem;margin-left:6px">${esc(item.name)}</span>
             ${item.price>0?`<span style="color:var(--or);font-weight:700;font-size:.82rem;margin-left:6px">$${item.price}</span>`:''}
-            ${item.specs&&item.specs.length?`<span style="font-size:.65rem;color:var(--in);margin-left:4px">規格可選</span>`:''}
+            <span style="font-size:.65rem;color:var(--rd);margin-left:4px">甜度冰塊必填</span>
+            ${sel?.note?`<div style="font-size:.68rem;color:var(--ord);margin:3px 0 0 30px">${esc(sel.note)}</div>`:''}
           </div>
           <div style="width:22px;height:22px;border-radius:50%;border:2px solid ${sel?'var(--or)':'var(--bo)'};background:${sel?'var(--or)':'transparent'};display:flex;align-items:center;justify-content:center;font-size:.75rem;color:#fff;flex-shrink:0">${sel?'✓':''}</div>
         </div>`;
@@ -1072,7 +1074,7 @@ function toggleComboItem(type, id){
     renderComboSheet();
   } else {
     // 有規格 → 彈出規格 mini-picker
-    if(item.specs&&item.specs.length){
+    if((item.specs&&item.specs.length)||item.category==='飲料'){
       showComboSpecPicker(type, item, arr);
     } else {
       arr.push({item, specsStr:''});
@@ -1089,6 +1091,7 @@ function showComboSpecPicker(type, item, arr){
     else if(sp.opts.length) specSel[sp.cat]=sp.opts[0];
   });
   window.comboSpecSel=specSel;
+  window.comboSpecNote='';
 
   function buildPickerHTML(){
     let h=`<div style="position:absolute;inset:0;background:rgba(255,255,255,.97);border-radius:var(--rxl);padding:18px;z-index:10;display:flex;flex-direction:column">
@@ -1104,6 +1107,10 @@ function showComboSpecPicker(type, item, arr){
       h+=`</div></div>`;
       if(multi) h+=`<div style="font-size:.66rem;color:var(--sll);margin:-8px 0 12px">可複選，再點一次可取消</div>`;
     });
+    if(item.category==='飲料'){
+      h+=`<div style="margin-bottom:12px"><div style="font-size:.68rem;font-weight:800;color:var(--rd);margin-bottom:6px">甜度冰塊（必填）</div>
+        <textarea class="note-inp" rows="2" aria-required="true" placeholder="例如：微糖微冰" oninput="window.comboSpecNote=this.value" style="border-color:#f59e0b"></textarea></div>`;
+    }
     h+=`<div id="comboSpecPreview">${renderComboSpecPreview()}</div>
       <div style="display:flex;gap:7px;margin-top:auto;padding-top:12px">
         <button class="btn btn-out" onclick="this.closest('[style*=absolute]').remove()">取消</button>
@@ -1145,11 +1152,17 @@ function showComboSpecPicker(type, item, arr){
     if(preview) preview.innerHTML=renderComboSpecPreview();
   };
   window.confirmComboSpec=function(){
+    const comboNote=String(window.comboSpecNote||'').trim();
+    if(item.category==='飲料'&&!comboNote){
+      toast('請填寫飲料甜度冰塊，不能只輸入空格','warn');
+      document.querySelector('#comboOverlay .note-inp')?.focus();
+      return;
+    }
     const unpricedAddons=getUnpricedAddons(window.comboSpecSel);
     if(unpricedAddons.length){toast('所選加料尚未設定價格，請先聯絡承辦人','warn');return;}
     const specsStr=formatSpecSelections(window.comboSpecSel);
     const finalPrice=calcSpecPrice(item,window.comboSpecSel);
-    arr.push({item:{...item,price:finalPrice}, specsStr});
+    arr.push({item:{...item,price:finalPrice}, specsStr, note:comboNote});
     const el=document.querySelector('#comboOverlay .sheet [style*="absolute"]');
     if(el) el.remove();
     renderComboSheet();
@@ -1179,16 +1192,16 @@ async function confirmCombo(){
   // 加入主餐
   const mainKey=S.comboMain.item.id+'__'+S.comboMain.specsStr+'__'+Date.now();
   S.cart[mainKey]={itemId:S.comboMain.item.id,name:S.comboMain.item.name,emoji:S.comboMain.item.emoji,
-    qty:S.comboMain.qty,price:S.comboMain.item.price,specsStr:S.comboMain.specsStr,note:''};
+    category:S.comboMain.item.category,qty:S.comboMain.qty,price:S.comboMain.item.price,specsStr:S.comboMain.specsStr,note:S.comboMain.note||''};
   // 加入配餐
   S.comboSides.forEach((s,i)=>{
     const k=s.item.id+'__'+s.specsStr+'__'+(Date.now()+i+1);
-    S.cart[k]={itemId:s.item.id,name:s.item.name,emoji:s.item.emoji,qty:1,price:s.item.price,specsStr:s.specsStr,note:''};
+    S.cart[k]={itemId:s.item.id,name:s.item.name,emoji:s.item.emoji,category:s.item.category,qty:1,price:s.item.price,specsStr:s.specsStr,note:s.note||''};
   });
   // 加入飲料
   S.comboDrinks.forEach((d,i)=>{
     const k=d.item.id+'__'+d.specsStr+'__'+(Date.now()+i+100);
-    S.cart[k]={itemId:d.item.id,name:d.item.name,emoji:d.item.emoji,qty:1,price:d.item.price,specsStr:d.specsStr,note:''};
+    S.cart[k]={itemId:d.item.id,name:d.item.name,emoji:d.item.emoji,category:d.item.category,qty:1,price:d.item.price,specsStr:d.specsStr,note:d.note||''};
   });
   closeCombo();
   const total=(S.comboMain.item.price||0)+
@@ -1259,10 +1272,11 @@ async function quickAdd(id){
   const existQty=existKeys.reduce((s,k)=>s+(S.cart[k]?.qty||0),0);
   if(existQty>=5){toast('同一品項最多5份','warn');return;}
   const item=(S.items[S.activeEventId]||[]).find(i=>i.id===id);
+  if(item?.category==='飲料'){openSpec(id);return;}
   const notices=[getStoreTotalNotice(item,item?.price)].filter(Boolean);
   if(notices.length && !(await showOverageNotice(notices))) return;
   const key=id+'__';
-  if(!S.cart[key]){S.cart[key]={itemId:id,name:item.name,emoji:item.emoji,qty:0,price:item.price,specsStr:'',note:''};}
+  if(!S.cart[key]){S.cart[key]={itemId:id,name:item.name,emoji:item.emoji,category:item.category,qty:0,price:item.price,specsStr:'',note:''};}
   S.cart[key].qty++;render();
 }
 async function adjCart(id,d){
@@ -1386,13 +1400,21 @@ function renderSheet(){
       ${curPrice>0?`<span style="font-family:'Nunito',sans-serif;font-weight:800;color:var(--or);margin-left:6px">$${curPrice*S.specQty}</span>`:''}
     </div>
   </div>
-  <div class="spec-sec"><div class="spec-lbl">備註</div>
-    <textarea class="note-inp" rows="2" placeholder="${S.specItem&&S.specItem.category==='飲料'?'甜度冰塊（如：微糖微冰）':'例：不要辣…'}" oninput="S.specNote=this.value">${esc(S.specNote)}</textarea>
+  <div class="spec-sec"><div class="spec-lbl"${S.specItem&&S.specItem.category==='飲料'?' style="color:var(--rd)"':''}>${S.specItem&&S.specItem.category==='飲料'?'甜度冰塊（必填）':'備註'}</div>
+    <textarea class="note-inp" id="specNoteInput" rows="2" aria-required="${S.specItem&&S.specItem.category==='飲料'}" placeholder="${S.specItem&&S.specItem.category==='飲料'?'例如：微糖微冰':'例：不要辣…'}" oninput="S.specNote=this.value"${S.specItem&&S.specItem.category==='飲料'?' style="border-color:#f59e0b"':''}>${esc(S.specNote)}</textarea>
   </div>`;
   document.getElementById('sheetBody').innerHTML=html;
 }
 async function confirmSpec(){
   const item=S.specItem;
+  const trimmedNote=String(S.specNote||'').trim();
+  if(item?.category==='飲料'&&!trimmedNote){
+    toast('請填寫飲料甜度冰塊，不能只輸入空格','warn');
+    const noteInput=document.getElementById('specNoteInput');
+    if(noteInput){noteInput.style.borderColor='var(--rd)';noteInput.focus();}
+    return;
+  }
+  S.specNote=trimmedNote;
   const unpricedAddons=getUnpricedAddons(S.specSel);
   if(unpricedAddons.length){toast('所選加料尚未設定價格，請先聯絡承辦人','warn');return;}
   const specsStr=formatSpecSelections(S.specSel);
@@ -1411,7 +1433,7 @@ async function confirmSpec(){
   const notices=[getStoreTotalNotice(item,finalPrice*S.specQty)].filter(Boolean);
   if(notices.length && !(await showOverageNotice(notices))) return;
   const key=item.id+'__'+specsStr+'__'+Date.now();
-  S.cart[key]={itemId:item.id,name:item.name,emoji:item.emoji,qty:S.specQty,price:finalPrice,specsStr,note:S.specNote};
+  S.cart[key]={itemId:item.id,name:item.name,emoji:item.emoji,category:item.category,qty:S.specQty,price:finalPrice,specsStr,note:S.specNote};
   closeSpec();render();toast('已加入清單 ✓','ok');
 }
 function closeSpec(){document.getElementById('specOverlay').style.display='none';}
@@ -1539,6 +1561,16 @@ async function submitOrder(){
   if(!S.myName){toast('請輸入姓名','err');return;}
   const cartKeys=Object.keys(S.cart);
   if(!cartKeys.length){toast('請至少選一項','err');return;}
+  const menuItems=S.items[S.activeEventId]||[];
+  const incompleteDrinkKey=cartKeys.find(k=>{
+    const ci=S.cart[k];
+    const source=menuItems.find(item=>item.id===ci?.itemId);
+    return (ci?.category||source?.category)==='飲料'&&!String(ci?.note||'').trim();
+  });
+  if(incompleteDrinkKey){
+    toast(`請填寫「${S.cart[incompleteDrinkKey]?.name||'飲料'}」的甜度冰塊`,'warn');
+    return;
+  }
   // 防止重複點餐：檢查同場次是否已有相同姓名
   const existingOrder=(S.orders[S.activeEventId]||[]).find(o=>o.user_name===S.myName);
   if(existingOrder){
