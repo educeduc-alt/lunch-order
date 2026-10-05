@@ -562,6 +562,12 @@ function demoOrders(mid){ return [
 ];}
 
 /* ═══ TAB ═══ */
+function getPreferredEventId({activeOnly=false}={}){
+  const candidates=activeOnly?S.events.filter(e=>!isEventClosed(e)):S.events;
+  const completed=candidates.find(e=>String(e.title||'').trim()!=='新場次');
+  return (completed||candidates[0])?.id||null;
+}
+
 function goTab(t){
   if(S.sharedEventMode&&t!=='home') return;
   if((t==='admin'||t==='menu')&&!S.authed){
@@ -569,9 +575,12 @@ function goTab(t){
     document.getElementById('adminModal').style.display='flex';
     setTimeout(()=>document.getElementById('adminPwInp').focus(),80); return;
   }
-  if(t==='menu'&&!S.adminEid&&S.events.length) S.adminEid=S.events[0].id;
+  if(t==='menu'&&!S.adminEid&&S.events.length) S.adminEid=getPreferredEventId({activeOnly:true});
   S.tab=t; S.delId=null;
-  if(t==='admin'&&!S.adminEid&&S.events.length) S.adminEid=S.events[0].id;
+  const selectedAdminEvent=S.events.find(e=>e.id===S.adminEid);
+  if(t==='admin'&&S.events.length&&(!selectedAdminEvent||String(selectedAdminEvent.title||'').trim()==='新場次')){
+    S.adminEid=getPreferredEventId();
+  }
   if(t==='admin'){S.pendingItems=[];S.loadedHistoryKeys=[];S.parseStatus='idle';S.parseComparison=null;}
   ['home','menu','admin'].forEach(x=>{
     const el=document.getElementById('tab-'+x);
@@ -593,7 +602,10 @@ function doLogin(){
     const dest=S._pendingTab||'admin';
     S._pendingTab=null;
     S.tab=dest;
-    if(!S.adminEid&&S.events.length) S.adminEid=S.events[0].id;
+    const selectedEvent=S.events.find(e=>e.id===S.adminEid);
+    if(S.events.length&&(!selectedEvent||(dest==='admin'&&String(selectedEvent.title||'').trim()==='新場次'))){
+      S.adminEid=getPreferredEventId({activeOnly:dest==='menu'});
+    }
     ['home','menu','admin'].forEach(x=>{const el=document.getElementById('tab-'+x);if(el)el.className='tab-btn'+(x===dest?(dest==='admin'?' on-admin':' on'):'');});
     render(); toast('歡迎 👋','ok');
   } else { toast('密碼錯誤','err'); document.getElementById('adminPwInp').value=''; }
@@ -1661,7 +1673,7 @@ async function doDelete(id,menuId){
 
 /* ═══ ADMIN ═══ */
 function renderAdmin(){
-  if(!S.adminEid&&S.events.length) S.adminEid=S.events[0].id;
+  if(!S.adminEid&&S.events.length) S.adminEid=getPreferredEventId();
   const ev=S.events.find(e=>e.id===S.adminEid);
 
   let html=`
@@ -1723,7 +1735,7 @@ function renderAdmin(){
 function renderMenuTab(){
   // 「菜單與點餐」只顯示尚未收存的場次；已儲存場次集中在後台。
   const activeEvents=S.events.filter(e=>!isEventClosed(e));
-  if(!activeEvents.some(e=>e.id===S.adminEid)) S.adminEid=activeEvents[0]?.id||null;
+  if(!activeEvents.some(e=>e.id===S.adminEid)) S.adminEid=getPreferredEventId({activeOnly:true});
   const ev=activeEvents.find(e=>e.id===S.adminEid);
 
   // 按承辦人分組
@@ -1778,7 +1790,6 @@ function renderEventMgmt(ev){
   return `<div class="panel"><div class="panel-head">
     <div class="panel-title">✏️ 場次設定 & 菜單管理</div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
-      <button class="btn btn-out btn-sm" onclick="addItem()">＋ 品項</button>
       <button class="btn btn-out btn-sm" onclick="showMenuCache()">📂 歷史菜單</button>
     </div>
   </div><div class="panel-body">
@@ -1813,6 +1824,9 @@ function renderEventMgmt(ev){
 
 
     <!-- 圖片 + AI -->
+    <div style="display:flex;justify-content:flex-end;align-items:center;margin:2px 0 7px">
+      <button class="btn btn-out btn-sm" onclick="addItem()">＋ 品項</button>
+    </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:13px">
 
       <!-- 主餐上傳 -->
