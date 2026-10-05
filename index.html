@@ -471,6 +471,7 @@ let S = {
   myName:'', myClass:'',
   myRecs:null,
   authed:false, adminEid:null,
+  menuDraft:null,      // 尚未寫入 Supabase 的新場次草稿
   delId:null,
 };
 
@@ -568,6 +569,31 @@ function getPreferredEventId({activeOnly=false}={}){
   return (completed||candidates[0])?.id||null;
 }
 
+function resetMenuEditorState(){
+  S.pendingItems=[];
+  S.loadedHistoryKeys=[];
+  S.parseStatus='idle';
+  S.parseRunId=null;
+  S.parseComparison=null;
+  window._pendingMainFile=null;
+  window._pendingDrinkFile=null;
+}
+
+function prepareNewEventDraft(){
+  S.adminEid=null;
+  S.menuDraft={
+    id:null,
+    title:'',
+    activity_note:'',
+    deadline:'11:30',
+    organizer:'',
+    store_name:'',
+    date:new Date(Date.now()+8*60*60*1000).toISOString().slice(0,10),
+    is_closed:false
+  };
+  resetMenuEditorState();
+}
+
 function goTab(t){
   if(S.sharedEventMode&&t!=='home') return;
   if((t==='admin'||t==='menu')&&!S.authed){
@@ -575,13 +601,14 @@ function goTab(t){
     document.getElementById('adminModal').style.display='flex';
     setTimeout(()=>document.getElementById('adminPwInp').focus(),80); return;
   }
-  if(t==='menu'&&!S.adminEid&&S.events.length) S.adminEid=getPreferredEventId({activeOnly:true});
+  const enteringMenu=t==='menu'&&S.tab!=='menu';
   S.tab=t; S.delId=null;
+  if(enteringMenu) prepareNewEventDraft();
   const selectedAdminEvent=S.events.find(e=>e.id===S.adminEid);
   if(t==='admin'&&S.events.length&&(!selectedAdminEvent||String(selectedAdminEvent.title||'').trim()==='新場次')){
     S.adminEid=getPreferredEventId();
   }
-  if(t==='admin'){S.pendingItems=[];S.loadedHistoryKeys=[];S.parseStatus='idle';S.parseComparison=null;}
+  if(t==='admin'){S.menuDraft=null;resetMenuEditorState();}
   ['home','menu','admin'].forEach(x=>{
     const el=document.getElementById('tab-'+x);
     if(el) el.className='tab-btn'+(x===t?(t==='admin'?' on-admin':' on'):'');
@@ -602,10 +629,9 @@ function doLogin(){
     const dest=S._pendingTab||'admin';
     S._pendingTab=null;
     S.tab=dest;
+    if(dest==='menu') prepareNewEventDraft();
     const selectedEvent=S.events.find(e=>e.id===S.adminEid);
-    if(S.events.length&&(!selectedEvent||(dest==='admin'&&String(selectedEvent.title||'').trim()==='新場次'))){
-      S.adminEid=getPreferredEventId({activeOnly:dest==='menu'});
-    }
+    if(dest==='admin'&&S.events.length&&(!selectedEvent||String(selectedEvent.title||'').trim()==='新場次')) S.adminEid=getPreferredEventId();
     ['home','menu','admin'].forEach(x=>{const el=document.getElementById('tab-'+x);if(el)el.className='tab-btn'+(x===dest?(dest==='admin'?' on-admin':' on'):'');});
     render(); toast('歡迎 👋','ok');
   } else { toast('密碼錯誤','err'); document.getElementById('adminPwInp').value=''; }
@@ -783,7 +809,7 @@ function renderOrderPage(){
 
 
   // 菜單品項 — 按分類顯示
-  const CAT_ORDER=['便當','飲料','點心','其他'];
+  const CAT_ORDER=['便當','點心','飲料','其他'];
   const CAT_ICON={'便當':'🍱','飲料':'🧋','點心':'🍰','其他':'🍽️'};
   const q=(S.menuSearchQ||'').trim().toLowerCase();
   const filteredItems=q ? items.filter(it=>(it.name||'').toLowerCase().includes(q)||(it.description||'').toLowerCase().includes(q)||(it.restaurant||'').toLowerCase().includes(q)) : items;
@@ -816,14 +842,14 @@ function renderOrderPage(){
           const totalQty=keys.reduce((s,k)=>s+(S.cart[k]?.qty||0),0);
           const hasSpec=item.specs&&item.specs.length>0;
           const needsDetailSheet=hasSpec||cat==='飲料';
-          const subsidyLimit=cat==='便當'?120:((cat==='飲料'||cat==='點心')?40:0);
+          const subsidyLimit=(cat==='便當'||cat==='點心')?120:(cat==='飲料'?40:0);
           const overage=subsidyLimit&&item.price>subsidyLimit?item.price-subsidyLimit:0;
           html+=`<div class="m-card${totalQty>0?' sel':''}">
           <span class="m-emoji">${esc(item.emoji)}</span>
           <div class="m-name">${esc(item.name)}</div>
           ${item.description?`<div class="m-desc">${esc(item.description)}</div>`:''}
           ${item.price>0?`<div class="m-price">$${item.price}</div>`:'<div class="m-price" style="color:var(--sll)">詢價</div>'}
-          ${overage?`<div class="overage-tag">⚠️ 需補額 $${overage}</div>`:''}
+          ${overage?`<div class="overage-tag">⚠️ ${cat==='點心'?'超額自付':'需補額'} $${overage}</div>`:''}
           ${needsDetailSheet?`<div class="m-spec">${cat==='飲料'?'需填甜度冰塊':'點擊選規格'} ›</div>`:''}
           <div class="qty-row" onclick="event.stopPropagation()">
             <button class="qb" onclick="event.stopPropagation();adjCart('${item.id}',-1)">−</button>
@@ -1229,7 +1255,7 @@ function closeCombo(){
 }
 
 function getSubsidyLimit(item){
-  return item?.category==='便當'?120:((item?.category==='飲料'||item?.category==='點心')?40:0);
+  return item?.category==='便當'||item?.category==='點心'?120:(item?.category==='飲料'?40:0);
 }
 
 function getStoreCategoryKey(item){
@@ -1261,9 +1287,9 @@ function showOverageNotice(lines){
     box.innerHTML=`<div class="modal-box" style="max-width:380px;text-align:left;border-top:6px solid var(--am)">
       <div style="text-align:center;font-size:2.35rem;margin-bottom:7px">💡</div>
       <div class="modal-title" style="text-align:center;color:#92400e">本場次活動餐費補助與補額提醒</div>
-      <p class="modal-sub" style="text-align:center;line-height:1.6">同一家便當店合計補助上限 $120；同一家飲料店、點心店各自合計補助上限 $40。</p>
+      <p class="modal-sub" style="text-align:center;line-height:1.6">同一家便當店、點心店各自合計補助上限 $120；同一家飲料店合計補助上限 $40。</p>
       <div style="background:#fffbeb;border:1.5px solid #fbbf24;border-radius:var(--rmd);padding:10px 12px;margin-bottom:14px">
-        ${lines.map(x=>`<div style="font-size:.8rem;color:#78350f;padding:5px 0;border-bottom:1px dashed #fde68a"><strong>${x.category==='飲料'?'🧋':(x.category==='點心'?'🍰':'🍱')} ${esc(x.store)}</strong><br>本次同店${x.category}累計 $${x.total}－補助上限 $${x.limit}＝<strong style="color:var(--rd)">需補額 $${x.overage}</strong></div>`).join('')}
+        ${lines.map(x=>`<div style="font-size:.8rem;color:#78350f;padding:5px 0;border-bottom:1px dashed #fde68a"><strong>${x.category==='飲料'?'🧋':(x.category==='點心'?'🍰':'🍱')} ${esc(x.store)}</strong><br>本次同店${x.category}累計 $${x.total}－補助上限 $${x.limit}＝<strong style="color:var(--rd)">${x.category==='點心'?'超額自付':'需補額'} $${x.overage}</strong></div>`).join('')}
       </div>
       <button class="btn btn-or btn-full" id="overageConfirm">了解，仍要加入</button>
       <button class="btn btn-out btn-full" style="margin-top:7px" id="overageCancel">返回重新選擇</button>
@@ -1735,8 +1761,8 @@ function renderAdmin(){
 function renderMenuTab(){
   // 「菜單與點餐」只顯示尚未收存的場次；已儲存場次集中在後台。
   const activeEvents=S.events.filter(e=>!isEventClosed(e));
-  if(!activeEvents.some(e=>e.id===S.adminEid)) S.adminEid=getPreferredEventId({activeOnly:true});
-  const ev=activeEvents.find(e=>e.id===S.adminEid);
+  if(S.adminEid&&!activeEvents.some(e=>e.id===S.adminEid)) S.adminEid=null;
+  const ev=S.menuDraft||activeEvents.find(e=>e.id===S.adminEid);
 
   // 按承辦人分組
   const byOrganizer={};
@@ -1754,14 +1780,14 @@ function renderMenuTab(){
       // 該承辦人的場次
       +'<div class="event-capsule-list">'
       +evs.map(e=>'<button class="btn event-capsule '+(S.adminEid===e.id?'btn-or':'btn-out')+'" '
-        +'onclick="S.adminEid=\''+e.id+'\';S.pendingItems=[];S.loadedHistoryKeys=[];S.parseStatus=\'idle\';S.parseComparison=null;window._pendingMainFile=null;window._pendingDrinkFile=null;render()">'+esc(e.title)+'</button>').join('')
+        +'onclick="S.menuDraft=null;S.adminEid=\''+e.id+'\';resetMenuEditorState();render()">'+esc(e.title)+'</button>').join('')
       +'</div></div>';
   });
   html+='<button class="btn btn-out btn-sm" onclick="createNewEvent()">＋ 新增場次</button>';
   html+='</div>';
 
   if(!ev){
-    html+='<div class="empty"><span class="ei">📭</span><p>請先建立場次</p></div>';
+    html+='<div class="empty"><span class="ei">📭</span><p>請按「新增場次」開始設定</p></div>';
     return html;
   }
 
@@ -1787,23 +1813,22 @@ function renderParseCheckStatus(){
 
 function renderEventMgmt(ev){
   const items=S.pendingItems; // 後台只顯示本次解析的暫存品項
+  const isDraft=!!S.menuDraft&&!S.adminEid;
   return `<div class="panel"><div class="panel-head">
-    <div class="panel-title">✏️ 場次設定 & 菜單管理</div>
+    <div class="panel-title">✏️ 場次設定 & 菜單管理 ${isDraft?'<span style="font-size:.68rem;color:var(--am);background:var(--aml);padding:3px 8px;border-radius:999px;margin-left:5px">尚未儲存</span>':''}</div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
       <button class="btn btn-out btn-sm" onclick="showMenuCache()">📂 歷史菜單</button>
     </div>
   </div><div class="panel-body">
-    <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
-      <button class="btn btn-out btn-sm" onclick="copyEventUrlById(S.adminEid)">🔗 複製目前場次網址</button>
-    </div>
+    ${isDraft?'':`<div style="display:flex;justify-content:flex-end;margin-bottom:10px"><button class="btn btn-out btn-sm" onclick="copyEventUrlById(S.adminEid)">🔗 複製目前場次網址</button></div>`}
 
     <!-- 場次基本資訊 -->
     <div style="margin-bottom:10px">
       <span class="mg-lbl">場次日期</span>
-      <input class="mg-inp" type="date" id="evDate" value="${esc(ev.date||'')}" style="max-width:220px" oninput="const _e=S.events.find(x=>x.id===S.adminEid);if(_e)_e.date=this.value">
+      <input class="mg-inp" type="date" id="evDate" value="${esc(ev.date||'')}" style="max-width:220px" oninput="updateEditingEventField('date',this.value)">
     </div>
     <div class="ev-mgmt-grid" style="margin-bottom:10px">
-      <div><span class="mg-lbl">場次標題</span><input class="mg-inp" id="evTitle" value="${esc(ev.title||'')}" oninput="const _e=S.events.find(x=>x.id===S.adminEid);if(_e)_e.title=this.value"></div>
+      <div><span class="mg-lbl">場次標題</span><input class="mg-inp" id="evTitle" value="${esc(ev.title||'')}" oninput="updateEditingEventField('title',this.value)"></div>
       <div><span class="mg-lbl">店家名稱</span>
       <input type="hidden" id="evStore" value="${esc(ev.store_name||'')}">
       <div id="storeCapsules" style="display:flex;gap:5px;flex-wrap:wrap;margin-top:6px">
@@ -1812,13 +1837,13 @@ function renderEventMgmt(ev){
     </div>
     <div style="margin-bottom:10px">
       <span class="mg-lbl">活動說明</span>
-      <textarea class="mg-inp mg-textarea" id="evActivityNote" placeholder="例如：本場次為資源教室研習午餐，請於截止時間前完成點餐。" oninput="const _e=S.events.find(x=>x.id===S.adminEid);if(_e)_e.activity_note=this.value">${esc(ev.activity_note||'')}</textarea>
+      <textarea class="mg-inp mg-textarea" id="evActivityNote" placeholder="例如：本場次為資源教室研習午餐，請於截止時間前完成點餐。" oninput="updateEditingEventField('activity_note',this.value)">${esc(ev.activity_note||'')}</textarea>
     </div>
     <div style="margin-bottom:10px">
       <span class="mg-lbl" style="display:block;margin-bottom:6px">承辦人</span>
       <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
         ${['雨欣','微姍','梅青','曉臻','心榆','望謙'].map(n=>'<button class="btn '+(ev.organizer===n?'btn-or':'btn-out')+'" style="padding:8px 18px;font-size:.9rem;font-weight:700" onclick="pickOrganizer(this,\''+n+'\')">'+n+'</button>').join('')}
-        <input class="mg-inp" id="evOrganizer" placeholder="其他姓名" value="${(['雨欣','微姍','梅青','曉臻','心榆','望謙'].includes(ev.organizer)?'':ev.organizer)||''}" style="width:90px">
+        <input class="mg-inp" id="evOrganizer" placeholder="其他姓名" value="${(['雨欣','微姍','梅青','曉臻','心榆','望謙'].includes(ev.organizer)?'':ev.organizer)||''}" oninput="updateEditingEventField('organizer',this.value)" style="width:90px">
       </div>
     </div>
 
@@ -1859,8 +1884,7 @@ function renderEventMgmt(ev){
     <div style="display:flex;gap:7px;margin:12px 0 8px;flex-wrap:wrap">
       <button class="btn btn-gr" onclick="parseAll()">🤖 一鍵解析</button>
       <button class="btn btn-or" onclick="saveMenu()">💾 儲存菜單</button>
-      <button class="btn btn-rd btn-sm" onclick="confirmDeleteEvent('${ev.id}')">🗑️ 刪除場次</button>
-      <button class="btn btn-save-event" onclick="saveEvent()">📦 場次移入後台</button>
+      ${isDraft?'':`<button class="btn btn-rd btn-sm" onclick="confirmDeleteEvent('${ev.id}')">🗑️ 刪除場次</button><button class="btn btn-save-event" onclick="saveEvent()">📦 場次移入後台</button>`}
     </div>
     <div id="parseCheckStatus">${renderParseCheckStatus()}</div>
 
@@ -1897,7 +1921,7 @@ function renderEventMgmt(ev){
           <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
             <input class="mg-inp mi-em" value="${esc(it.emoji)}" id="me-${i}" placeholder="🍱" oninput="updatePendingItem(${i},'emoji',this.value)" style="width:44px;text-align:center">
             <select class="mg-inp" id="mc-${i}" onchange="updatePendingItem(${i},'category',this.value)" style="width:78px">
-              ${['便當','飲料','點心','其他'].map(c=>`<option value="${c}"${(it.category||'其他')===c?' selected':''}>${c}</option>`).join('')}
+              ${['便當','點心','飲料','其他'].map(c=>`<option value="${c}"${(it.category||'其他')===c?' selected':''}>${c}</option>`).join('')}
             </select>
             <input class="mg-inp mi-rest" value="${esc(it.restaurant)}" id="mr-${i}" placeholder="店家" oninput="updatePendingItem(${i},'restaurant',this.value)" style="width:110px">
             <input class="mg-inp" value="${esc(it.name)}" id="mn-${i}" placeholder="品項名稱" oninput="updatePendingItem(${i},'name',this.value)" style="flex:1;min-width:90px">
@@ -1919,12 +1943,10 @@ function renderEventMgmt(ev){
 }
 
 /* ── ADMIN OPS ── */
-async function createNewEvent(){
-  if(DEMO){toast('示範模式','warn');return;}
-  const{data,error}=await sb.from('menus').insert({title:'新場次',activity_note:'',deadline:'11:30',organizer:'',store_name:'',date:new Date(Date.now()+8*60*60*1000).toISOString().slice(0,10)}).select().single();
-  if(error){toast('建立失敗','err');return;}
-  S.events.push(data); S.items[data.id]=[]; S.orders[data.id]=[];
-  S.adminEid=data.id;S.pendingItems=[];S.loadedHistoryKeys=[];S.parseStatus='idle';S.parseComparison=null;render();toast('場次已建立','ok');
+function createNewEvent(){
+  prepareNewEventDraft();
+  render();
+  toast('已開啟新場次草稿，儲存菜單後才會建立場次','info');
 }
 function splitHistoryEntries(entries){
   const result=[];
@@ -1992,9 +2014,14 @@ function loadCachedMenu(idx){
   requestHistoryAddition(entry,true);
 }
 
+function updateEditingEventField(field,value){
+  const ev=S.menuDraft||S.events.find(e=>e.id===S.adminEid);
+  if(ev) ev[field]=value;
+}
+
 function pickOrganizer(btn, name){
   // 更新 state
-  const ev=S.events.find(e=>e.id===S.adminEid);
+  const ev=S.menuDraft||S.events.find(e=>e.id===S.adminEid);
   if(ev) ev.organizer=name;
   // 直接更新 DOM，不 render() 避免重置 input
   const inp=document.getElementById('evOrganizer');
@@ -2199,7 +2226,7 @@ function renderStoreCapsules(currentStore){
 function pickStore(storeName){
   const inp=document.getElementById('evStore');
   if(!inp) return;
-  const ev=S.events.find(e=>e.id===S.adminEid);
+  const ev=S.menuDraft||S.events.find(e=>e.id===S.adminEid);
   const currentVal=(inp.value||'').trim();
   const newVal=currentVal===storeName?'':storeName;
   inp.value=newVal;
@@ -2319,7 +2346,7 @@ function addItem(){
 }
 function removeItem(i){ syncPendingItemsFromForm(); S.pendingItems.splice(i,1); render(); }
 async function saveEvent(){
-  const eid=S.adminEid; if(!eid){toast('請先選擇場次','err');return;}
+  const eid=S.adminEid; if(!eid){toast('新場次請先按「儲存菜單」建立場次','warn');return;}
   if(DEMO){toast('示範模式：變更不會寫入','warn');return;}
   if(S.pendingItems.length||window._pendingMainFile||window._pendingDrinkFile){
     toast('尚有未儲存的內容，請先按「儲存菜單」','warn');
@@ -2343,7 +2370,9 @@ async function saveEvent(){
   toast('✅ 場次已移至後台，前台已隱藏','ok');
 }
 async function saveMenu(){
-  const eid=S.adminEid; if(!eid){toast('請先選擇場次','err');return;}
+  let eid=S.adminEid;
+  const isNewDraft=!!S.menuDraft&&!eid;
+  if(!eid&&!isNewDraft){toast('請先選擇或新增場次','err');return;}
   if(DEMO){toast('示範模式：變更不會寫入','warn');return;}
   const hasSelectedFiles=!!window._pendingMainFile||!!window._pendingDrinkFile;
   if(S.parseStatus==='parsing'){toast('一鍵解析仍在進行中，完成後才能儲存菜單','warn');return;}
@@ -2367,21 +2396,38 @@ async function saveMenu(){
   const activity_note=document.getElementById('evActivityNote')?.value.trim()||'';
   const store_name=document.getElementById('evStore')?.value.trim()||'';
   const orgInput=document.getElementById('evOrganizer')?.value.trim()||'';
-  const evNow=S.events.find(e=>e.id===eid);
+  let evNow=S.menuDraft||S.events.find(e=>e.id===eid);
   const organizer=orgInput||evNow?.organizer||'';
   if(!date){toast('請選擇場次日期','err');return;}
   if(!title){toast('請填場次標題','err');return;}
-  const{data:settingRows,error:settingError}=await sb.from('menus')
-    .update({date,title,activity_note,organizer,store_name})
-    .eq('id',eid)
-    .select('id');
-  if(settingError||!settingRows?.length){
-    toast('設定儲存失敗：'+(settingError?.message||'資料未更新'),'err');
-    return;
+  if(isNewDraft){
+    const{data:newEvent,error:createError}=await sb.from('menus')
+      .insert({date,title,activity_note,organizer,store_name,deadline:'11:30',is_closed:false})
+      .select()
+      .single();
+    if(createError||!newEvent){toast('場次建立失敗：'+(createError?.message||'沒有回傳場次資料'),'err');return;}
+    eid=newEvent.id;
+    S.adminEid=eid;
+    S.menuDraft=null;
+    S.events.unshift(newEvent);
+    S.items[eid]=[];
+    S.orders[eid]=[];
+    delete S.items.__draft__;
+    S.pendingItems.forEach(item=>item.menu_id=eid);
+    evNow=newEvent;
+  }else{
+    const{data:settingRows,error:settingError}=await sb.from('menus')
+      .update({date,title,activity_note,organizer,store_name})
+      .eq('id',eid)
+      .select('id');
+    if(settingError||!settingRows?.length){
+      toast('設定儲存失敗：'+(settingError?.message||'資料未更新'),'err');
+      return;
+    }
+    if(evNow) Object.assign(evNow,{date,title,activity_note,organizer,store_name});
   }
-  if(evNow) Object.assign(evNow,{date,title,activity_note,organizer,store_name});
   if(!S.pendingItems.length){
-    toast('✅ 目前畫面設定已儲存','ok');
+    toast(isNewDraft?'✅ 新場次已建立並顯示於上方':'✅ 目前畫面設定已儲存','ok');
     render();
     return;
   }
@@ -2803,13 +2849,13 @@ async function aiParseBase64(base64,mime,uploadType='main'){
       if(statusEl) statusEl.innerHTML=`<div style="font-size:.75rem;color:var(--am);margin-top:7px">⚠️ AI 無法識別，請手動新增品項</div>`;
       return {success:false,empty:true};
     }
-    const eid=S.adminEid;
+    const eid=S.adminEid||'__draft__';
     if(!S.items[eid]) S.items[eid]=[];
     const newItems=parsed
       .filter(it=>it&&it.name)  // 過濾掉不完整的品項
       .map((it,i)=>({
         id:'ai-'+Date.now()+'-'+i,
-        menu_id:eid,
+        menu_id:S.adminEid||'',
         restaurant:it.restaurant||'本日菜單',
         category:it.category||'其他',
         emoji:it.emoji||'🍱',
