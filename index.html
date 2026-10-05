@@ -804,7 +804,7 @@ function renderOrderPage(){
           const totalQty=keys.reduce((s,k)=>s+(S.cart[k]?.qty||0),0);
           const hasSpec=item.specs&&item.specs.length>0;
           const needsDetailSheet=hasSpec||cat==='飲料';
-          const subsidyLimit=cat==='便當'?120:(cat==='飲料'?40:0);
+          const subsidyLimit=cat==='便當'?120:((cat==='飲料'||cat==='點心')?40:0);
           const overage=subsidyLimit&&item.price>subsidyLimit?item.price-subsidyLimit:0;
           html+=`<div class="m-card${totalQty>0?' sel':''}">
           <span class="m-emoji">${esc(item.emoji)}</span>
@@ -1217,7 +1217,7 @@ function closeCombo(){
 }
 
 function getSubsidyLimit(item){
-  return item?.category==='便當'?120:(item?.category==='飲料'?40:0);
+  return item?.category==='便當'?120:((item?.category==='飲料'||item?.category==='點心')?40:0);
 }
 
 function getStoreCategoryKey(item){
@@ -1249,9 +1249,9 @@ function showOverageNotice(lines){
     box.innerHTML=`<div class="modal-box" style="max-width:380px;text-align:left;border-top:6px solid var(--am)">
       <div style="text-align:center;font-size:2.35rem;margin-bottom:7px">💡</div>
       <div class="modal-title" style="text-align:center;color:#92400e">本場次活動餐費補助與補額提醒</div>
-      <p class="modal-sub" style="text-align:center;line-height:1.6">同一家便當店合計補助上限 $120，同一家飲料店合計補助上限 $40。</p>
+      <p class="modal-sub" style="text-align:center;line-height:1.6">同一家便當店合計補助上限 $120；同一家飲料店、點心店各自合計補助上限 $40。</p>
       <div style="background:#fffbeb;border:1.5px solid #fbbf24;border-radius:var(--rmd);padding:10px 12px;margin-bottom:14px">
-        ${lines.map(x=>`<div style="font-size:.8rem;color:#78350f;padding:5px 0;border-bottom:1px dashed #fde68a"><strong>${x.category==='飲料'?'🧋':'🍱'} ${esc(x.store)}</strong><br>本次同店${x.category}累計 $${x.total}－補助上限 $${x.limit}＝<strong style="color:var(--rd)">需補額 $${x.overage}</strong></div>`).join('')}
+        ${lines.map(x=>`<div style="font-size:.8rem;color:#78350f;padding:5px 0;border-bottom:1px dashed #fde68a"><strong>${x.category==='飲料'?'🧋':(x.category==='點心'?'🍰':'🍱')} ${esc(x.store)}</strong><br>本次同店${x.category}累計 $${x.total}－補助上限 $${x.limit}＝<strong style="color:var(--rd)">需補額 $${x.overage}</strong></div>`).join('')}
       </div>
       <button class="btn btn-or btn-full" id="overageConfirm">了解，仍要加入</button>
       <button class="btn btn-out btn-full" style="margin-top:7px" id="overageCancel">返回重新選擇</button>
@@ -1844,9 +1844,9 @@ function renderEventMgmt(ev){
     <!-- 動作按鈕 -->
     <div style="display:flex;gap:7px;margin:12px 0 8px;flex-wrap:wrap">
       <button class="btn btn-gr" onclick="parseAll()">🤖 一鍵解析</button>
-      <button class="btn btn-or" onclick="saveMenu()">💾 儲存</button>
+      <button class="btn btn-or" onclick="saveMenu()">💾 儲存菜單</button>
       <button class="btn btn-rd btn-sm" onclick="confirmDeleteEvent('${ev.id}')">🗑️ 刪除場次</button>
-      <button class="btn btn-save-event" onclick="saveEvent()">💾 儲存場次</button>
+      <button class="btn btn-save-event" onclick="saveEvent()">📦 場次移入後台</button>
     </div>
     <div id="parseCheckStatus">${renderParseCheckStatus()}</div>
 
@@ -1861,7 +1861,7 @@ function renderEventMgmt(ev){
          +'<button onclick="if(confirm(\'確定清空此場次所有品項？\'))clearItems()" style="float:right;font-size:.7rem;color:var(--rd);background:none;border:none;cursor:pointer">清空</button>'
          +'</div>';
     })()}
-      <span class="mg-lbl">${S.pendingItems.length?'本次解析品項（確認後按儲存）':'尚未解析品項'}</span>
+      <span class="mg-lbl">${S.pendingItems.length?'本次解析品項（確認後按儲存菜單）':'尚未解析品項'}</span>
       ${S.pendingItems.length?'<button class="btn btn-out btn-sm" onclick="clearPending()">✕ 清除解析</button>':''}
     </div>
     ${S.pendingItems.length?'<div style="font-size:.68rem;color:var(--slm);background:var(--bos);border-radius:7px;padding:7px 9px;margin-bottom:8px">價格格式：杯型完整售價請填「大杯 $35」；加料請填「珍珠 +$10」。</div>':''}
@@ -1881,17 +1881,17 @@ function renderEventMgmt(ev){
         return `<div class="mgmt-item-row" style="flex-wrap:wrap;flex-direction:column;align-items:stretch;padding:9px 8px;${it._historyMissing?'border-color:#f59e0b;background:#fffbeb':''}">
           ${it._historyMissing?'<div style="font-size:.7rem;font-weight:800;color:#92400e;background:#fef3c7;border-radius:7px;padding:6px 8px;margin-bottom:7px">⚠️ 歷史菜單有此品項，但本次未解析到。請確認是否為解析遺漏；要保留可直接儲存，不需要請按「不保留」。</div>':''}
           <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-            <input class="mg-inp mi-em" value="${esc(it.emoji)}" id="me-${i}" placeholder="🍱" style="width:44px;text-align:center">
-            <select class="mg-inp" id="mc-${i}" style="width:78px">
+            <input class="mg-inp mi-em" value="${esc(it.emoji)}" id="me-${i}" placeholder="🍱" oninput="updatePendingItem(${i},'emoji',this.value)" style="width:44px;text-align:center">
+            <select class="mg-inp" id="mc-${i}" onchange="updatePendingItem(${i},'category',this.value)" style="width:78px">
               ${['便當','飲料','點心','其他'].map(c=>`<option value="${c}"${(it.category||'其他')===c?' selected':''}>${c}</option>`).join('')}
             </select>
-            <input class="mg-inp mi-rest" value="${esc(it.restaurant)}" id="mr-${i}" placeholder="店家" style="width:110px">
-            <input class="mg-inp" value="${esc(it.name)}" id="mn-${i}" placeholder="品項名稱" style="flex:1;min-width:90px">
-            <input class="mg-inp mi-price" type="number" value="${it.price}" id="mp-${i}" placeholder="價格" style="width:62px">
+            <input class="mg-inp mi-rest" value="${esc(it.restaurant)}" id="mr-${i}" placeholder="店家" oninput="updatePendingItem(${i},'restaurant',this.value)" style="width:110px">
+            <input class="mg-inp" value="${esc(it.name)}" id="mn-${i}" placeholder="品項名稱" oninput="updatePendingItem(${i},'name',this.value)" style="flex:1;min-width:90px">
+            <input class="mg-inp mi-price" type="number" value="${it.price}" id="mp-${i}" placeholder="價格" oninput="updatePendingItem(${i},'price',this.value)" style="width:62px">
             <button class="btn btn-rd btn-sm" onclick="removeItem(${i})">${it._historyMissing?'不保留':'刪'}</button>
           </div>
           <div style="display:flex;gap:5px;align-items:center;padding:3px 0">
-            <input class="mg-inp" value="${esc(it.description||'')}" id="md-${i}" placeholder="甜度冰塊（如：微糖微冰）" style="flex:1;font-size:.75rem;padding:4px 7px">
+            <input class="mg-inp" value="${esc(it.description||'')}" id="md-${i}" placeholder="甜度冰塊（如：微糖微冰）" oninput="updatePendingItem(${i},'description',this.value)" style="flex:1;font-size:.75rem;padding:4px 7px">
           </div>
           ${specsHtml}
           <div style="padding-top:4px">
@@ -2249,6 +2249,24 @@ async function requestHistoryAddition(entry,closeCache){
 function setDrinkDesc(i, val){
   const inp=document.getElementById('md-'+i);
   if(inp) inp.value=val;
+  updatePendingItem(i,'description',val);
+}
+
+function updatePendingItem(index, field, value){
+  const item=S.pendingItems[index];
+  if(!item) return;
+  item[field]=field==='price'?(value===''?0:(Number(value)||0)):value;
+}
+
+function syncPendingItemsFromForm(){
+  S.pendingItems.forEach((item,index)=>{
+    const read=id=>document.getElementById(id)?.value;
+    const fields={emoji:'me-',category:'mc-',restaurant:'mr-',name:'mn-',price:'mp-',description:'md-'};
+    Object.entries(fields).forEach(([field,prefix])=>{
+      const value=read(prefix+index);
+      if(value!==undefined) updatePendingItem(index,field,value);
+    });
+  });
 }
 
 function updateSpecOpt(itemIdx, specIdx, optIdx, val){
@@ -2256,18 +2274,21 @@ function updateSpecOpt(itemIdx, specIdx, optIdx, val){
     S.pendingItems[itemIdx].specs[specIdx].opts[optIdx]=val;
 }
 function addSpecOpt(itemIdx, specIdx){
+  syncPendingItemsFromForm();
   if(S.pendingItems[itemIdx]&&S.pendingItems[itemIdx].specs[specIdx]){
     S.pendingItems[itemIdx].specs[specIdx].opts.push('新選項');
     render();
   }
 }
 function removeSpecCat(itemIdx, specIdx){
+  syncPendingItemsFromForm();
   if(S.pendingItems[itemIdx]){
     S.pendingItems[itemIdx].specs.splice(specIdx,1);
     render();
   }
 }
 function addSpecCat(itemIdx){
+  syncPendingItemsFromForm();
   if(S.pendingItems[itemIdx]){
     const catName=prompt('規格類別名稱（例：杯型、加料、主食）');
     if(!catName) return;
@@ -2278,15 +2299,16 @@ function addSpecCat(itemIdx){
 }
 
 function addItem(){
+  syncPendingItemsFromForm();
   S.pendingItems.push({id:'new-'+Date.now(),menu_id:S.adminEid||'',restaurant:'',emoji:'🍱',name:'',description:'',price:0,specs:[],sort_order:S.pendingItems.length,ai_parsed:false,category:'其他'});
   render();
 }
-function removeItem(i){ S.pendingItems.splice(i,1); render(); }
+function removeItem(i){ syncPendingItemsFromForm(); S.pendingItems.splice(i,1); render(); }
 async function saveEvent(){
   const eid=S.adminEid; if(!eid){toast('請先選擇場次','err');return;}
   if(DEMO){toast('示範模式：變更不會寫入','warn');return;}
   if(S.pendingItems.length||window._pendingMainFile||window._pendingDrinkFile){
-    toast('尚有未儲存的內容，請先按「儲存」','warn');
+    toast('尚有未儲存的內容，請先按「儲存菜單」','warn');
     return;
   }
   const date=document.getElementById('evDate')?.value||'';
@@ -2298,8 +2320,8 @@ async function saveEvent(){
   const organizer=orgInput||evNow?.organizer||'';
   if(!date){toast('請選擇場次日期','err');return;}
   if(!title){toast('請填場次標題','err');return;}
-  if(!confirm('儲存場次後會移至後台，並從前台點餐場次隱藏。\n確定儲存場次？')) return;
-  // 儲存場次代表完成收存：寫入基本資訊並關閉，後台仍可重新開放。
+  if(!confirm('場次移入後台後，會從前台點餐場次隱藏。\n確定移入後台？')) return;
+  // 移入後台代表完成收存：寫入基本資訊並關閉，後台仍可重新開放。
   const{data,error}=await sb.from('menus').update({date,title,activity_note,organizer,store_name,is_closed:true}).eq('id',eid).select('id');
   if(error||!data?.length){toast('場次儲存失敗：'+(error?.message||'資料未更新'),'err');return;}
   if(evNow) Object.assign(evNow,{date,title,activity_note,organizer,store_name,is_closed:true});
@@ -2310,7 +2332,7 @@ async function saveMenu(){
   const eid=S.adminEid; if(!eid){toast('請先選擇場次','err');return;}
   if(DEMO){toast('示範模式：變更不會寫入','warn');return;}
   const hasSelectedFiles=!!window._pendingMainFile||!!window._pendingDrinkFile;
-  if(S.parseStatus==='parsing'){toast('一鍵解析仍在進行中，完成後才能儲存','warn');return;}
+  if(S.parseStatus==='parsing'){toast('一鍵解析仍在進行中，完成後才能儲存菜單','warn');return;}
   if(hasSelectedFiles&&S.parseStatus!=='complete'){
     toast(S.parseStatus==='failed'?'一鍵解析未完成，請重新解析':'已選擇菜單，請先按「一鍵解析」','warn');
     return;
@@ -2324,7 +2346,7 @@ async function saveMenu(){
   }else if(S.pendingItems.length){
     if(!confirm('本次品項來自歷史菜單或手動新增，尚未執行一鍵解析。\n確定仍要儲存？')) return;
   }
-  // 「儲存」會保留目前畫面上的場次設定；若有新菜單品項則一併儲存。
+  // 「儲存菜單」會保留目前畫面上的場次設定；若有新菜單品項則一併儲存。
   // 不變更 is_closed，因此不會把場次移到後台或從前台隱藏。
   const date=document.getElementById('evDate')?.value||'';
   const title=document.getElementById('evTitle')?.value.trim();
@@ -2792,7 +2814,7 @@ async function aiParseBase64(base64,mime,uploadType='main'){
     const capsDiv=document.getElementById('storeCapsules');
     if(capsDiv) capsDiv.innerHTML=renderStoreCapsules(document.getElementById('evStore')?.value||'');
     const cats=[...new Set(newItems.map(i=>i.category))].join('、');
-    if(statusEl) statusEl.innerHTML=`<div style="font-size:.75rem;color:var(--gr);margin-top:7px">✅ 解析完成 ${newItems.length} 個品項（${cats}），確認後按「💾 儲存」加入場次</div>`;
+    if(statusEl) statusEl.innerHTML=`<div style="font-size:.75rem;color:var(--gr);margin-top:7px">✅ 解析完成 ${newItems.length} 個品項（${cats}），確認後按「💾 儲存菜單」加入場次</div>`;
     render();
     window._lastParseCats=(window._lastParseCats?window._lastParseCats+'、':'')+cats;
     return {success:true,count:newItems.length,items:newItems};
