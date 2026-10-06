@@ -3147,33 +3147,45 @@ function buildOrderExportData(){
     [...person.notes].join('；'),
     person.total>0?'$'+person.total:'—'
   ]);
-  const summaryRows=[];
+  const mealSummaryRows=[];
+  const drinkSummaryRows=[];
   Object.values(summary)
     .sort((a,b)=>a.workType.localeCompare(b.workType,'zh-TW')||a.restaurant.localeCompare(b.restaurant,'zh-TW')||a.category.localeCompare(b.category,'zh-TW')||a.name.localeCompare(b.name,'zh-TW'))
     .forEach(x=>{
       const names=sortBySimilarPersonName([...x.diners.values()],name=>name);
-      summaryRows.push([formatMealSummary(x.name,x.specs,x.itemNote),names.length,names.join('、')]);
+      const row=[formatMealSummary(x.name,x.specs,x.itemNote),names.length,names.join('、')];
+      (x.workType==='飲料'?drinkSummaryRows:mealSummaryRows).push(row);
     });
-  return{ev,detailHeader,detailRows,personHeader,personRows,summaryHeader:['餐點','點餐人數','點餐姓名'],summaryRows};
+  return{ev,detailHeader,detailRows,personHeader,personRows,summaryHeader:['餐點','點餐人數','點餐姓名'],mealSummaryRows,drinkSummaryRows};
 }
 function exportCSV(){
   const data=buildOrderExportData();
   if(!data.detailRows.length){toast('沒有資料','warn');return;}
-  const rows=[data.detailHeader,...data.detailRows,[],['餐點彙整'],data.summaryHeader,...data.summaryRows];
+  const rows=[
+    data.detailHeader,...data.detailRows,
+    [],['便當餐點彙整'],data.summaryHeader,...data.mealSummaryRows,
+    [],['飲料餐點彙整'],data.summaryHeader,...data.drinkSummaryRows
+  ];
   const ev=data.ev;
   dlCSV(rows,`點餐紀錄_${ev?.title||''}`);
 }
 function showCSVPreview(){
   const data=buildOrderExportData();
   if(!data.detailRows.length){toast('沒有資料','warn');return;}
-  const table=(header,rows)=>`<div class="csv-table-wrap"><table class="csv-preview-table"><thead><tr>${header.map(cell=>`<th>${esc(cell)}</th>`).join('')}</tr></thead><tbody>${rows.map(row=>`<tr>${row.map(cell=>`<td>${esc(cell)}</td>`).join('')}</tr>`).join('')}</tbody></table></div><div class="csv-mobile-list">${rows.map(row=>`<article class="csv-mobile-card">${header.map((label,index)=>({label,value:row[index]})).filter(field=>String(field.value??'').trim()!=='').map(field=>`<div class="csv-mobile-field"><div class="csv-mobile-label">${esc(field.label)}</div><div class="csv-mobile-value">${esc(field.value)}</div></div>`).join('')}</article>`).join('')}</div>`;
+  const table=(header,rows)=>{
+    const desktopRows=rows.length?rows.map(row=>`<tr>${row.map(cell=>`<td>${esc(cell)}</td>`).join('')}</tr>`).join(''):`<tr><td colspan="${header.length}" style="text-align:center;color:var(--sll)">尚無資料</td></tr>`;
+    const mobileRows=rows.length?rows.map(row=>`<article class="csv-mobile-card">${header.map((label,index)=>({label,value:row[index]})).filter(field=>String(field.value??'').trim()!=='').map(field=>`<div class="csv-mobile-field"><div class="csv-mobile-label">${esc(field.label)}</div><div class="csv-mobile-value">${esc(field.value)}</div></div>`).join('')}</article>`).join(''):'<div style="text-align:center;color:var(--sll);padding:12px">尚無資料</div>';
+    return `<div class="csv-table-wrap"><table class="csv-preview-table"><thead><tr>${header.map(cell=>`<th>${esc(cell)}</th>`).join('')}</tr></thead><tbody>${desktopRows}</tbody></table></div><div class="csv-mobile-list">${mobileRows}</div>`;
+  };
   const box=document.createElement('div');
   box.className='modal-bg csv-preview-bg';
   box.innerHTML=`<div class="modal-box csv-preview-box">
     <div class="csv-preview-titlebar"><div class="modal-title">線上點餐表格</div><button type="button" class="csv-preview-close" data-close-csv aria-label="關閉">×</button></div>
     ${table(data.personHeader,data.personRows)}
-    <div class="modal-title" style="font-size:1rem;margin-top:18px">餐點彙整</div>
-    ${table(data.summaryHeader,data.summaryRows)}
+    <div class="modal-title" style="font-size:1rem;margin-top:18px">便當餐點彙整</div>
+    ${table(data.summaryHeader,data.mealSummaryRows)}
+    <div class="modal-title" style="font-size:1rem;margin-top:18px">飲料餐點彙整</div>
+    ${table(data.summaryHeader,data.drinkSummaryRows)}
     <div class="csv-preview-actions">
       <button class="btn btn-or" onclick="exportCSV()">📥 匯出CSV</button>
       <button class="btn btn-out" data-close-csv>關閉</button>
