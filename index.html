@@ -97,7 +97,7 @@ body.shared-event-mode .main{padding-top:18px}
 .id-card{background:var(--ca);border:1px solid var(--bo);border-radius:var(--rlg);padding:15px 16px;margin-bottom:16px;box-shadow:none;display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
 .id-card .fld{flex:1;min-width:120px}
 .id-card label{display:block;font-size:.68rem;font-weight:700;color:var(--sll);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
-.name-url-row{display:flex;align-items:stretch;gap:7px}
+.name-url-row{display:flex;align-items:stretch;gap:7px;flex-wrap:wrap}
 .name-url-row .inp{flex:1;min-width:0}
 .copy-event-url{flex:0 0 auto;white-space:nowrap;padding:8px 12px;font-size:.78rem}
 .activity-meal-help{width:100%;display:flex;align-items:flex-start;gap:9px;background:#f8fafc;border:1px solid var(--bo);border-radius:var(--rmd);padding:10px 12px;color:var(--slm);font-size:.75rem;line-height:1.65}
@@ -475,6 +475,7 @@ let S = {
   cart:{},
   specItem:null, specSel:{}, specQty:1, specNote:'',
   myName:'', myClass:'',
+  supplementOrderId:null,
   myRecs:null,
   authed:false, adminEid:null,
   menuDraft:null,      // 尚未寫入 Supabase 的新場次草稿
@@ -538,6 +539,31 @@ async function dbInsertOrder(order, items){
   if(error) return{error};
   await sb.from('order_items').insert(items.map(it=>({...it,order_id:o.id})));
   await loadEventDetail(order.menu_id);
+  return{error:null};
+}
+async function dbAppendOrder(existingOrder, items, addedTotal, orderNote, menuId){
+  if(DEMO){
+    existingOrder.order_items=[...(existingOrder.order_items||[]),...items.map((it,i)=>({id:'di'+Date.now()+i,...it,order_id:existingOrder.id}))];
+    existingOrder.total=(Number(existingOrder.total)||0)+(Number(addedTotal)||0);
+    if(orderNote) existingOrder.note=[existingOrder.note,`補點：${orderNote}`].filter(Boolean).join('；');
+    return{error:null};
+  }
+  const{data:inserted,error:itemError}=await sb.from('order_items')
+    .insert(items.map(it=>({...it,order_id:existingOrder.id})))
+    .select('id');
+  if(itemError) return{error:itemError};
+  const nextNote=orderNote?[existingOrder.note,`補點：${orderNote}`].filter(Boolean).join('；'):(existingOrder.note||'');
+  const nextTotal=(Number(existingOrder.total)||0)+(Number(addedTotal)||0);
+  const{data:updated,error:updateError}=await sb.from('orders')
+    .update({total:nextTotal,note:nextNote})
+    .eq('id',existingOrder.id)
+    .select('id');
+  if(updateError||!updated?.length){
+    const insertedIds=(inserted||[]).map(row=>row.id);
+    if(insertedIds.length) await sb.from('order_items').delete().in('id',insertedIds);
+    return{error:updateError||new Error('原訂單未更新')};
+  }
+  await loadEventDetail(menuId);
   return{error:null};
 }
 async function dbDeleteOrder(id, menuId){
@@ -848,13 +874,13 @@ function renderOrderPage(){
     </div>`;
 
   // 已點餐入口：只提供查看已送出的內容。
-  const myExisting=(S.orders[S.activeEventId]||[]).find(o=>o.user_name===S.myName);
+  const myExisting=(S.orders[S.activeEventId]||[]).find(o=>normalizePersonName(o.user_name)===normalizePersonName(S.myName));
   const closedNotice=closed?`<div style="background:var(--rdl);border:1.5px solid #fca5a5;border-radius:var(--rmd);padding:10px 13px;font-size:.8rem;color:var(--rd);font-weight:700;margin-bottom:12px;text-align:center">⛔ 此場次已截止，無法點餐</div>`:'';
   const submittedNotice=myExisting?`<button class="btn btn-gr btn-full" style="margin-bottom:12px;padding:11px" onclick="showSubmittedOrderNotice('${myExisting.id}')">✅ 查看已送出的餐點</button>`:'';
   if(!S.sharedEventMode) html+=closedNotice+submittedNotice;
 
   html+=`<div class="id-card">
-    <div class="fld"><label>姓名</label><div class="name-url-row"><input class="inp" id="uName" placeholder="王小明" value="${esc(S.myName)}" oninput="S.myName=this.value">${S.sharedEventMode?'':'<button type="button" class="btn btn-out copy-event-url" onclick="copyEventUrl()">🔗 複製場次網址</button>'}</div></div>
+    <div class="fld"><label>姓名</label><div class="name-url-row"><input class="inp" id="uName" placeholder="王小明" value="${esc(S.myName)}" oninput="updateOrderNameInput(this.value)" onfocus="updateOrderNameInput(this.value)"><button type="button" class="btn btn-out copy-event-url" onclick="openSupplementSearch()">補點搜尋</button>${S.sharedEventMode?'':'<button type="button" class="btn btn-out copy-event-url" onclick="copyEventUrl()">🔗 複製場次網址</button>'}</div><div id="nameMatchNotice"></div></div>
     <div class="activity-meal-help"><span style="font-size:1.15rem">☀️</span><div><strong>活動餐點說明</strong><br>${ev.activity_note?esc(ev.activity_note):'承辦人尚未填寫本場次活動說明。'}<br>請確認餐點規格與數量後再送出。</div></div>
     ${renderEventMenuImages(ev)}
   </div>`;
@@ -1530,26 +1556,139 @@ function closeSpec(){document.getElementById('specOverlay').style.display='none'
 
 /* ── SUBMIT ── */
 
-function showDuplicateWarning(name, existingOrder){
+function normalizePersonName(value){
+  return String(value||'').trim().toLocaleLowerCase('zh-TW').replace(/[\s　·・．.、,_-]/g,'');
+}
+
+function nameEditDistance(a,b){
+  const left=[...normalizePersonName(a)],right=[...normalizePersonName(b)];
+  const row=Array.from({length:right.length+1},(_,i)=>i);
+  for(let i=1;i<=left.length;i++){
+    let previous=row[0];row[0]=i;
+    for(let j=1;j<=right.length;j++){
+      const saved=row[j];
+      row[j]=Math.min(row[j]+1,row[j-1]+1,previous+(left[i-1]===right[j-1]?0:1));
+      previous=saved;
+    }
+  }
+  return row[right.length];
+}
+
+function getNameMatches(name,menuId=S.activeEventId){
+  const target=normalizePersonName(name);
+  if(!target) return [];
+  return (S.orders[menuId]||[]).map(order=>{
+    const existing=normalizePersonName(order.user_name);
+    const exact=existing===target;
+    const similar=!exact&&Math.min(existing.length,target.length)>=2&&nameEditDistance(existing,target)<=1;
+    return exact||similar?{order,kind:exact?'exact':'similar'}:null;
+  }).filter(Boolean).sort((a,b)=>(a.kind==='exact'?0:1)-(b.kind==='exact'?0:1));
+}
+
+function searchExistingOrdersByName(name,menuId=S.activeEventId){
+  const query=normalizePersonName(name);
+  const orders=S.orders[menuId]||[];
+  if(!query) return orders.map(order=>({order,kind:'all'}));
+  const closeMatches=getNameMatches(name,menuId);
+  const included=new Set(closeMatches.map(match=>match.order.id));
+  const partial=orders.filter(order=>{
+    const existing=normalizePersonName(order.user_name);
+    return !included.has(order.id)&&(existing.includes(query)||query.includes(existing));
+  }).map(order=>({order,kind:'partial'}));
+  return [...closeMatches,...partial];
+}
+
+function summarizeOrderItems(items){
+  const grouped=new Map();
+  (items||[]).forEach(item=>{
+    const key=[item.item_name,item.specs_str||'',item.note||'',Number(item.unit_price)||0].join('__');
+    if(!grouped.has(key)) grouped.set(key,{...item,quantity:0});
+    grouped.get(key).quantity+=Number(item.quantity)||0;
+  });
+  return [...grouped.values()].map(item=>`${item.item_name}${item.specs_str?' ('+item.specs_str+')':''}×${item.quantity}`).join('、');
+}
+
+function getDuplicateNameFlags(orders){
+  const flags=new Map();
+  const list=orders||[];
+  for(let i=0;i<list.length;i++){
+    for(let j=i+1;j<list.length;j++){
+      const left=normalizePersonName(list[i].user_name),right=normalizePersonName(list[j].user_name);
+      if(!left||!right) continue;
+      const exact=left===right;
+      const similar=!exact&&Math.min(left.length,right.length)>=2&&nameEditDistance(left,right)<=1;
+      if(!exact&&!similar) continue;
+      [[list[i],list[j]],[list[j],list[i]]].forEach(([order,other])=>{
+        if(!flags.has(order.id)) flags.set(order.id,[]);
+        flags.get(order.id).push({kind:exact?'exact':'similar',name:other.user_name});
+      });
+    }
+  }
+  return flags;
+}
+
+function updateOrderNameInput(value){
+  S.myName=value;
+  const selected=(S.orders[S.activeEventId]||[]).find(order=>order.id===S.supplementOrderId);
+  if(selected&&normalizePersonName(selected.user_name)!==normalizePersonName(value)) S.supplementOrderId=null;
+  const notice=document.getElementById('nameMatchNotice');
+  if(!notice) return;
+  const matches=getNameMatches(value);
+  if(!normalizePersonName(value)||!matches.length){notice.innerHTML='';return;}
+  const exact=matches.filter(match=>match.kind==='exact').map(match=>match.order.user_name);
+  const similar=matches.filter(match=>match.kind==='similar').map(match=>match.order.user_name);
+  notice.innerHTML=`<div style="margin-top:6px;padding:7px 9px;border-radius:8px;background:var(--aml);color:#92400e;font-size:.7rem;font-weight:700">⚠️ ${exact.length?'已有相同姓名：'+esc([...new Set(exact)].join('、')):''}${exact.length&&similar.length?'<br>':''}${similar.length?'相似姓名：'+esc([...new Set(similar)].join('、')):''}<br><span style="font-weight:600">送出時可選擇補點並合併，避免產生重複紀錄。</span></div>`;
+}
+
+function showDuplicateWarning(name){
   return new Promise(resolve=>{
-    const items=(existingOrder.order_items||[]).map(oi=>oi.item_name+'×'+oi.quantity).join('、');
     const box=document.createElement('div');
     box.className='modal-bg';
-    box.innerHTML=`<div class="modal-box">
+    box.innerHTML=`<div class="modal-box" style="max-width:410px;text-align:left">
       <div class="modal-ico">⚠️</div>
-      <div class="modal-title">${esc(name)} 已點過餐</div>
-      <p class="modal-sub">此場次已有您的點餐紀錄：<br><strong>${esc(items)}</strong></p>
-      <p style="font-size:.75rem;color:var(--sll);margin-bottom:14px">確定要再送出一筆嗎？</p>
-      <button class="btn btn-or btn-full" id="dupConfirm">繼續送出</button>
-      <button class="btn btn-out btn-full" style="margin-top:7px" id="dupCancel">取消，返回修改</button>
+      <div class="modal-title" style="text-align:center">找到相同或相似姓名</div>
+      <p class="modal-sub" style="text-align:center">若這是補點，請選擇原本姓名，新餐點會合併在同一筆紀錄。</p>
+      <input class="modal-inp" id="dupNameSearch" value="${esc(name)}" placeholder="搜尋既有姓名" style="margin-bottom:8px">
+      <div id="dupNameResults" style="max-height:230px;overflow-y:auto;margin-bottom:10px"></div>
+      <button class="btn btn-out btn-full" id="dupNewOrder">這是不同的人，建立新紀錄</button>
+      <button class="btn btn-out btn-full" style="margin-top:7px" id="dupCancel">取消，返回確認姓名</button>
     </div>`;
     document.body.appendChild(box);
-    box.querySelector('#dupConfirm').onclick=()=>{ box.remove(); resolve(true); };
-    box.querySelector('#dupCancel').onclick=()=>{ box.remove(); resolve(false); };
+    const search=box.querySelector('#dupNameSearch');
+    const results=box.querySelector('#dupNameResults');
+    const renderMatches=()=>{
+      const matches=searchExistingOrdersByName(search.value);
+      results.innerHTML=matches.length?matches.map(({order,kind})=>{
+        const items=summarizeOrderItems(order.order_items||[]);
+        const matchLabel=kind==='exact'?'相同姓名':(kind==='similar'?'相似姓名':'搜尋結果');
+        return `<button type="button" class="btn btn-full ${kind==='exact'?'btn-or':'btn-out'}" data-merge-order="${order.id}" style="margin-bottom:6px;text-align:left;line-height:1.45"><strong>${matchLabel}：${esc(order.user_name)}</strong><br><span style="font-size:.68rem;font-weight:600">${esc(items||'尚無餐點')}</span></button>`;
+      }).join(''):'<div style="padding:10px;text-align:center;color:var(--sll);font-size:.74rem">找不到相同或相似姓名</div>';
+    };
+    search.oninput=renderMatches;
+    results.onclick=e=>{
+      const btn=e.target.closest('[data-merge-order]');
+      if(!btn) return;
+      const order=(S.orders[S.activeEventId]||[]).find(item=>item.id===btn.dataset.mergeOrder);
+      box.remove();resolve(order?{action:'merge',order}:{action:'cancel'});
+    };
+    box.querySelector('#dupNewOrder').onclick=()=>{box.remove();resolve({action:'new'});};
+    box.querySelector('#dupCancel').onclick=()=>{box.remove();resolve({action:'cancel'});};
+    renderMatches();
   });
 }
 
-function showFinalOrderConfirmation(ev, name, cartKeys, orderNote){
+async function openSupplementSearch(){
+  const input=document.getElementById('uName');
+  const action=await showDuplicateWarning(input?.value.trim()||S.myName||'');
+  if(action?.action!=='merge'||!action.order) return;
+  S.supplementOrderId=action.order.id;
+  S.myName=action.order.user_name;
+  if(input) input.value=action.order.user_name;
+  const notice=document.getElementById('nameMatchNotice');
+  if(notice) notice.innerHTML=`<div style="margin-top:6px;padding:7px 9px;border-radius:8px;background:var(--grl);color:#166534;font-size:.7rem;font-weight:700">✅ 已選擇補點：${esc(action.order.user_name)}<br><span style="font-weight:600">送出後會合併到原本的後台紀錄。</span></div>`;
+}
+
+function showFinalOrderConfirmation(ev, name, cartKeys, orderNote, mergeOrder=null){
   return new Promise(resolve=>{
     const total=cartKeys.reduce((sum,key)=>{
       const item=S.cart[key];
@@ -1564,7 +1703,7 @@ function showFinalOrderConfirmation(ev, name, cartKeys, orderNote){
       <p class="modal-sub" id="orderFlowSub" style="text-align:center;line-height:1.6">確認以下餐點、規格及數量正確後，再按「確認送出」。</p>
       <div id="orderFlowSummary" style="background:var(--orl);border:1.5px solid var(--orll);border-radius:var(--rmd);padding:9px 11px;margin-bottom:10px;font-size:.76rem;line-height:1.65;color:var(--ord)">
         <strong style="display:block;font-size:.85rem">${esc(ev?.title||'點餐場次')}</strong>
-        姓名：${esc(name)}${ev?.store_name?`　店家：${esc(ev.store_name)}`:''}
+        姓名：${esc(mergeOrder?.user_name||name)}${ev?.store_name?`　店家：${esc(ev.store_name)}`:''}${mergeOrder?'<br><span style="color:#92400e">補點模式：會合併至原本的點餐紀錄</span>':''}
       </div>
       <div style="max-height:260px;overflow-y:auto;border:1px solid var(--bo);border-radius:var(--rmd);padding:4px 11px;margin-bottom:10px">
         ${cartKeys.map(key=>{
@@ -1585,7 +1724,7 @@ function showFinalOrderConfirmation(ev, name, cartKeys, orderNote){
         <span style="font-size:1.08rem;color:var(--or)">${total>0?'合計 $'+total:'價格另計'}</span>
       </div>
       <div id="orderFlowActions">
-        <button class="btn btn-or btn-full" id="finalOrderConfirm">✅ 確認送出</button>
+        <button class="btn btn-or btn-full" id="finalOrderConfirm">${mergeOrder?'✅ 確認補點並合併':'✅ 確認送出'}</button>
         <button class="btn btn-out btn-full" style="margin-top:7px" id="finalOrderCancel">← 返回修改</button>
       </div>
     </div>`;
@@ -1661,37 +1800,41 @@ async function submitOrder(){
     toast(`請填寫「${S.cart[incompleteDrinkKey]?.name||'飲料'}」的甜度冰塊`,'warn');
     return;
   }
-  // 防止重複點餐：檢查同場次是否已有相同姓名
-  const existingOrder=(S.orders[S.activeEventId]||[]).find(o=>o.user_name===S.myName);
-  if(existingOrder){
-    // 顯示確認對話框
-    const confirmed=await showDuplicateWarning(S.myName, existingOrder);
-    if(!confirmed) return;
+  // 防止重複點餐：相同或相似姓名先確認，補點可直接合併到既有訂單。
+  let mergeOrder=(S.orders[S.activeEventId]||[]).find(order=>order.id===S.supplementOrderId)||null;
+  const nameMatches=getNameMatches(S.myName);
+  if(!mergeOrder&&nameMatches.length){
+    const duplicateAction=await showDuplicateWarning(S.myName);
+    if(!duplicateAction||duplicateAction.action==='cancel') return;
+    if(duplicateAction.action==='merge') mergeOrder=duplicateAction.order;
   }
   const noteEl=document.getElementById('orderNote');
   const total=cartKeys.reduce((s,k)=>s+S.cart[k].price*S.cart[k].qty,0);
   const orderNote=noteEl?.value.trim()||'';
-  const orderFlowBox=await showFinalOrderConfirmation(ev,S.myName,cartKeys,orderNote);
+  const orderFlowBox=await showFinalOrderConfirmation(ev,S.myName,cartKeys,orderNote,mergeOrder);
   if(!orderFlowBox) return;
   const orderPayload={menu_id:S.activeEventId,user_name:S.myName,class_name:S.myClass,note:orderNote,total};
   const itemsPayload=cartKeys.map(k=>{const ci=S.cart[k];return{item_id:ci.itemId,item_name:ci.name,item_emoji:'',quantity:ci.qty,unit_price:ci.price,specs_str:ci.specsStr,note:ci.note};});
   document.getElementById('subBtn').disabled=true;
-  const{error}=await dbInsertOrder(orderPayload,itemsPayload);
+  const{error}=mergeOrder
+    ?await dbAppendOrder(mergeOrder,itemsPayload,total,orderNote,S.activeEventId)
+    :await dbInsertOrder(orderPayload,itemsPayload);
   if(error){
     toast('送出失敗：'+error.message,'err');
     document.getElementById('subBtn').disabled=false;
     const confirmBtn=orderFlowBox.querySelector('#finalOrderConfirm');
     const cancelBtn=orderFlowBox.querySelector('#finalOrderCancel');
-    if(confirmBtn){confirmBtn.disabled=false;confirmBtn.textContent='✅ 確認送出';}
+    if(confirmBtn){confirmBtn.disabled=false;confirmBtn.textContent=mergeOrder?'✅ 確認補點並合併':'✅ 確認送出';}
     if(cancelBtn) cancelBtn.disabled=false;
     return;
   }
   S.cart={};
+  S.supplementOrderId=null;
   // 重新載入場次，讓「查看已送出的餐點」立即出現。
   await loadEventDetail(S.activeEventId);
   orderFlowBox.remove();
   render();
-  toast('點餐已成功送出 ✓','ok');
+  toast(mergeOrder?'補點已合併至原本紀錄 ✓':'點餐已成功送出 ✓','ok');
 }
 
 /* ═══ RECORDS ═══ */
@@ -1772,6 +1915,7 @@ function renderAdmin(){
 
   // 統計
   const ords=S.orders[S.adminEid]||[];
+  const duplicateNameFlags=getDuplicateNameFlags(ords);
   const kitch={};
   ords.forEach(o=>(o.order_items||[]).forEach(oi=>{
     const k=oi.item_name+(oi.specs_str?'__'+oi.specs_str:'');
@@ -1793,14 +1937,16 @@ function renderAdmin(){
   </div>`;
 
   // 點餐紀錄
-  html+=`<div class="panel"><div class="panel-head"><div class="panel-title">📋 點餐紀錄</div>
+  html+=`${duplicateNameFlags.size?`<div style="background:var(--aml);border:1.5px solid #fbbf24;border-radius:var(--rmd);padding:9px 12px;margin-bottom:10px;color:#92400e;font-size:.76rem;font-weight:700">⚠️ 發現 ${duplicateNameFlags.size} 筆相同或相似姓名，已在下方標示。請確認是否為重複點餐。</div>`:''}<div class="panel"><div class="panel-head"><div class="panel-title">📋 點餐紀錄</div>
     <button class="btn btn-rd btn-sm" onclick="if(confirm('確定清空所有訂單？'))clearOrders()">清空</button>
   </div><div style="overflow-x:auto"><table class="atbl">
     <thead><tr><th>時間</th><th>姓名</th><th>品項</th><th>合計</th><th></th></tr></thead><tbody>`;
   if(!ords.length) html+='<tr><td colspan="5" style="text-align:center;color:var(--sll);padding:20px">尚無紀錄</td></tr>';
   else ords.forEach(o=>{
-    const summ=(o.order_items||[]).map(oi=>`${oi.item_name}×${oi.quantity}`).join('、');
-    html+=`<tr><td>${fmtTime(o.created_at)}</td><td><strong>${esc(o.user_name)}</strong></td><td style="font-size:.75rem">${esc(summ)}</td><td style="font-weight:700;color:var(--or)">${o.total>0?'$'+o.total:'—'}</td>
+    const summ=summarizeOrderItems(o.order_items||[]);
+    const nameFlags=duplicateNameFlags.get(o.id)||[];
+    const flagLabel=nameFlags.some(flag=>flag.kind==='exact')?'相同姓名':'相似姓名：'+[...new Set(nameFlags.map(flag=>flag.name))].join('、');
+    html+=`<tr${nameFlags.length?' style="background:#fffbeb"':''}><td>${fmtTime(o.created_at)}</td><td><strong>${esc(o.user_name)}</strong>${nameFlags.length?`<div style="margin-top:3px;color:#b45309;font-size:.64rem;font-weight:800">⚠️ ${esc(flagLabel)}</div>`:''}</td><td style="font-size:.75rem">${esc(summ)}</td><td style="font-weight:700;color:var(--or)">${o.total>0?'$'+o.total:'—'}</td>
       <td><button class="btn btn-rd btn-sm" onclick="if(confirm('刪除？'))delOrder('${o.id}','${ev.id}')">刪</button></td></tr>`;
   });
   html+='</tbody></table></div></div>';
