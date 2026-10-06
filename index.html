@@ -3112,22 +3112,41 @@ function buildOrderExportData(){
   const detailHeader=['場次資訊','點餐姓名','店家','品項','規格','糖度冰塊／品項備註','數量','單價','小計','訂單備註'];
   const detailRows=[];
   const summary={};
-  sortedOrders.forEach(o=>(o.order_items||[]).forEach(oi=>{
-    const source=itemMap[oi.item_id]||menuItems.find(item=>item.name===oi.item_name)||{};
-    const restaurant=source.restaurant||ev?.store_name||'未設定店家';
-    const category=source.category||'其他';
-    const workType=category==='飲料'?'飲料':'便當';
-    const qty=Number(oi.quantity)||0;
-    const unitPrice=Number(oi.unit_price)||0;
-    const subtotal=qty*unitPrice;
-    detailRows.push([eventInfo,o.user_name||'',restaurant,oi.item_name,oi.specs_str||'',oi.note||'',qty,unitPrice,subtotal,o.note||'']);
-    const key=[restaurant,workType,category,oi.item_name,oi.specs_str||'',oi.note||'',unitPrice].join('__');
-    if(!summary[key]) summary[key]={diners:new Map(),restaurant,workType,category,name:oi.item_name,specs:oi.specs_str||'',itemNote:oi.note||''};
-    if(o.user_name){
-      const dinerKey=(o.class_name||'')+'\u0000'+o.user_name;
-      summary[key].diners.set(dinerKey,o.user_name);
-    }
-  }));
+  const people=new Map();
+  sortedOrders.forEach((o,orderIndex)=>{
+    const personKey=normalizePersonName(o.user_name)||`__anonymous__${o.id||orderIndex}`;
+    if(!people.has(personKey)) people.set(personKey,{name:o.user_name||'未填姓名',restaurants:new Set(),items:[],notes:new Set(),total:0});
+    const person=people.get(personKey);
+    person.total+=Number(o.total)||0;
+    if(o.note) person.notes.add(o.note);
+    (o.order_items||[]).forEach(oi=>{
+      const source=itemMap[oi.item_id]||menuItems.find(item=>item.name===oi.item_name)||{};
+      const restaurant=source.restaurant||ev?.store_name||'未設定店家';
+      const category=source.category||'其他';
+      const workType=category==='飲料'?'飲料':'便當';
+      const qty=Number(oi.quantity)||0;
+      const unitPrice=Number(oi.unit_price)||0;
+      const subtotal=qty*unitPrice;
+      person.restaurants.add(restaurant);
+      person.items.push(oi);
+      detailRows.push([eventInfo,o.user_name||'',restaurant,oi.item_name,oi.specs_str||'',oi.note||'',qty,unitPrice,subtotal,o.note||'']);
+      const key=[restaurant,workType,category,oi.item_name,oi.specs_str||'',oi.note||'',unitPrice].join('__');
+      if(!summary[key]) summary[key]={diners:new Map(),restaurant,workType,category,name:oi.item_name,specs:oi.specs_str||'',itemNote:oi.note||''};
+      if(o.user_name){
+        const dinerKey=(o.class_name||'')+'\u0000'+o.user_name;
+        summary[key].diners.set(dinerKey,o.user_name);
+      }
+    });
+  });
+  const personHeader=['場次資訊','點餐姓名','店家','餐點內容','訂單備註','合計'];
+  const personRows=sortBySimilarPersonName([...people.values()],person=>person.name).map(person=>[
+    eventInfo,
+    person.name,
+    [...person.restaurants].join('、'),
+    summarizeOrderItems(person.items),
+    [...person.notes].join('；'),
+    person.total>0?'$'+person.total:'—'
+  ]);
   const summaryRows=[];
   Object.values(summary)
     .sort((a,b)=>a.workType.localeCompare(b.workType,'zh-TW')||a.restaurant.localeCompare(b.restaurant,'zh-TW')||a.category.localeCompare(b.category,'zh-TW')||a.name.localeCompare(b.name,'zh-TW'))
@@ -3135,7 +3154,7 @@ function buildOrderExportData(){
       const names=sortBySimilarPersonName([...x.diners.values()],name=>name);
       summaryRows.push([formatMealSummary(x.name,x.specs,x.itemNote),names.length,names.join('、')]);
     });
-  return{ev,detailHeader,detailRows,summaryHeader:['餐點','點餐人數','點餐姓名'],summaryRows};
+  return{ev,detailHeader,detailRows,personHeader,personRows,summaryHeader:['餐點','點餐人數','點餐姓名'],summaryRows};
 }
 function exportCSV(){
   const data=buildOrderExportData();
@@ -3152,7 +3171,7 @@ function showCSVPreview(){
   box.className='modal-bg csv-preview-bg';
   box.innerHTML=`<div class="modal-box csv-preview-box">
     <div class="csv-preview-titlebar"><div class="modal-title">線上點餐表格</div><button type="button" class="csv-preview-close" data-close-csv aria-label="關閉">×</button></div>
-    ${table(data.detailHeader,data.detailRows)}
+    ${table(data.personHeader,data.personRows)}
     <div class="modal-title" style="font-size:1rem;margin-top:18px">餐點彙整</div>
     ${table(data.summaryHeader,data.summaryRows)}
     <div class="csv-preview-actions">
