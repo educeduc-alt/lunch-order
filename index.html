@@ -1818,6 +1818,7 @@ function renderAdmin(){
   </div>
   <div class="exp-row" style="margin-top:4px">
     <button class="exp-btn" onclick="exportCSV()">📥 匯出CSV</button>
+    <button class="exp-btn" onclick="showCSVPreview()">線上查看表格</button>
   </div>`;
 
   // 點餐紀錄
@@ -3080,14 +3081,15 @@ function sortBySimilarPersonName(records,getName){
     .sort((a,b)=>compare(a[0],b[0]))
     .flat();
 }
-function exportCSV(){
+function buildOrderExportData(){
   const ords=S.orders[S.adminEid]||[];
   const sortedOrders=sortBySimilarPersonName(ords,order=>order.user_name||'');
   const ev=S.events.find(e=>e.id===S.adminEid);
   const menuItems=S.items[S.adminEid]||[];
   const itemMap=Object.fromEntries(menuItems.map(item=>[item.id,item]));
-  // 每一個品項列都保留場次、姓名與分工分類，方便直接用試算表篩選便當／飲料。
-  const rows=[['場次','場次日期','承辦','點餐時間','點餐姓名','店家','分工分類','原始分類','品項','規格','糖度冰塊／品項備註','數量','單價','小計','訂單備註']];
+  const eventInfo=[ev?.title&&`場次：${ev.title}`,ev?.date&&`日期：${ev.date}`,ev?.organizer&&`承辦：${ev.organizer}`].filter(Boolean).join('｜');
+  const detailHeader=['場次資訊','點餐姓名','店家','品項','規格','糖度冰塊／品項備註','數量','單價','小計','訂單備註'];
+  const detailRows=[];
   const summary={};
   sortedOrders.forEach(o=>(o.order_items||[]).forEach(oi=>{
     const source=itemMap[oi.item_id]||menuItems.find(item=>item.name===oi.item_name)||{};
@@ -3097,8 +3099,7 @@ function exportCSV(){
     const qty=Number(oi.quantity)||0;
     const unitPrice=Number(oi.unit_price)||0;
     const subtotal=qty*unitPrice;
-    rows.push([ev?.title||'',ev?.date||'',ev?.organizer||'',fmtTime(o.created_at),o.user_name||'',restaurant,workType,category,
-      oi.item_name,oi.specs_str||'',oi.note||'',qty,unitPrice,subtotal,o.note||'']);
+    detailRows.push([eventInfo,o.user_name||'',restaurant,oi.item_name,oi.specs_str||'',oi.note||'',qty,unitPrice,subtotal,o.note||'']);
     const key=[restaurant,workType,category,oi.item_name,oi.specs_str||'',oi.note||'',unitPrice].join('__');
     if(!summary[key]) summary[key]={diners:new Map(),restaurant,workType,category,name:oi.item_name,specs:oi.specs_str||'',itemNote:oi.note||''};
     if(o.user_name){
@@ -3106,15 +3107,41 @@ function exportCSV(){
       summary[key].diners.set(dinerKey,o.user_name);
     }
   }));
-  rows.push([],['餐點彙整']);
-  rows.push(['餐點','點餐人數','點餐姓名']);
+  const summaryRows=[];
   Object.values(summary)
     .sort((a,b)=>a.workType.localeCompare(b.workType,'zh-TW')||a.restaurant.localeCompare(b.restaurant,'zh-TW')||a.category.localeCompare(b.category,'zh-TW')||a.name.localeCompare(b.name,'zh-TW'))
     .forEach(x=>{
       const names=sortBySimilarPersonName([...x.diners.values()],name=>name);
-      rows.push([formatMealSummary(x.name,x.specs,x.itemNote),names.length,names.join('、')]);
+      summaryRows.push([formatMealSummary(x.name,x.specs,x.itemNote),names.length,names.join('、')]);
     });
+  return{ev,detailHeader,detailRows,summaryHeader:['餐點','點餐人數','點餐姓名'],summaryRows};
+}
+function exportCSV(){
+  const data=buildOrderExportData();
+  if(!data.detailRows.length){toast('沒有資料','warn');return;}
+  const rows=[data.detailHeader,...data.detailRows,[],['餐點彙整'],data.summaryHeader,...data.summaryRows];
+  const ev=data.ev;
   dlCSV(rows,`點餐紀錄_${ev?.title||''}`);
+}
+function showCSVPreview(){
+  const data=buildOrderExportData();
+  if(!data.detailRows.length){toast('沒有資料','warn');return;}
+  const table=(header,rows)=>`<div style="overflow:auto;border:1px solid var(--bo);border-radius:10px;margin-top:8px"><table style="border-collapse:collapse;width:max-content;min-width:100%;font-size:.75rem"><thead><tr>${header.map(cell=>`<th style="position:sticky;top:0;background:var(--orl);padding:8px 10px;border:1px solid var(--bo);white-space:nowrap;text-align:left">${esc(cell)}</th>`).join('')}</tr></thead><tbody>${rows.map(row=>`<tr>${row.map(cell=>`<td style="padding:7px 10px;border:1px solid var(--bo);white-space:nowrap">${esc(cell)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+  const box=document.createElement('div');
+  box.className='modal-bg';
+  box.innerHTML=`<div class="modal-box" style="width:min(1100px,94vw);max-width:94vw;max-height:88vh;text-align:left;overflow:auto">
+    <div class="modal-title">線上點餐表格</div>
+    ${table(data.detailHeader,data.detailRows)}
+    <div class="modal-title" style="font-size:1rem;margin-top:18px">餐點彙整</div>
+    ${table(data.summaryHeader,data.summaryRows)}
+    <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+      <button class="btn btn-or" onclick="exportCSV()">📥 匯出CSV</button>
+      <button class="btn btn-out" id="closeCSVPreview">關閉</button>
+    </div>
+  </div>`;
+  document.body.appendChild(box);
+  box.querySelector('#closeCSVPreview').onclick=()=>box.remove();
+  box.addEventListener('click',event=>{if(event.target===box) box.remove();});
 }
 function dlCSV(rows,name){
   if(rows.length<=1){toast('沒有資料','warn');return;}
