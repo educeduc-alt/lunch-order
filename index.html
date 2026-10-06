@@ -127,7 +127,6 @@ body.shared-event-mode .main{padding-top:18px}
 .m-card.sel{border-color:var(--or);box-shadow:var(--shmd)}
 .m-card.sel::after{opacity:1}
 .m-card>*{position:relative;z-index:1}
-.m-emoji{font-size:1.7rem;display:block;margin-bottom:6px}
 .m-name{font-weight:700;font-size:.85rem;line-height:1.3;margin-bottom:2px}
 .m-desc{font-size:.68rem;color:var(--sll);line-height:1.4;margin-bottom:7px}
 .m-price{font-family:'Nunito',sans-serif;font-weight:900;font-size:1.05rem;color:var(--or)}
@@ -137,6 +136,14 @@ body.shared-event-mode .main{padding-top:18px}
 .qb{width:25px;height:25px;border-radius:50%;border:1.5px solid var(--bo);background:var(--ca);display:flex;align-items:center;justify-content:center;font-size:.95rem;font-weight:700;color:var(--slm);transition:all .15s}
 .qb:hover{background:var(--or);color:#fff;border-color:var(--or)}
 .qn{font-family:'Nunito',sans-serif;font-weight:800;font-size:.88rem;min-width:18px;text-align:center}
+.menu-source-images{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.menu-source-thumb{display:flex;align-items:center;gap:8px;border:1.5px solid var(--bo);border-radius:var(--rmd);background:var(--ca);padding:6px 9px;cursor:pointer;color:var(--sl);font:inherit;font-size:.72rem;font-weight:800}
+.menu-source-thumb img{width:54px;height:42px;object-fit:cover;border-radius:7px;border:1px solid var(--bo)}
+.menu-image-lightbox{position:fixed;inset:0;z-index:700;background:rgba(15,23,42,.86);display:flex;align-items:center;justify-content:center;padding:18px}
+.menu-image-lightbox-inner{position:relative;max-width:min(960px,96vw);max-height:94vh;display:flex;flex-direction:column;align-items:center;gap:8px}
+.menu-image-lightbox img{display:block;max-width:100%;max-height:84vh;object-fit:contain;border-radius:12px;background:#fff;box-shadow:0 18px 60px rgba(0,0,0,.35)}
+.menu-image-lightbox-title{color:#fff;font-size:.82rem;font-weight:800}
+.menu-image-lightbox-close{position:absolute;right:-8px;top:-8px;width:36px;height:36px;border:0;border-radius:50%;background:#fff;color:var(--sl);font-size:1.25rem;font-weight:900;cursor:pointer;box-shadow:var(--shmd)}
 
 /* ── SPEC SHEET ── */
 .overlay{position:fixed;inset:0;background:rgba(15,23,42,.46);backdrop-filter:blur(3px);z-index:200;display:flex;align-items:flex-end;justify-content:center;animation:fi .2s}
@@ -318,7 +325,6 @@ body.shared-event-mode .main{padding-top:18px}
   /* 菜單格子：手機兩欄 */
   .menu-grid{grid-template-columns:1fr 1fr;gap:7px}
   .m-card{padding:11px 9px 9px}
-  .m-emoji{font-size:1.5rem}
   .m-name{font-size:.8rem}
   .m-price{font-size:.95rem}
 
@@ -577,6 +583,8 @@ function resetMenuEditorState(){
   S.parseComparison=null;
   window._pendingMainFile=null;
   window._pendingDrinkFile=null;
+  window._pendingMainPreviewDataUrl=null;
+  window._pendingDrinkPreviewDataUrl=null;
 }
 
 function prepareNewEventDraft(){
@@ -775,6 +783,53 @@ window.addEventListener('popstate',()=>{
   render();
 });
 
+function parseEventMenuImages(value){
+  if(!value) return {};
+  if(typeof value==='object') return value;
+  try{
+    const parsed=JSON.parse(value);
+    if(parsed&&typeof parsed==='object') return parsed;
+  }catch(e){}
+  return /^https?:\/\//i.test(String(value))?{main:String(value)}:{};
+}
+
+function renderEventMenuImages(ev){
+  const images=parseEventMenuImages(ev?.img_url);
+  const entries=[['main','主菜菜單原圖'],['drink','飲料菜單原圖']].filter(([key])=>images[key]);
+  if(!entries.length) return '';
+  return `<div class="menu-source-images">${entries.map(([key,label])=>`<button type="button" class="menu-source-thumb" onclick="openEventMenuImage('${ev.id}','${key}','${label}')"><img src="${esc(images[key])}" alt="${label}"><span>${label}<br><small style="font-weight:700;color:var(--sll)">點擊放大</small></span></button>`).join('')}</div>`;
+}
+
+function openEventMenuImage(eid,imageType,label){
+  const ev=S.events.find(event=>event.id===eid);
+  const url=parseEventMenuImages(ev?.img_url)[imageType];
+  openMenuImage(url,label);
+}
+
+function openMenuImage(url,label='菜單原圖'){
+  if(!url) return;
+  const overlay=document.createElement('div');
+  overlay.className='menu-image-lightbox';
+  const inner=document.createElement('div');
+  inner.className='menu-image-lightbox-inner';
+  const image=document.createElement('img');
+  image.src=url;
+  image.alt=label;
+  const title=document.createElement('div');
+  title.className='menu-image-lightbox-title';
+  title.textContent=label;
+  const close=document.createElement('button');
+  close.type='button';
+  close.className='menu-image-lightbox-close';
+  close.setAttribute('aria-label','關閉圖片');
+  close.textContent='×';
+  close.onclick=()=>overlay.remove();
+  inner.append(image,title,close);
+  overlay.appendChild(inner);
+  overlay.onclick=e=>{if(e.target===overlay) overlay.remove();};
+  document.body.appendChild(overlay);
+}
+
 /* ── ORDER PAGE ── */
 function renderOrderPage(){
   const ev=S.events.find(e=>e.id===S.activeEventId);
@@ -801,6 +856,7 @@ function renderOrderPage(){
   html+=`<div class="id-card">
     <div class="fld"><label>姓名</label><div class="name-url-row"><input class="inp" id="uName" placeholder="王小明" value="${esc(S.myName)}" oninput="S.myName=this.value">${S.sharedEventMode?'':'<button type="button" class="btn btn-out copy-event-url" onclick="copyEventUrl()">🔗 複製場次網址</button>'}</div></div>
     <div class="activity-meal-help"><span style="font-size:1.15rem">☀️</span><div><strong>活動餐點說明</strong><br>${ev.activity_note?esc(ev.activity_note):'承辦人尚未填寫本場次活動說明。'}<br>請確認餐點規格與數量後再送出。</div></div>
+    ${renderEventMenuImages(ev)}
   </div>`;
 
   // 分享頁只在橘色場次資訊後顯示姓名與點餐內容；不提供返回或管理入口。
@@ -845,7 +901,6 @@ function renderOrderPage(){
           const subsidyLimit=(cat==='便當'||cat==='點心')?120:(cat==='飲料'?40:0);
           const overage=subsidyLimit&&item.price>subsidyLimit?item.price-subsidyLimit:0;
           html+=`<div class="m-card${totalQty>0?' sel':''}">
-          <span class="m-emoji">${esc(item.emoji)}</span>
           <div class="m-name">${esc(item.name)}</div>
           ${item.description?`<div class="m-desc">${esc(item.description)}</div>`:''}
           ${item.price>0?`<div class="m-price">$${item.price}</div>`:'<div class="m-price" style="color:var(--sll)">詢價</div>'}
@@ -873,7 +928,7 @@ function renderOrderPage(){
       const ci=S.cart[k]; if(!ci) return;
       total+=ci.price*ci.qty;
       html+=`<div class="cart-row">
-        <div><span>${esc(ci.emoji)} ${esc(ci.name)} <strong style="color:var(--or)">× ${ci.qty}</strong></span>
+        <div><span>${esc(ci.name)} <strong style="color:var(--or)">× ${ci.qty}</strong></span>
           ${ci.specsStr?`<div class="cart-spec">${esc(ci.specsStr)}</div>`:''}
           ${ci.note?`<div class="cart-note">備註：${esc(ci.note)}</div>`:''}
         </div>
@@ -994,9 +1049,8 @@ function renderComboSheet(){
         html+=`<div onclick="selectComboMain('${item.id}')"
           style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border:2px solid ${sel?'var(--or)':'var(--bo)'};border-radius:var(--rmd);background:${sel?'var(--orl)':'var(--ca)'};cursor:pointer">
           <div style="flex:1">
-            <span style="font-size:1.2rem">${esc(item.emoji)}</span>
-            <span style="font-weight:600;font-size:.9rem;margin-left:7px">${esc(item.name)}</span>
-            ${item.description?`<div style="font-size:.72rem;color:var(--sll);margin-top:2px;margin-left:26px">${esc(item.description)}</div>`:''}
+            <span style="font-weight:600;font-size:.9rem">${esc(item.name)}</span>
+            ${item.description?`<div style="font-size:.72rem;color:var(--sll);margin-top:2px">${esc(item.description)}</div>`:''}
           </div>
           <div style="text-align:right;flex-shrink:0;margin-left:8px">
             ${item.price>0?`<div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:.95rem;color:var(--or)">$${item.price}</div>`:''}
@@ -1015,7 +1069,7 @@ function renderComboSheet(){
   } else if(S.comboStep==='side'){
     html+=`<div class="sheet-title">🍟 加配餐？<span style="font-size:.75rem;color:var(--sll);font-weight:400;margin-left:6px">可多選，或直接跳過</span></div>`;
     // 主餐摘要
-    if(S.comboMain) html+=`<div style="background:var(--orl);border-radius:var(--rsm);padding:7px 11px;margin-bottom:11px;font-size:.8rem;color:var(--ord)">✅ 主餐：${esc(S.comboMain.item.emoji)} ${esc(S.comboMain.item.name)}</div>`;
+    if(S.comboMain) html+=`<div style="background:var(--orl);border-radius:var(--rsm);padding:7px 11px;margin-bottom:11px;font-size:.8rem;color:var(--ord)">✅ 主餐：${esc(S.comboMain.item.name)}</div>`;
     if(!sideItems.length){
       html+=`<div style="font-size:.8rem;color:var(--sll);text-align:center;padding:16px">此場次無配餐品項</div>`;
     } else {
@@ -1024,8 +1078,7 @@ function renderComboSheet(){
         const sel=S.comboSides.find(s=>s.item.id===item.id);
         html+=`<div onclick="toggleComboItem('side','${item.id}')"
           style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border:1.5px solid ${sel?'var(--or)':'var(--bo)'};border-radius:var(--rmd);background:${sel?'var(--orl)':'var(--ca)'};cursor:pointer">
-          <div><span style="font-size:1.1rem">${esc(item.emoji)}</span>
-            <span style="font-weight:600;font-size:.88rem;margin-left:6px">${esc(item.name)}</span>
+          <div><span style="font-weight:600;font-size:.88rem">${esc(item.name)}</span>
             ${item.price>0?`<span style="color:var(--or);font-weight:700;font-size:.82rem;margin-left:6px">$${item.price}</span>`:''}
           </div>
           <div style="width:22px;height:22px;border-radius:50%;border:2px solid ${sel?'var(--or)':'var(--bo)'};background:${sel?'var(--or)':'transparent'};display:flex;align-items:center;justify-content:center;font-size:.75rem;color:#fff;flex-shrink:0">${sel?'✓':''}</div>
@@ -1044,7 +1097,7 @@ function renderComboSheet(){
     // 摘要
     const sideNames=S.comboSides.map(s=>s.item.name).join('、');
     html+=`<div style="background:var(--orl);border-radius:var(--rsm);padding:7px 11px;margin-bottom:11px;font-size:.78rem;color:var(--ord);line-height:1.7">`;
-    if(S.comboMain) html+=`✅ ${esc(S.comboMain.item.emoji)} ${esc(S.comboMain.item.name)}<br>`;
+    if(S.comboMain) html+=`✅ ${esc(S.comboMain.item.name)}<br>`;
     if(sideNames) html+=`🍟 ${sideNames}<br>`;
     html+=`</div>`;
     if(!drinkItems.length){
@@ -1055,8 +1108,7 @@ function renderComboSheet(){
         const sel=S.comboDrinks.find(d=>d.item.id===item.id);
         html+=`<div onclick="toggleComboItem('drink','${item.id}')"
           style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border:1.5px solid ${sel?'var(--or)':'var(--bo)'};border-radius:var(--rmd);background:${sel?'var(--orl)':'var(--ca)'};cursor:pointer">
-          <div><span style="font-size:1.1rem">${esc(item.emoji)}</span>
-            <span style="font-weight:600;font-size:.88rem;margin-left:6px">${esc(item.name)}</span>
+          <div><span style="font-weight:600;font-size:.88rem">${esc(item.name)}</span>
             ${item.price>0?`<span style="color:var(--or);font-weight:700;font-size:.82rem;margin-left:6px">$${item.price}</span>`:''}
             <span style="font-size:.65rem;color:var(--rd);margin-left:4px">甜度冰塊必填</span>
             ${sel?.note?`<div style="font-size:.68rem;color:var(--ord);margin:3px 0 0 30px">${esc(sel.note)}</div>`:''}
@@ -1133,7 +1185,7 @@ function showComboSpecPicker(type, item, arr){
 
   function buildPickerHTML(){
     let h=`<div style="position:absolute;inset:0;background:rgba(255,255,255,.97);border-radius:var(--rxl);padding:18px;z-index:10;display:flex;flex-direction:column">
-      <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:1rem;border-left:4px solid var(--or);padding-left:9px;margin-bottom:14px">${esc(item.emoji)} ${esc(item.name)}${item.price>0?' <span style=\"color:var(--or)\">$'+item.price+'</span>':''}</div>`;
+      <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:1rem;border-left:4px solid var(--or);padding-left:9px;margin-bottom:14px">${esc(item.name)}${item.price>0?' <span style=\"color:var(--or)\">$'+item.price+'</span>':''}</div>`;
     item.specs.forEach(sp=>{
       const multi=isMultiAddonSpec(sp.cat,item);
       h+=`<div style="margin-bottom:12px"><div style="font-size:.68rem;font-weight:700;color:var(--sll);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">${esc(sp.cat)}</div>
@@ -1414,7 +1466,7 @@ function renderSheet(){
   const item=S.specItem;
   const curPrice=calcSpecPrice(item, S.specSel);
   const unpricedAddons=getUnpricedAddons(S.specSel);
-  document.getElementById('sheetTitle').innerHTML=`${esc(item.emoji)} ${esc(item.name)}${curPrice>0?` <span style="color:var(--or);font-size:.9rem">$${curPrice}</span>`:''}`;
+  document.getElementById('sheetTitle').innerHTML=`${esc(item.name)}${curPrice>0?` <span style="color:var(--or);font-size:.9rem">$${curPrice}</span>`:''}`;
   let html='';
   (item.specs||[]).forEach(sp=>{
     const multi=isMultiAddonSpec(sp.cat,item);
@@ -1480,7 +1532,7 @@ function closeSpec(){document.getElementById('specOverlay').style.display='none'
 
 function showDuplicateWarning(name, existingOrder){
   return new Promise(resolve=>{
-    const items=(existingOrder.order_items||[]).map(oi=>oi.item_emoji+oi.item_name+'×'+oi.quantity).join('、');
+    const items=(existingOrder.order_items||[]).map(oi=>oi.item_name+'×'+oi.quantity).join('、');
     const box=document.createElement('div');
     box.className='modal-bg';
     box.innerHTML=`<div class="modal-box">
@@ -1519,7 +1571,7 @@ function showFinalOrderConfirmation(ev, name, cartKeys, orderNote){
           const item=S.cart[key];
           const subtotal=(Number(item.price)||0)*(Number(item.qty)||0);
           return `<div style="display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px dashed var(--bo)">
-            <div style="min-width:0"><div style="font-size:.84rem;font-weight:800;color:var(--sl)">${esc(item.emoji)} ${esc(item.name)} × ${item.qty}</div>
+            <div style="min-width:0"><div style="font-size:.84rem;font-weight:800;color:var(--sl)">${esc(item.name)} × ${item.qty}</div>
               ${item.specsStr?`<div style="font-size:.7rem;color:var(--in);margin-top:2px">規格：${esc(item.specsStr)}</div>`:''}
               ${item.note?`<div style="font-size:.7rem;color:var(--ord);margin-top:2px">備註：${esc(item.note)}</div>`:''}
             </div>
@@ -1571,7 +1623,7 @@ function showSubmittedOrderNotice(orderId){
         ${items.map(item=>{
           const subtotal=(Number(item.unit_price)||0)*(Number(item.quantity)||0);
           return `<div style="display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px dashed var(--bo)">
-            <div><div style="font-size:.84rem;font-weight:800">${esc(item.item_emoji)} ${esc(item.item_name)} × ${item.quantity}</div>
+            <div><div style="font-size:.84rem;font-weight:800">${esc(item.item_name)} × ${item.quantity}</div>
               ${item.specs_str?`<div style="font-size:.7rem;color:var(--in);margin-top:2px">規格：${esc(item.specs_str)}</div>`:''}
               ${item.note?`<div style="font-size:.7rem;color:var(--ord);margin-top:2px">備註：${esc(item.note)}</div>`:''}
             </div>
@@ -1622,7 +1674,7 @@ async function submitOrder(){
   const orderFlowBox=await showFinalOrderConfirmation(ev,S.myName,cartKeys,orderNote);
   if(!orderFlowBox) return;
   const orderPayload={menu_id:S.activeEventId,user_name:S.myName,class_name:S.myClass,note:orderNote,total};
-  const itemsPayload=cartKeys.map(k=>{const ci=S.cart[k];return{item_id:ci.itemId,item_name:ci.name,item_emoji:ci.emoji,quantity:ci.qty,unit_price:ci.price,specs_str:ci.specsStr,note:ci.note};});
+  const itemsPayload=cartKeys.map(k=>{const ci=S.cart[k];return{item_id:ci.itemId,item_name:ci.name,item_emoji:'',quantity:ci.qty,unit_price:ci.price,specs_str:ci.specsStr,note:ci.note};});
   document.getElementById('subBtn').disabled=true;
   const{error}=await dbInsertOrder(orderPayload,itemsPayload);
   if(error){
@@ -1667,7 +1719,7 @@ function renderRec(){
         </div>
         <span class="rec-badge">已登記</span>
       </div>
-      <div class="rec-lines">${(o.order_items||[]).map(oi=>`${esc(oi.item_emoji)} ${esc(oi.item_name)}${oi.specs_str?` (${esc(oi.specs_str)})`:''} × ${oi.quantity}${oi.note?` — ${esc(oi.note)}`:''}`).join('<br>')}</div>
+      <div class="rec-lines">${(o.order_items||[]).map(oi=>`${esc(oi.item_name)}${oi.specs_str?` (${esc(oi.specs_str)})`:''} × ${oi.quantity}${oi.note?` — ${esc(oi.note)}`:''}`).join('<br>')}</div>
       ${o.note?`<div style="font-size:.72rem;color:var(--sll);margin-bottom:6px">備註：${esc(o.note)}</div>`:''}
       <div class="rec-foot"><span>合計</span><span class="rec-price">${o.total>0?'$'+o.total:'（詢價）'}</span></div>
     </div>`;
@@ -1747,7 +1799,7 @@ function renderAdmin(){
     <thead><tr><th>時間</th><th>姓名</th><th>品項</th><th>合計</th><th></th></tr></thead><tbody>`;
   if(!ords.length) html+='<tr><td colspan="5" style="text-align:center;color:var(--sll);padding:20px">尚無紀錄</td></tr>';
   else ords.forEach(o=>{
-    const summ=(o.order_items||[]).map(oi=>`${oi.item_emoji}${oi.item_name}×${oi.quantity}`).join('、');
+    const summ=(o.order_items||[]).map(oi=>`${oi.item_name}×${oi.quantity}`).join('、');
     html+=`<tr><td>${fmtTime(o.created_at)}</td><td><strong>${esc(o.user_name)}</strong></td><td style="font-size:.75rem">${esc(summ)}</td><td style="font-weight:700;color:var(--or)">${o.total>0?'$'+o.total:'—'}</td>
       <td><button class="btn btn-rd btn-sm" onclick="if(confirm('刪除？'))delOrder('${o.id}','${ev.id}')">刪</button></td></tr>`;
   });
@@ -1919,7 +1971,6 @@ function renderEventMgmt(ev){
         return `<div class="mgmt-item-row" style="flex-wrap:wrap;flex-direction:column;align-items:stretch;padding:9px 8px;${it._historyMissing?'border-color:#f59e0b;background:#fffbeb':''}">
           ${it._historyMissing?'<div style="font-size:.7rem;font-weight:800;color:#92400e;background:#fef3c7;border-radius:7px;padding:6px 8px;margin-bottom:7px">⚠️ 歷史菜單有此品項，但本次未解析到。請確認是否為解析遺漏；要保留可直接儲存，不需要請按「不保留」。</div>':''}
           <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-            <input class="mg-inp mi-em" value="${esc(it.emoji)}" id="me-${i}" placeholder="🍱" oninput="updatePendingItem(${i},'emoji',this.value)" style="width:44px;text-align:center">
             <select class="mg-inp" id="mc-${i}" onchange="updatePendingItem(${i},'category',this.value)" style="width:78px">
               ${['便當','點心','飲料','其他'].map(c=>`<option value="${c}"${(it.category||'其他')===c?' selected':''}>${c}</option>`).join('')}
             </select>
@@ -1966,6 +2017,14 @@ function splitHistoryEntries(entries){
   return result;
 }
 
+function getHistoryMenuImage(entry){
+  if(entry?.imageUrl) return entry.imageUrl;
+  const ev=S.events.find(event=>event.id===entry?.eventId);
+  const images=parseEventMenuImages(ev?.img_url);
+  const imageType=entry?.imageType||(entry?.type==='飲料'?'drink':'main');
+  return images[imageType]||'';
+}
+
 function showMenuCache(){
   const stored=JSON.parse(localStorage.getItem('menuCache')||'[]');
   // 合併預設菜單（不重複）
@@ -1991,13 +2050,19 @@ function showMenuCache(){
       const border=active?(isDrink?'#4f46e5':'#f97316'):(isDrink?'#a5b4fc':'#fdba74');
       const background=active?(isDrink?'#4f46e5':'#f97316'):(isDrink?'#eef2ff':'#fff7ed');
       const color=active?'#fff':(isDrink?'#3730a3':'#9a3412');
-      return '<button data-cache-idx="'+index+'" aria-pressed="'+active+'" style="text-align:left;padding:8px 13px;border:1.5px solid '+border+';border-radius:999px;background:'+background+';color:'+color+';box-shadow:'+(active?'0 3px 10px rgba(15,23,42,.2)':'none')+';cursor:pointer;font-family:inherit;max-width:100%">'
+      const imageUrl=getHistoryMenuImage(entry);
+      return '<div style="display:flex;align-items:stretch;gap:5px;max-width:100%">'
+        +'<button data-cache-idx="'+index+'" aria-pressed="'+active+'" style="text-align:left;padding:8px 13px;border:1.5px solid '+border+';border-radius:999px;background:'+background+';color:'+color+';box-shadow:'+(active?'0 3px 10px rgba(15,23,42,.2)':'none')+';cursor:pointer;font-family:inherit;max-width:100%">'
         +'<div style="font-weight:800;font-size:.78rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(isDrink?'🧋':'🍱')+' '+esc(entry.store||'未知店家')+' · '+entry.type+'</div>'
         +'<div style="font-size:.65rem;opacity:.72;margin-top:1px">'+(entry.items||[]).length+' 個品項'+(entry.savedAt&&entry.savedAt!=='內建菜單'?' · '+esc(entry.savedAt):'')+(entry.savedAt==='內建菜單'?' · 內建':'')+'</div>'
-        +'</button>';
+        +'</button>'
+        +(imageUrl?'<button type="button" data-cache-image-idx="'+index+'" title="放大菜單圖片" style="width:42px;min-width:42px;border:1.5px solid '+border+';border-radius:12px;background:#fff;cursor:pointer;padding:3px"><img src="'+esc(imageUrl)+'" alt="菜單原圖" style="width:100%;height:100%;max-height:42px;object-fit:cover;border-radius:8px"></button>':'')
+        +'</div>';
     }).join('');
   }
   inner.querySelector('#cacheList').addEventListener('click',e=>{
+    const imageBtn=e.target.closest('button[data-cache-image-idx]');
+    if(imageBtn){const entry=cached[Number(imageBtn.dataset.cacheImageIdx)];openMenuImage(getHistoryMenuImage(entry),(entry?.store||'歷史菜單')+'菜單原圖');return;}
     const btn=e.target.closest('button[data-cache-idx]');
     if(btn){ loadCachedMenu(Number(btn.dataset.cacheIdx)); }
   });
@@ -2302,7 +2367,7 @@ function updatePendingItem(index, field, value){
 function syncPendingItemsFromForm(){
   S.pendingItems.forEach((item,index)=>{
     const read=id=>document.getElementById(id)?.value;
-    const fields={emoji:'me-',category:'mc-',restaurant:'mr-',name:'mn-',price:'mp-',description:'md-'};
+    const fields={category:'mc-',restaurant:'mr-',name:'mn-',price:'mp-',description:'md-'};
     Object.entries(fields).forEach(([field,prefix])=>{
       const value=read(prefix+index);
       if(value!==undefined) updatePendingItem(index,field,value);
@@ -2341,7 +2406,7 @@ function addSpecCat(itemIdx){
 
 function addItem(){
   syncPendingItemsFromForm();
-  S.pendingItems.push({id:'new-'+Date.now(),menu_id:S.adminEid||'',restaurant:'',emoji:'🍱',name:'',description:'',price:0,specs:[],sort_order:S.pendingItems.length,ai_parsed:false,category:'其他'});
+  S.pendingItems.push({id:'new-'+Date.now(),menu_id:S.adminEid||'',restaurant:'',emoji:'',name:'',description:'',price:0,specs:[],sort_order:S.pendingItems.length,ai_parsed:false,category:'其他'});
   render();
 }
 function removeItem(i){ syncPendingItemsFromForm(); S.pendingItems.splice(i,1); render(); }
@@ -2426,6 +2491,13 @@ async function saveMenu(){
     }
     if(evNow) Object.assign(evNow,{date,title,activity_note,organizer,store_name});
   }
+  try{
+    const savedImageValue=await persistPendingMenuImages(eid,evNow?.img_url||'');
+    if(savedImageValue!==null&&evNow) evNow.img_url=savedImageValue;
+  }catch(imageError){
+    toast('菜單圖片儲存失敗：'+imageError.message,'err');
+    return;
+  }
   if(!S.pendingItems.length){
     toast(isNewDraft?'✅ 新場次已建立並顯示於上方':'✅ 目前畫面設定已儲存','ok');
     render();
@@ -2435,7 +2507,7 @@ async function saveMenu(){
   // 把 pendingItems 讀取欄位後 append 到資料庫（不刪除既有品項）
   const existingCount=(S.items[eid]||[]).length;
   const newItems=S.pendingItems.map((it,i)=>({
-    emoji:document.getElementById('me-'+i)?.value||it.emoji,
+    emoji:'',
     category:document.getElementById('mc-'+i)?.value||it.category||'其他',
     restaurant:document.getElementById('mr-'+i)?.value||it.restaurant,
     name:document.getElementById('mn-'+i)?.value||it.name,
@@ -2476,13 +2548,13 @@ async function saveMenu(){
         if(bento.length){
           const k=sName+'__便當';
           const bi=cached.findIndex(c=>c.key===k);
-          const be={key:k,store:sName,type:'便當',items:bento,savedAt:date};
+          const be={key:k,store:sName,type:'便當',items:bento,eventId:eid,imageType:'main',savedAt:date};
           if(bi>=0) cached[bi]=be; else cached.unshift(be);
         }
         if(drink.length){
           const k=sName+'__飲料';
           const di=cached.findIndex(c=>c.key===k);
-          const de={key:k,store:sName,type:'飲料',items:drink,savedAt:date};
+          const de={key:k,store:sName,type:'飲料',items:drink,eventId:eid,imageType:'drink',savedAt:date};
           if(di>=0) cached[di]=de; else cached.unshift(de);
         }
       });
@@ -2505,6 +2577,28 @@ async function saveMenu(){
 
 
 /* ── IMAGE + AI ── */
+
+function setPendingMenuPreview(uploadType,dataUrl){
+  if(uploadType==='drink') window._pendingDrinkPreviewDataUrl=dataUrl;
+  else window._pendingMainPreviewDataUrl=dataUrl;
+}
+
+async function persistPendingMenuImages(eid,currentValue){
+  const pending={main:window._pendingMainPreviewDataUrl,drink:window._pendingDrinkPreviewDataUrl};
+  if(!pending.main&&!pending.drink) return null;
+  const images=parseEventMenuImages(currentValue);
+  for(const type of ['main','drink']){
+    const dataUrl=pending[type];
+    if(!dataUrl) continue;
+    images[type]=dataUrl;
+  }
+  const imgValue=JSON.stringify(images);
+  const{data:rows,error:updateError}=await sb.from('menus').update({img_url:imgValue}).eq('id',eid).select('id');
+  if(updateError||!rows?.length) throw new Error(updateError?.message||'圖片網址未寫入場次');
+  window._pendingMainPreviewDataUrl=null;
+  window._pendingDrinkPreviewDataUrl=null;
+  return imgValue;
+}
 
 // 選完檔案後預覽，顯示「開始解析」按鈕
 function previewFile(e, uploadType){
@@ -2725,13 +2819,11 @@ async function handleImg(event, uploadType='main'){
     // PDF 用 PDF.js 轉換第一頁為圖片
     return await aiParsePdf(file,uploadType);
   }
-  const reader=new FileReader();
-  reader.onload=e=>{
-    if(zone) zone.innerHTML=`<img src="${e.target.result}" class="menu-preview-img"><div style="margin-top:6px;font-size:.72rem;color:var(--in)">點擊更換圖片</div><input type="file" id="imgInp" accept="image/*,application/pdf" style="display:none" onchange="handleImg(event)">`;
-  };
-  reader.readAsDataURL(file);
-  // AI 解析直接使用瀏覽器內壓縮後的圖片；不另存未使用的原圖，避免 Storage 設定異常阻礙解析。
-  return await aiParse(file,uploadType);
+  const base64=await toBase64(file);
+  const dataUrl=`data:image/jpeg;base64,${base64}`;
+  setPendingMenuPreview(uploadType,dataUrl);
+  if(zone) zone.innerHTML=`<input type="file" id="${uploadType==='drink'?'imgInpDrink':'imgInpMain'}" accept="image/*,application/pdf" style="display:none" onchange="previewFile(event,'${uploadType}')"><img src="${dataUrl}" class="menu-preview-img"><div style="margin-top:6px;font-size:.72rem;color:var(--in)">點擊更換圖片</div>`;
+  return await aiParseBase64(base64,'image/jpeg',uploadType);
 }
 async function aiParsePdf(file,uploadType='main'){
   const stId=(uploadType==='drink')?'aiStatusDrink':'aiStatusMain';
@@ -2749,22 +2841,24 @@ async function aiParsePdf(file,uploadType='main'){
     canvas.width=viewport.width; canvas.height=viewport.height;
     await page.render({canvasContext:canvas.getContext('2d'),viewport}).promise;
     // 壓縮成 jpeg
-    const MAX=1000;
+    const MAX=850;
     let w=canvas.width,h=canvas.height;
     if(w>MAX||h>MAX){
       const out=document.createElement('canvas');
       if(w>h){h=Math.round(h*MAX/w);w=MAX;}else{w=Math.round(w*MAX/h);h=MAX;}
       out.width=w;out.height=h;
       out.getContext('2d').drawImage(canvas,0,0,w,h);
-      const base64=out.toDataURL('image/jpeg',0.72).split(',')[1];
+      const base64=out.toDataURL('image/jpeg',0.68).split(',')[1];
+      setPendingMenuPreview(uploadType,`data:image/jpeg;base64,${base64}`);
       // 更新預覽
       const zone=(uploadType==='drink')?document.querySelector('#imgInpDrink')?.closest('.upload-zone'):document.querySelector('#imgInpMain')?.closest('.upload-zone');
-      if(zone) zone.innerHTML=`<img src="data:image/jpeg;base64,${base64}" class="menu-preview-img"><div style="margin-top:6px;font-size:.72rem;color:var(--in)">點擊更換圖片</div><input type="file" id="imgInp" accept="image/*,application/pdf" style="display:none" onchange="handleImg(event)">`;
+      if(zone) zone.innerHTML=`<input type="file" id="${uploadType==='drink'?'imgInpDrink':'imgInpMain'}" accept="image/*,application/pdf" style="display:none" onchange="previewFile(event,'${uploadType}')"><img src="data:image/jpeg;base64,${base64}" class="menu-preview-img"><div style="margin-top:6px;font-size:.72rem;color:var(--in)">點擊更換圖片</div>`;
       return await aiParseBase64(base64,'image/jpeg',uploadType);
     } else {
-      const base64=canvas.toDataURL('image/jpeg',0.72).split(',')[1];
+      const base64=canvas.toDataURL('image/jpeg',0.68).split(',')[1];
+      setPendingMenuPreview(uploadType,`data:image/jpeg;base64,${base64}`);
       const zone=(uploadType==='drink')?document.querySelector('#imgInpDrink')?.closest('.upload-zone'):document.querySelector('#imgInpMain')?.closest('.upload-zone');
-      if(zone) zone.innerHTML=`<img src="data:image/jpeg;base64,${base64}" class="menu-preview-img"><div style="margin-top:6px;font-size:.72rem;color:var(--in)">點擊更換圖片</div><input type="file" id="imgInp" accept="image/*,application/pdf" style="display:none" onchange="handleImg(event)">`;
+      if(zone) zone.innerHTML=`<input type="file" id="${uploadType==='drink'?'imgInpDrink':'imgInpMain'}" accept="image/*,application/pdf" style="display:none" onchange="previewFile(event,'${uploadType}')"><img src="data:image/jpeg;base64,${base64}" class="menu-preview-img"><div style="margin-top:6px;font-size:.72rem;color:var(--in)">點擊更換圖片</div>`;
       return await aiParseBase64(base64,'image/jpeg',uploadType);
     }
   }catch(err){
@@ -2782,6 +2876,15 @@ async function aiParse(file,uploadType='main'){
   return await aiParseBase64(base64,'image/jpeg',uploadType);
 }
 
+function cleanAiMenuName(value){
+  return String(value||'').trim()
+    .replace(/[（(]\s*[A-Za-z][A-Za-z0-9\s&'./+\-]*[)）]/g,' ')
+    .replace(/[A-Za-z]{2,}[A-Za-z0-9&'./+\-]*(?:\s+[A-Za-z][A-Za-z0-9&'./+\-]*)*/g,' ')
+    .replace(/\s+[A-Za-z][A-Za-z0-9\s&'./+\-]*$/g,' ')
+    .replace(/\s{2,}/g,' ')
+    .trim();
+}
+
 async function aiParseBase64(base64,mime,uploadType='main'){
   const statusEl=document.getElementById(uploadType==='drink'?'aiStatusDrink':'aiStatusMain')||document.getElementById('aiStatus');
   if(statusEl) statusEl.innerHTML=`<div class="scan-ldr"><div class="spin"></div>AI 正在解析菜單，請稍候…</div>`;
@@ -2789,7 +2892,7 @@ async function aiParseBase64(base64,mime,uploadType='main'){
     const proxyUrl=window._geminiProxyUrl;
     const requestBody=JSON.stringify({messages:[{role:'user',content:[
         {type:'image',source:{type:'base64',media_type:mime,data:base64}},
-        {type:'text',text:'請解析這張菜單圖片，只回傳純 JSON 陣列，不要有任何其他文字或 markdown：\\n[{"restaurant":"店家名稱","category":"便當","emoji":"emoji","name":"品項名稱","price":數字或0,"description":"描述","specs":[]}]\\nspecs 規格判斷規則（只加菜單上真實存在的）：\\n1. 若有多個價格欄（如八角飯盒/圓飯盒），price 填最小值，specs 加 {"cat":"飯盒","opts":["八角飯盒 $110","圓飯盒 $125"]} 把價格標在選項裡\\n2. 若有加量/加飯/加菜選項，specs 加 {"cat":"份量","opts":["正常","加量"]}\\n3. 飲料若有加料區，specs 加 {"cat":"加料","opts":["珍珠","椰果",...]} 只列菜單上有的料\\n4. 飲料若有杯型，specs 加 {"cat":"杯型","opts":["中杯","大杯"]}\\n5. 便當若有主食選擇（飯/麵/焗烤），specs 加 {"cat":"主食","opts":["白飯","麵",...]}\\n6. 沒有對應規格就保留 specs:[]\\ncategory 判斷規則：若整張菜單都是飲料（如飲料店菜單），所有品項 category 填「飲料」；加料區單獨列出的料也填「飲料」。若是便當/餐盒菜單，主餐填「便當」，湯品小菜填「點心」。只列出清楚可見的品項，看不清楚不要猜。忽略優惠說明。確保 JSON 完整不截斷。price 看不清楚填 0。無法辨識回傳 []。'}
+        {type:'text',text:'請解析這張菜單圖片，只回傳純 JSON 陣列，不要有任何其他文字或 markdown：\\n[{"restaurant":"店家名稱","category":"便當","name":"中文品項名稱","price":數字或0,"description":"描述","specs":[]}]\\n品名規則：name 只保留中文品名；中英文並列時完全省略英文翻譯。只有英文、沒有中文品名的項目不要輸出。\\nspecs 規格判斷規則（只加菜單上真實存在的）：\\n1. 若有多個價格欄（如八角飯盒/圓飯盒），price 填最小值，specs 加 {"cat":"飯盒","opts":["八角飯盒 $110","圓飯盒 $125"]} 把價格標在選項裡\\n2. 若有加量/加飯/加菜選項，specs 加 {"cat":"份量","opts":["正常","加量"]}\\n3. 飲料若有加料區，specs 加 {"cat":"加料","opts":["珍珠","椰果",...]} 只列菜單上有的料\\n4. 飲料若有杯型，specs 加 {"cat":"杯型","opts":["中杯","大杯"]}\\n5. 便當若有主食選擇（飯/麵/焗烤），specs 加 {"cat":"主食","opts":["白飯","麵",...]}\\n6. 沒有對應規格就保留 specs:[]\\ncategory 判斷規則：若整張菜單都是飲料（如飲料店菜單），所有品項 category 填「飲料」；加料區單獨列出的料也填「飲料」。若是便當/餐盒菜單，主餐填「便當」，湯品小菜填「點心」。只列出清楚可見的品項，看不清楚不要猜。忽略優惠說明。確保 JSON 完整不截斷。price 看不清楚填 0。無法辨識回傳 []。'}
         ,{type:'text',text:'價格解析補充規則：杯型或容器的完整售價請寫成「選項 $金額」，例如「大杯 $35」；加料、加飯或升級的額外費用請寫成「選項 +$金額」，例如「珍珠 +$10」。只保留菜單上清楚可見的價格，絕對不可猜測。'}
       ]}]});
     const retryableStatuses=new Set([429,500,502,503,504,524]);
@@ -2852,14 +2955,14 @@ async function aiParseBase64(base64,mime,uploadType='main'){
     const eid=S.adminEid||'__draft__';
     if(!S.items[eid]) S.items[eid]=[];
     const newItems=parsed
-      .filter(it=>it&&it.name)  // 過濾掉不完整的品項
+      .filter(it=>it&&it.name&&/[\u3400-\u9fff]/.test(it.name))  // 英文品名不加入畫面
       .map((it,i)=>({
         id:'ai-'+Date.now()+'-'+i,
         menu_id:S.adminEid||'',
         restaurant:it.restaurant||'本日菜單',
         category:it.category||'其他',
-        emoji:it.emoji||'🍱',
-        name:it.name||'未知品項',
+        emoji:'',
+        name:cleanAiMenuName(it.name),
         description:document.getElementById('md-'+i)?.value||it.description||'',
         price:Number(it.price)||0,
         specs:Array.isArray(it.specs)?it.specs.filter(s=>s.cat&&Array.isArray(s.opts)&&s.opts.length):[],
@@ -2942,7 +3045,7 @@ function exportCSV(){
     const unitPrice=Number(oi.unit_price)||0;
     const subtotal=qty*unitPrice;
     rows.push([ev?.title||'',ev?.date||'',ev?.organizer||'',fmtTime(o.created_at),o.user_name||'',restaurant,workType,category,
-      oi.item_emoji+oi.item_name,oi.specs_str||'',oi.note||'',qty,unitPrice,subtotal,o.note||'']);
+      oi.item_name,oi.specs_str||'',oi.note||'',qty,unitPrice,subtotal,o.note||'']);
     const key=[restaurant,workType,category,oi.item_name,oi.specs_str||'',oi.note||'',unitPrice].join('__');
     if(!summary[key]) summary[key]={diners:new Map(),restaurant,workType,category,name:oi.item_name,specs:oi.specs_str||'',itemNote:oi.note||''};
     if(o.user_name){
