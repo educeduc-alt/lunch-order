@@ -1548,6 +1548,13 @@ function nameEditDistance(a,b){
   return row[right.length];
 }
 
+function getPersonNameMatchKind(a,b){
+  const left=normalizePersonName(a),right=normalizePersonName(b);
+  if(!left||!right) return '';
+  if(left===right) return 'exact';
+  return left[0]===right[0]&&Math.min(left.length,right.length)>=2&&nameEditDistance(left,right)<=1?'similar':'';
+}
+
 function summarizeOrderItems(items){
   const grouped=new Map();
   (items||[]).forEach(item=>{
@@ -1565,12 +1572,11 @@ function getDuplicateNameFlags(orders){
     for(let j=i+1;j<list.length;j++){
       const left=normalizePersonName(list[i].user_name),right=normalizePersonName(list[j].user_name);
       if(!left||!right) continue;
-      const exact=left===right;
-      const similar=!exact&&Math.min(left.length,right.length)>=2&&nameEditDistance(left,right)<=1;
-      if(!exact&&!similar) continue;
+      const kind=getPersonNameMatchKind(left,right);
+      if(!kind) continue;
       [[list[i],list[j]],[list[j],list[i]]].forEach(([order,other])=>{
         if(!flags.has(order.id)) flags.set(order.id,[]);
-        flags.get(order.id).push({kind:exact?'exact':'similar',name:other.user_name});
+        flags.get(order.id).push({kind,name:other.user_name});
       });
     }
   }
@@ -3052,15 +3058,38 @@ function formatMealSummary(name,specs,itemNote){
   if(itemNote) label+=`｜${itemNote}`;
   return label;
 }
+function sortBySimilarPersonName(records,getName){
+  const list=[...records];
+  const parent=list.map((_,index)=>index);
+  const find=index=>parent[index]===index?index:(parent[index]=find(parent[index]));
+  const join=(a,b)=>{const left=find(a),right=find(b);if(left!==right) parent[right]=left;};
+  for(let i=0;i<list.length;i++){
+    for(let j=i+1;j<list.length;j++){
+      if(getPersonNameMatchKind(getName(list[i]),getName(list[j]))) join(i,j);
+    }
+  }
+  const groups=new Map();
+  list.forEach((record,index)=>{
+    const root=find(index);
+    if(!groups.has(root)) groups.set(root,[]);
+    groups.get(root).push(record);
+  });
+  const compare=(a,b)=>normalizePersonName(getName(a)).localeCompare(normalizePersonName(getName(b)),'zh-TW');
+  return [...groups.values()]
+    .map(group=>group.sort(compare))
+    .sort((a,b)=>compare(a[0],b[0]))
+    .flat();
+}
 function exportCSV(){
   const ords=S.orders[S.adminEid]||[];
+  const sortedOrders=sortBySimilarPersonName(ords,order=>order.user_name||'');
   const ev=S.events.find(e=>e.id===S.adminEid);
   const menuItems=S.items[S.adminEid]||[];
   const itemMap=Object.fromEntries(menuItems.map(item=>[item.id,item]));
   // 每一個品項列都保留場次、姓名與分工分類，方便直接用試算表篩選便當／飲料。
   const rows=[['場次','場次日期','承辦','點餐時間','點餐姓名','店家','分工分類','原始分類','品項','規格','糖度冰塊／品項備註','數量','單價','小計','訂單備註']];
   const summary={};
-  ords.forEach(o=>(o.order_items||[]).forEach(oi=>{
+  sortedOrders.forEach(o=>(o.order_items||[]).forEach(oi=>{
     const source=itemMap[oi.item_id]||menuItems.find(item=>item.name===oi.item_name)||{};
     const restaurant=source.restaurant||ev?.store_name||'未設定店家';
     const category=source.category||'其他';
@@ -3082,7 +3111,7 @@ function exportCSV(){
   Object.values(summary)
     .sort((a,b)=>a.workType.localeCompare(b.workType,'zh-TW')||a.restaurant.localeCompare(b.restaurant,'zh-TW')||a.category.localeCompare(b.category,'zh-TW')||a.name.localeCompare(b.name,'zh-TW'))
     .forEach(x=>{
-      const names=[...x.diners.values()];
+      const names=sortBySimilarPersonName([...x.diners.values()],name=>name);
       rows.push([formatMealSummary(x.name,x.specs,x.itemNote),names.length,names.join('、')]);
     });
   dlCSV(rows,`點餐紀錄_${ev?.title||''}`);
