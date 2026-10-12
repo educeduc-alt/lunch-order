@@ -916,7 +916,7 @@ function renderOrderPage(){
           ${item.description?`<div class="m-desc">${esc(item.description)}</div>`:''}
           ${item.price>0?`<div class="m-price">$${item.price}</div>`:'<div class="m-price" style="color:var(--sll)">詢價</div>'}
           ${overage?`<div class="overage-tag">⚠️ ${cat==='點心'?'超額自付':'需補額'} $${overage}</div>`:''}
-          ${needsDetailSheet?`<div class="m-spec">${cat==='飲料'?'需填甜度冰塊':'點擊選規格'} ›</div>`:''}
+          ${needsDetailSheet?`<div class="m-spec">${cat==='飲料'?(isBentoStoreDrink(item)?'可選不選擇糖冰':'需填甜度冰塊'):'點擊選規格'} ›</div>`:''}
           <div class="qty-row" onclick="event.stopPropagation()">
             <button class="qb" onclick="event.stopPropagation();adjCart('${item.id}',-1)">−</button>
             <span class="qn">${totalQty}</span>
@@ -999,7 +999,7 @@ function startCombo(id){
   // 有規格的主餐先選規格，選完再進套餐流程
   if(item.specs&&item.specs.length>0){
     S.specItem=item; S.specSel={}; S.specQty=1; S.specNote='';
-    (item.specs||[]).forEach(sp=>{if(sp.opts.length)S.specSel[sp.cat]=sp.opts[0];});
+    (item.specs||[]).forEach(sp=>{const opts=getSpecOptions(sp,item);if(opts.length)S.specSel[sp.cat]=isMultiAddonSpec(sp.cat,item)?[]:opts[0];});
     S.specItem._comboMode=true;  // 標記為套餐模式
     renderSheet();
     document.getElementById('specOverlay').style.display='flex';
@@ -1121,7 +1121,7 @@ function renderComboSheet(){
           style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border:1.5px solid ${sel?'var(--or)':'var(--bo)'};border-radius:var(--rmd);background:${sel?'var(--orl)':'var(--ca)'};cursor:pointer">
           <div><span style="font-weight:600;font-size:.88rem">${esc(item.name)}</span>
             ${item.price>0?`<span style="color:var(--or);font-weight:700;font-size:.82rem;margin-left:6px">$${item.price}</span>`:''}
-            <span style="font-size:.65rem;color:var(--rd);margin-left:4px">甜度冰塊必填</span>
+            <span style="font-size:.65rem;color:${isBentoStoreDrink(item)?'var(--in)':'var(--rd)'};margin-left:4px">${isBentoStoreDrink(item)?'可選不選擇糖冰':'甜度冰塊必填'}</span>
             ${sel?.note?`<div style="font-size:.68rem;color:var(--ord);margin:3px 0 0 30px">${esc(sel.note)}</div>`:''}
           </div>
           <div style="width:22px;height:22px;border-radius:50%;border:2px solid ${sel?'var(--or)':'var(--bo)'};background:${sel?'var(--or)':'transparent'};display:flex;align-items:center;justify-content:center;font-size:.75rem;color:#fff;flex-shrink:0">${sel?'✓':''}</div>
@@ -1150,7 +1150,7 @@ function selectComboMain(id){
   if(item.specs&&item.specs.length){
     // 有規格彈出選規格，之後再設定 comboMain
     S.specItem=item; S.specSel={}; S.specQty=1; S.specNote='';
-    (item.specs||[]).forEach(sp=>{if(sp.opts.length)S.specSel[sp.cat]=sp.opts[0];});
+    (item.specs||[]).forEach(sp=>{const opts=getSpecOptions(sp,item);if(opts.length)S.specSel[sp.cat]=isMultiAddonSpec(sp.cat,item)?[]:opts[0];});
     S.specItem._comboMode=true;
     renderSheet();
     document.getElementById('comboOverlay').style.display='none';
@@ -1187,9 +1187,10 @@ function toggleComboItem(type, id){
 function showComboSpecPicker(type, item, arr){
   // 在 comboSheetContent 裡疊加一個規格選擇層
   const specSel={};
-  item.specs.forEach(sp=>{
+  (item.specs||[]).forEach(sp=>{
+    const opts=getSpecOptions(sp,item);
     if(isMultiAddonSpec(sp.cat,item)) specSel[sp.cat]=[];
-    else if(sp.opts.length) specSel[sp.cat]=sp.opts[0];
+    else if(opts.length) specSel[sp.cat]=opts[0];
   });
   window.comboSpecSel=specSel;
   window.comboSpecNote='';
@@ -1197,11 +1198,11 @@ function showComboSpecPicker(type, item, arr){
   function buildPickerHTML(){
     let h=`<div style="position:absolute;inset:0;background:rgba(255,255,255,.97);border-radius:var(--rxl);padding:18px;z-index:10;display:flex;flex-direction:column">
       <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:1rem;border-left:4px solid var(--or);padding-left:9px;margin-bottom:14px">${esc(item.name)}${item.price>0?' <span style=\"color:var(--or)\">$'+item.price+'</span>':''}</div>`;
-    item.specs.forEach(sp=>{
+    (item.specs||[]).forEach(sp=>{
       const multi=isMultiAddonSpec(sp.cat,item);
       h+=`<div style="margin-bottom:12px"><div style="font-size:.68rem;font-weight:700;color:var(--sll);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">${esc(sp.cat)}</div>
         <div style="display:flex;flex-wrap:wrap;gap:5px">`;
-      sp.opts.forEach(o=>{
+      getSpecOptions(sp,item).forEach(o=>{
         const on=multi?(specSel[sp.cat]||[]).includes(o):specSel[sp.cat]===o;
         h+=`<button class="spec-opt${on?' on':''}" data-combo-cat="${esc(sp.cat)}" data-combo-opt="${esc(o)}" aria-pressed="${on}" onclick="selectComboSpecOption(this,${multi})">${esc(o)}</button>`;
       });
@@ -1209,8 +1210,10 @@ function showComboSpecPicker(type, item, arr){
       if(multi) h+=`<div style="font-size:.66rem;color:var(--sll);margin:-8px 0 12px">可複選，再點一次可取消</div>`;
     });
     if(item.category==='飲料'){
-      h+=`<div style="margin-bottom:12px"><div style="font-size:.68rem;font-weight:800;color:var(--rd);margin-bottom:6px">甜度冰塊（必填）</div>
-        <textarea class="note-inp" rows="2" aria-required="true" placeholder="例如：微糖微冰" oninput="window.comboSpecNote=this.value" style="border-color:#f59e0b"></textarea></div>`;
+      const canSkipSugarIce=isBentoStoreDrink(item);
+      h+=`<div style="margin-bottom:12px"><div style="font-size:.68rem;font-weight:800;color:var(--rd);margin-bottom:6px">甜度冰塊（請填寫或選擇）</div>
+        ${canSkipSugarIce?`<button type="button" class="spec-opt" data-no-sugar-ice onclick="window.comboSpecNote='不選擇糖冰';this.parentElement.querySelector('textarea').value='不選擇糖冰';this.classList.add('on')" style="margin-bottom:6px">不選擇糖冰</button>`:''}
+        <textarea class="note-inp" rows="2" aria-required="true" placeholder="例如：微糖微冰" oninput="window.comboSpecNote=this.value;this.parentElement.querySelector('[data-no-sugar-ice]')?.classList.toggle('on',this.value.trim()==='不選擇糖冰')" style="border-color:#f59e0b"></textarea></div>`;
     }
     h+=`<div id="comboSpecPreview">${renderComboSpecPreview()}</div>
       <div style="display:flex;gap:7px;margin-top:auto;padding-top:12px">
@@ -1234,9 +1237,14 @@ function showComboSpecPicker(type, item, arr){
     const cat=btn.dataset.comboCat;
     const opt=btn.dataset.comboOpt;
     if(multi){
-      const selected=Array.isArray(window.comboSpecSel[cat])?[...window.comboSpecSel[cat]]:[];
-      const index=selected.indexOf(opt);
-      if(index>=0) selected.splice(index,1); else selected.push(opt);
+      let selected=Array.isArray(window.comboSpecSel[cat])?[...window.comboSpecSel[cat]]:[];
+      if(isEmptyAddonOption(opt)){
+        selected=selected.includes(opt)?[]:[opt];
+      }else{
+        selected=selected.filter(value=>!isEmptyAddonOption(value));
+        const index=selected.indexOf(opt);
+        if(index>=0) selected.splice(index,1); else selected.push(opt);
+      }
       window.comboSpecSel[cat]=selected;
       btn.classList.toggle('on',selected.includes(opt));
       btn.setAttribute('aria-pressed',String(selected.includes(opt)));
@@ -1255,7 +1263,7 @@ function showComboSpecPicker(type, item, arr){
   window.confirmComboSpec=function(){
     const comboNote=String(window.comboSpecNote||'').trim();
     if(item.category==='飲料'&&!comboNote){
-      toast('請填寫飲料甜度冰塊，不能只輸入空格','warn');
+      toast(isBentoStoreDrink(item)?'請填寫飲料甜度冰塊，或選擇「不選擇糖冰」':'請填寫飲料甜度冰塊，不能只輸入空格','warn');
       document.querySelector('#comboOverlay .note-inp')?.focus();
       return;
     }
@@ -1410,8 +1418,9 @@ function openSpec(id){
   S.specItem=(S.items[S.activeEventId]||[]).find(i=>i.id===id);
   S.specSel={};
   (S.specItem.specs||[]).forEach(sp=>{
+    const opts=getSpecOptions(sp,S.specItem);
     if(isMultiAddonSpec(sp.cat,S.specItem)) S.specSel[sp.cat]=[];
-    else if(sp.opts.length) S.specSel[sp.cat]=sp.opts[0];
+    else if(opts.length) S.specSel[sp.cat]=opts[0];
   });
   S.specQty=1;S.specNote='';
   renderSheet();
@@ -1432,7 +1441,18 @@ function isMultiAddonSpec(cat,item){
   return item?.category==='飲料'&&/加料|配料/.test(String(cat||''));
 }
 function isEmptyAddonOption(opt){
-  return /^(不加|無|不要|原味|不需要|none)$/i.test(String(opt||'').trim());
+  return /^(不加(?:料)?|無|不要|原味|不需要|none)$/i.test(String(opt||'').trim());
+}
+function getSpecOptions(spec,item){
+  const opts=[...(spec?.opts||[])];
+  if(item?.category==='點心'&&isAddonSpec(spec?.cat)&&!opts.some(isEmptyAddonOption)) opts.unshift('不加料');
+  return opts;
+}
+function isBentoStoreDrink(item){
+  if(item?.category!=='飲料') return false;
+  const store=normalizeCompareText(item.restaurant);
+  if(!store) return false;
+  return (S.items[S.activeEventId]||[]).some(other=>other.id!==item.id&&other.category==='便當'&&normalizeCompareText(other.restaurant)===store);
 }
 function getUnpricedAddons(specSel){
   const result=[];
@@ -1450,9 +1470,14 @@ function formatSpecSelections(specSel){
 }
 
 function toggleSpecOption(cat,opt){
-  const selected=Array.isArray(S.specSel[cat])?[...S.specSel[cat]]:[];
-  const index=selected.indexOf(opt);
-  if(index>=0) selected.splice(index,1); else selected.push(opt);
+  let selected=Array.isArray(S.specSel[cat])?[...S.specSel[cat]]:[];
+  if(isEmptyAddonOption(opt)){
+    selected=selected.includes(opt)?[]:[opt];
+  }else{
+    selected=selected.filter(value=>!isEmptyAddonOption(value));
+    const index=selected.indexOf(opt);
+    if(index>=0) selected.splice(index,1); else selected.push(opt);
+  }
   S.specSel[cat]=selected;
   renderSheet();
 }
@@ -1475,6 +1500,8 @@ function calcSpecPrice(item, specSel){
 
 function renderSheet(){
   const item=S.specItem;
+  const isDrink=item?.category==='飲料';
+  const canSkipSugarIce=isBentoStoreDrink(item);
   const curPrice=calcSpecPrice(item, S.specSel);
   const unpricedAddons=getUnpricedAddons(S.specSel);
   document.getElementById('sheetTitle').innerHTML=`${esc(item.name)}${curPrice>0?` <span style="color:var(--or);font-size:.9rem">$${curPrice}</span>`:''}`;
@@ -1482,7 +1509,7 @@ function renderSheet(){
   (item.specs||[]).forEach(sp=>{
     const multi=isMultiAddonSpec(sp.cat,item);
     html+=`<div class="spec-sec"><div class="spec-lbl">${esc(sp.cat)}</div><div class="spec-opts">
-      ${sp.opts.map(o=>{
+      ${getSpecOptions(sp,item).map(o=>{
         const on=multi?(S.specSel[sp.cat]||[]).includes(o):S.specSel[sp.cat]===o;
         const action=multi?`toggleSpecOption('${esc(sp.cat)}','${esc(o)}')`:`S.specSel['${esc(sp.cat)}']='${esc(o)}';renderSheet()`;
         return `<button class="spec-opt${on?' on':''}" aria-pressed="${on}" onclick="${action}">${esc(o)}${multi&&on?' ✓':''}</button>`;
@@ -1501,8 +1528,9 @@ function renderSheet(){
       ${curPrice>0?`<span style="font-family:'Nunito',sans-serif;font-weight:800;color:var(--or);margin-left:6px">$${curPrice*S.specQty}</span>`:''}
     </div>
   </div>
-  <div class="spec-sec"><div class="spec-lbl"${S.specItem&&S.specItem.category==='飲料'?' style="color:var(--rd)"':''}>${S.specItem&&S.specItem.category==='飲料'?'甜度冰塊（必填）':'備註'}</div>
-    <textarea class="note-inp" id="specNoteInput" rows="2" aria-required="${S.specItem&&S.specItem.category==='飲料'}" placeholder="${S.specItem&&S.specItem.category==='飲料'?'例如：微糖微冰':'例：不要辣…'}" oninput="S.specNote=this.value"${S.specItem&&S.specItem.category==='飲料'?' style="border-color:#f59e0b"':''}>${esc(S.specNote)}</textarea>
+  <div class="spec-sec"><div class="spec-lbl"${isDrink?' style="color:var(--rd)"':''}>${isDrink?'甜度冰塊（請填寫或選擇）':'備註'}</div>
+    ${canSkipSugarIce?`<button type="button" class="spec-opt${S.specNote==='不選擇糖冰'?' on':''}" onclick="S.specNote='不選擇糖冰';renderSheet()" style="margin-bottom:6px">不選擇糖冰</button>`:''}
+    <textarea class="note-inp" id="specNoteInput" rows="2" aria-required="${isDrink}" placeholder="${isDrink?'例如：微糖微冰':'例：不要辣…'}" oninput="S.specNote=this.value"${isDrink?' style="border-color:#f59e0b"':''}>${esc(S.specNote)}</textarea>
   </div>`;
   document.getElementById('sheetBody').innerHTML=html;
 }
@@ -1510,7 +1538,7 @@ async function confirmSpec(){
   const item=S.specItem;
   const trimmedNote=String(S.specNote||'').trim();
   if(item?.category==='飲料'&&!trimmedNote){
-    toast('請填寫飲料甜度冰塊，不能只輸入空格','warn');
+    toast(isBentoStoreDrink(item)?'請填寫飲料甜度冰塊，或選擇「不選擇糖冰」':'請填寫飲料甜度冰塊，不能只輸入空格','warn');
     const noteInput=document.getElementById('specNoteInput');
     if(noteInput){noteInput.style.borderColor='var(--rd)';noteInput.focus();}
     return;
