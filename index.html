@@ -2817,6 +2817,13 @@ function showParseComparison(groups){
   box.querySelector('#comparisonClose').onclick=()=>box.remove();
 }
 
+function cancelAiParse(){
+  S.parseCancelled=true;
+  if(window._aiParseController) window._aiParseController.abort();
+  const msg=document.getElementById('parseOverlayMsg');
+  if(msg) msg.textContent='正在取消解析…';
+}
+
 async function parseAll(){
   const hasMain=!!window._pendingMainFile;
   const hasDrink=!!window._pendingDrinkFile;
@@ -2824,6 +2831,7 @@ async function parseAll(){
   const runId='parse-'+Date.now();
   S.parseRunId=runId;
   S.parseStatus='parsing';
+  S.parseCancelled=false;
   S.parseComparison=null;
   // 重新解析時移除上一輪 AI 暫存，保留手動新增與歷史菜單載入項目。
   S.pendingItems=(S.pendingItems||[]).filter(item=>!item._parseRunId);
@@ -2834,7 +2842,8 @@ async function parseAll(){
   overlay.innerHTML='<div style="background:#fff;border-radius:16px;padding:28px 32px;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.2)">'
     +'<div style="font-size:2rem;margin-bottom:10px">🤖</div>'
     +'<div id="parseOverlayMsg" style="font-weight:700;font-size:1rem;color:#1e293b">解析中…</div>'
-    +'<div style="font-size:.78rem;color:#94a3b8;margin-top:6px">請稍候，AI 正在分析菜單</div>'
+    +'<div style="font-size:.78rem;color:#64748b;margin-top:6px">單一模型超過 15 秒會自動切換，整體最長約 45 秒</div>'
+    +'<button type="button" class="btn btn-out" onclick="cancelAiParse()" style="margin-top:14px">取消解析</button>'
     +'</div>';
   document.body.appendChild(overlay);
   const results=[];
@@ -2843,11 +2852,13 @@ async function parseAll(){
       const msg=document.getElementById('parseOverlayMsg');
       if(msg) msg.textContent='🍱 解析主餐中…';
       results.push(await startParse('main'));
+      if(S.parseCancelled) throw new Error('使用者已取消解析');
     }
     if(hasDrink){
       const msg=document.getElementById('parseOverlayMsg');
       if(msg) msg.textContent='🧋 解析飲料中…';
       results.push(await startParse('drink'));
+      if(S.parseCancelled) throw new Error('使用者已取消解析');
     }
     const successful=results.every(result=>result&&result.success===true);
     const parsedCount=(S.pendingItems||[]).filter(item=>item._parseRunId===runId).length;
@@ -2864,8 +2875,9 @@ async function parseAll(){
     console.error(err);
     S.parseStatus='failed';
     S.parseComparison=null;
-    toast('一鍵解析未完成，請重新解析','err');
+    toast(S.parseCancelled?'已取消 AI 解析':'一鍵解析未完成，請重新解析',S.parseCancelled?'warn':'err');
   }finally{
+    window._aiParseController=null;
     overlay.remove();
     render();
     // 更新膠囊
@@ -2873,6 +2885,7 @@ async function parseAll(){
     if(capsDiv) capsDiv.innerHTML=renderStoreCapsules(document.getElementById('evStore')?.value||'');
     window._lastParseCats='';
     if(S.parseStatus==='complete') showParseComparison(S.parseComparison);
+    S.parseCancelled=false;
   }
 }
 
@@ -2966,33 +2979,34 @@ async function aiParseBase64(base64,mime,uploadType='main'){
         ,{type:'text',text:'價格解析補充規則：杯型或容器的完整售價請寫成「選項 $金額」，例如「大杯 $35」；加料、加飯或升級的額外費用請寫成「選項 +$金額」，例如「珍珠 +$10」。只保留菜單上清楚可見的價格，絕對不可猜測。'}
       ]}]});
     const retryableStatuses=new Set([429,500,502,503,504,524]);
+    const controller=new AbortController();
+    window._aiParseController=controller;
+    const timeoutId=setTimeout(()=>controller.abort(),52000);
     let res=null;
     let text='';
     let lastDetail='';
-    for(let attempt=1;attempt<=3;attempt++){
-      try{
-        res=await fetch(proxyUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:requestBody});
-        text=await res.text();
-      }catch(fetchError){
-        lastDetail=fetchError.message||'網路連線失敗';
-        if(attempt===3) throw new Error('無法連線 AI 服務：'+lastDetail);
+    try{
+      res=await fetch(proxyUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:requestBody,signal:controller.signal});
+      text=await res.text();
+    }catch(fetchError){
+      if(fetchError?.name==='AbortError'){
+        throw new Error(S.parseCancelled?'已取消解析':'AI 解析超過時間上限，請重新嘗試');
       }
-      if(res?.ok) break;
-      if(res){
-        try{
-          const errBody=JSON.parse(text);
-          lastDetail=errBody?.error?.message||errBody?.error||errBody?.message||'';
-        }catch(e){ lastDetail=text.slice(0,120); }
-        if(!retryableStatuses.has(res.status)) break;
-        if(attempt===3) break;
-      }
-      const waitMs=attempt*1500;
-      if(statusEl) statusEl.innerHTML=`<div class="scan-ldr"><div class="spin"></div>AI 忙碌中，正在自動重試 ${attempt}/2…</div>`;
-      await new Promise(resolve=>setTimeout(resolve,waitMs));
+      throw new Error('無法連線 AI 服務：'+(fetchError.message||'網路連線失敗'));
+    }finally{
+      clearTimeout(timeoutId);
+      if(window._aiParseController===controller) window._aiParseController=null;
     }
     if(!res.ok){
+      try{
+        const errBody=JSON.parse(text);
+        lastDetail=errBody?.error?.message||errBody?.error||errBody?.message||'';
+        if(Array.isArray(errBody?.attempted_models)&&errBody.attempted_models.length){
+          lastDetail+=`${lastDetail?'；':''}已嘗試 ${errBody.attempted_models.join('、')}`;
+        }
+      }catch(e){ lastDetail=text.slice(0,120); }
       const friendly=retryableStatuses.has(res.status)
-        ? 'AI 服務目前使用人數較多，已自動重試但仍未成功，請稍候 1～2 分鐘再試'
+        ? `AI 服務目前忙碌，代理已自動切換備援模型${lastDetail?'：'+lastDetail:''}`
         : `API 錯誤 ${res.status}${lastDetail?'：'+lastDetail:''}`;
       throw new Error(friendly);
     }
