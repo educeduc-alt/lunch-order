@@ -490,6 +490,7 @@ let S = {
   authed:false, adminEid:null,
   menuDraft:null,      // 尚未寫入 Supabase 的新場次草稿
   delId:null,
+  autoArchiving:false,
 };
 
 /* ═══ BOOT ═══ */
@@ -498,6 +499,7 @@ let S = {
   S.sharedEventMode=isSharedEventUrl();
   document.body.classList.toggle('shared-event-mode',S.sharedEventMode);
   await loadEvents();
+  await autoArchiveExpiredEvents();
   if(requestedEventId&&S.events.some(ev=>ev.id===requestedEventId)){
     S.activeEventId=requestedEventId;
     S.tab='home';
@@ -506,6 +508,8 @@ let S = {
   }
   subscribeRT();
   render();
+  // 頁面持續開啟時也會檢查截止時間，不必重新整理。
+  setInterval(()=>autoArchiveExpiredEvents({notify:true}),30000);
 })();
 
 /* ═══ DATA ═══ */
@@ -693,6 +697,41 @@ function parseSpecs(specs){
 function isEventClosed(ev){
   if(!ev) return true;
   return ev.is_closed===true;
+}
+function getEventDeadlineMs(ev){
+  const date=String(ev?.date||'').trim();
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+  const deadline=String(ev?.deadline||'23:59').trim();
+  if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(deadline)) return null;
+  const ms=Date.parse(`${date}T${deadline}:00+08:00`);
+  return Number.isFinite(ms)?ms:null;
+}
+function isEventExpired(ev,now=Date.now()){
+  const deadlineMs=getEventDeadlineMs(ev);
+  return deadlineMs!==null&&deadlineMs<=now;
+}
+async function autoArchiveExpiredEvents({notify=false}={}){
+  if(S.autoArchiving) return;
+  const expired=S.events.filter(ev=>!ev.is_closed&&isEventExpired(ev));
+  if(!expired.length) return;
+  S.autoArchiving=true;
+  try{
+    if(!DEMO){
+      const ids=expired.map(ev=>ev.id);
+      const{error}=await sb.from('menus').update({is_closed:true}).in('id',ids);
+      if(error){console.error('自動封存失敗',error);return;}
+    }
+    expired.forEach(ev=>{ev.is_closed=true;});
+    if(S.activeEventId&&expired.some(ev=>ev.id===S.activeEventId)){
+      S.activeEventId=null;
+      S.sharedEventMode=false;
+      setEventUrl(null,true);
+    }
+    if(notify) toast(`已自動封存 ${expired.length} 個逾時場次`,'ok');
+    render();
+  }finally{
+    S.autoArchiving=false;
+  }
 }
 function fmtDeadline(ev){
   return{text:'開放中',cls:'badge-open'};
@@ -1855,8 +1894,9 @@ function renderAdmin(){
     <div class="stat-box"><div class="stat-n" style="color:var(--gr)">${totPort}</div><div class="stat-l">總份數</div></div>
     <div class="stat-box"><div class="stat-n" style="color:var(--am)">${totAmt>0?'$'+totAmt:'—'}</div><div class="stat-l">總金額</div></div>
   </div>
-  <div class="exp-row" style="margin-top:4px">
+  <div class="exp-row" style="margin-top:4px;display:flex;gap:8px;flex-wrap:wrap">
     <button class="exp-btn" onclick="exportCSV()">📥 匯出CSV</button>
+    ${isEventClosed(ev)?'':`<button class="btn btn-save-event" onclick="archiveEvent('${ev.id}')">📦 場次移入後台</button>`}
   </div>`;
 
   // 點餐紀錄
@@ -1945,9 +1985,14 @@ function renderEventMgmt(ev){
     ${isDraft?'':`<div style="display:flex;justify-content:flex-end;margin-bottom:10px"><button class="btn btn-out btn-sm" onclick="copyEventUrlById(S.adminEid)">🔗 複製目前場次網址</button></div>`}
 
     <!-- 場次基本資訊 -->
-    <div style="margin-bottom:10px">
-      <span class="mg-lbl">場次日期</span>
-      <input class="mg-inp" type="date" id="evDate" value="${esc(ev.date||'')}" style="max-width:220px" oninput="updateEditingEventField('date',this.value)">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+      <div style="flex:1;min-width:180px"><span class="mg-lbl">場次日期</span>
+        <input class="mg-inp" type="date" id="evDate" value="${esc(ev.date||'')}" oninput="updateEditingEventField('date',this.value)">
+      </div>
+      <div style="flex:1;min-width:180px"><span class="mg-lbl">點餐截止時間</span>
+        <input class="mg-inp" type="time" id="evDeadline" value="${esc(ev.deadline||'23:59')}" oninput="updateEditingEventField('deadline',this.value)">
+        <div style="font-size:.66rem;color:var(--sll);margin-top:4px">時間到後會自動移入後台</div>
+      </div>
     </div>
     <div class="ev-mgmt-grid" style="margin-bottom:10px">
       <div><span class="mg-lbl">場次標題</span><input class="mg-inp" id="evTitle" value="${esc(ev.title||'')}" oninput="updateEditingEventField('title',this.value)"></div>
@@ -2006,7 +2051,7 @@ function renderEventMgmt(ev){
     <div style="display:flex;gap:7px;margin:12px 0 8px;flex-wrap:wrap">
       <button class="btn btn-gr" onclick="parseAll()">🤖 一鍵解析</button>
       <button class="btn btn-or" onclick="saveMenu()">💾 儲存菜單</button>
-      ${isDraft?'':`<button class="btn btn-rd btn-sm" onclick="confirmDeleteEvent('${ev.id}')">🗑️ 刪除場次</button><button class="btn btn-save-event" onclick="saveEvent()">📦 場次移入後台</button>`}
+      ${isDraft?'':`<button class="btn btn-rd btn-sm" onclick="confirmDeleteEvent('${ev.id}')">🗑️ 刪除場次</button>`}
     </div>
     <div id="parseCheckStatus">${renderParseCheckStatus()}</div>
 
@@ -2480,29 +2525,17 @@ function addItem(){
   render();
 }
 function removeItem(i){ syncPendingItemsFromForm(); S.pendingItems.splice(i,1); render(); }
-async function saveEvent(){
-  const eid=S.adminEid; if(!eid){toast('新場次請先按「儲存菜單」建立場次','warn');return;}
-  if(DEMO){toast('示範模式：變更不會寫入','warn');return;}
-  if(S.pendingItems.length||window._pendingMainFile||window._pendingDrinkFile){
-    toast('尚有未儲存的內容，請先按「儲存菜單」','warn');
-    return;
-  }
-  const date=document.getElementById('evDate')?.value||'';
-  const title=document.getElementById('evTitle')?.value.trim();
-  const activity_note=document.getElementById('evActivityNote')?.value.trim()||'';
-  const store_name=document.getElementById('evStore')?.value.trim()||'';
-  const orgInput=document.getElementById('evOrganizer')?.value.trim()||'';
-  const evNow=S.events.find(e=>e.id===eid);
-  const organizer=orgInput||evNow?.organizer||'';
-  if(!date){toast('請選擇場次日期','err');return;}
-  if(!title){toast('請填場次標題','err');return;}
-  if(!confirm('場次移入後台後，會從前台點餐場次隱藏。\n確定移入後台？')) return;
-  // 移入後台代表完成收存：寫入基本資訊並關閉，後台仍可重新開放。
-  const{data,error}=await sb.from('menus').update({date,title,activity_note,organizer,store_name,is_closed:true}).eq('id',eid).select('id');
-  if(error||!data?.length){toast('場次儲存失敗：'+(error?.message||'資料未更新'),'err');return;}
-  if(evNow) Object.assign(evNow,{date,title,activity_note,organizer,store_name,is_closed:true});
-  goTab('admin');
-  toast('✅ 場次已移至後台，前台已隱藏','ok');
+async function archiveEvent(eid){
+  const ev=S.events.find(event=>event.id===eid);
+  if(!ev){toast('找不到要封存的場次','err');return;}
+  if(ev.is_closed){toast('此場次已在後台','warn');return;}
+  if(!confirm(`確定將「${ev.title}」移入後台？\n移入後前台會停止顯示，但點餐紀錄與 CSV 資料都會保留。`)) return;
+  if(DEMO){ev.is_closed=true;toast('✅ 場次已移入後台','ok');render();return;}
+  const{data,error}=await sb.from('menus').update({is_closed:true}).eq('id',eid).select('id');
+  if(error||!data?.length){toast('移入後台失敗：'+(error?.message||'資料未更新'),'err');return;}
+  ev.is_closed=true;
+  toast('✅ 場次已移入後台，點餐紀錄已保留','ok');
+  render();
 }
 async function saveMenu(){
   let eid=S.adminEid;
@@ -2527,6 +2560,7 @@ async function saveMenu(){
   // 「儲存菜單」會保留目前畫面上的場次設定；若有新菜單品項則一併儲存。
   // 不變更 is_closed，因此不會把場次移到後台或從前台隱藏。
   const date=document.getElementById('evDate')?.value||'';
+  const deadline=document.getElementById('evDeadline')?.value||'23:59';
   const title=document.getElementById('evTitle')?.value.trim();
   const activity_note=document.getElementById('evActivityNote')?.value.trim()||'';
   const store_name=document.getElementById('evStore')?.value.trim()||'';
@@ -2534,10 +2568,11 @@ async function saveMenu(){
   let evNow=S.menuDraft||S.events.find(e=>e.id===eid);
   const organizer=orgInput||evNow?.organizer||'';
   if(!date){toast('請選擇場次日期','err');return;}
+  if(!deadline){toast('請選擇點餐截止時間','err');return;}
   if(!title){toast('請填場次標題','err');return;}
   if(isNewDraft){
     const{data:newEvent,error:createError}=await sb.from('menus')
-      .insert({date,title,activity_note,organizer,store_name,deadline:'11:30',is_closed:false})
+      .insert({date,title,activity_note,organizer,store_name,deadline,is_closed:false})
       .select()
       .single();
     if(createError||!newEvent){toast('場次建立失敗：'+(createError?.message||'沒有回傳場次資料'),'err');return;}
@@ -2552,14 +2587,14 @@ async function saveMenu(){
     evNow=newEvent;
   }else{
     const{data:settingRows,error:settingError}=await sb.from('menus')
-      .update({date,title,activity_note,organizer,store_name})
+      .update({date,title,activity_note,organizer,store_name,deadline})
       .eq('id',eid)
       .select('id');
     if(settingError||!settingRows?.length){
       toast('設定儲存失敗：'+(settingError?.message||'資料未更新'),'err');
       return;
     }
-    if(evNow) Object.assign(evNow,{date,title,activity_note,organizer,store_name});
+    if(evNow) Object.assign(evNow,{date,title,activity_note,organizer,store_name,deadline});
   }
   try{
     const savedImageValue=await persistPendingMenuImages(eid,evNow?.img_url||'');
