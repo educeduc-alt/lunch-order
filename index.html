@@ -488,6 +488,8 @@ let S = {
   myName:'', myClass:'',
   myRecs:null,
   authed:false, adminEid:null,
+  adminView:'current', // current | history
+  adminTeacherFilter:'all',
   menuDraft:null,      // 尚未寫入 Supabase 的新場次草稿
   delId:null,
   autoArchiving:false,
@@ -727,7 +729,7 @@ async function autoArchiveExpiredEvents({notify=false}={}){
       S.sharedEventMode=false;
       setEventUrl(null,true);
     }
-    if(notify) toast(`已自動封存 ${expired.length} 個逾時場次`,'ok');
+    if(notify) toast(`已自動封存 ${expired.length} 個逾時場次，可至「歷史場次」查看`,'ok');
     render();
   }finally{
     S.autoArchiving=false;
@@ -748,7 +750,7 @@ function renderHome(){
   let html=`<div class="page-title">點餐場次</div>
     <div class="page-sub">選擇您要參加的場次，即可開始點餐</div>
     <div class="event-list">`;
-  // 已儲存完成（關閉）的場次只保留在後台，前台不顯示。
+  // 已封存的場次只保留在後台「歷史場次」，前台不顯示。
   const allEvs=S.events.filter(ev=>!isEventClosed(ev));
   if(!allEvs.length){
     html+=`</div><div class="empty-events"><span class="ei">📭</span><p>尚無點餐場次<br>請等待承辦人建立</p></div>`;
@@ -1855,22 +1857,74 @@ async function doDelete(id,menuId){
 }
 
 /* ═══ ADMIN ═══ */
+function setAdminView(view){
+  S.adminView=view==='history'?'history':'current';
+  S.adminTeacherFilter='all';
+  const candidates=S.events.filter(event=>S.adminView==='history'?isEventClosed(event):!isEventClosed(event));
+  if(!candidates.some(event=>event.id===S.adminEid)) S.adminEid=candidates[0]?.id||null;
+  S.loadedHistoryKeys=[];
+  render();
+}
+function setAdminTeacherFilterByIndex(index){
+  S.adminTeacherFilter=index<0?'all':(S._adminTeacherOptions?.[index]||'all');
+  const candidates=S.events.filter(event=>{
+    const inView=S.adminView==='history'?isEventClosed(event):!isEventClosed(event);
+    const organizer=String(event.organizer||'未指定老師').trim()||'未指定老師';
+    return inView&&(S.adminTeacherFilter==='all'||organizer===S.adminTeacherFilter);
+  });
+  S.adminEid=candidates[0]?.id||null;
+  render();
+}
 function renderAdmin(){
-  if(!S.adminEid&&S.events.length) S.adminEid=getPreferredEventId();
-  const ev=S.events.find(e=>e.id===S.adminEid);
+  const activeEvents=S.events.filter(e=>!isEventClosed(e));
+  const archivedEvents=S.events.filter(e=>isEventClosed(e));
+  const view=S.adminView==='history'?'history':'current';
+  const viewEvents=view==='history'?archivedEvents:activeEvents;
+  const teacherOptions=[...new Set(viewEvents.map(event=>String(event.organizer||'未指定老師').trim()||'未指定老師'))];
+  S._adminTeacherOptions=teacherOptions;
+  if(S.adminTeacherFilter!=='all'&&!teacherOptions.includes(S.adminTeacherFilter)) S.adminTeacherFilter='all';
+  const visibleEvents=viewEvents.filter(event=>{
+    const organizer=String(event.organizer||'未指定老師').trim()||'未指定老師';
+    return S.adminTeacherFilter==='all'||organizer===S.adminTeacherFilter;
+  });
+  if(!visibleEvents.some(e=>e.id===S.adminEid)) S.adminEid=visibleEvents[0]?.id||null;
+  const ev=visibleEvents.find(e=>e.id===S.adminEid);
 
-  let html=`
-    <!-- 場次切換 -->
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:13px;align-items:center">
-      ${S.events.map(e=>`<button class="btn ${S.adminEid===e.id?'btn-or':'btn-out'}" style="padding:8px 16px;font-size:.85rem"
-        onclick="S.adminEid='${e.id}';S.loadedHistoryKeys=[];render()">${e.is_closed?'📦 ':''}${esc(e.title)}</button>`).join('')}
+  const byOrganizer={};
+  visibleEvents.forEach(event=>{
+    const organizer=String(event.organizer||'未指定老師').trim()||'未指定老師';
+    if(!byOrganizer[organizer]) byOrganizer[organizer]=[];
+    byOrganizer[organizer].push(event);
+  });
+
+  let html=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+      <button class="btn ${view==='current'?'btn-or':'btn-out'}" onclick="setAdminView('current')">目前場次 <span style="opacity:.75">${activeEvents.length}</span></button>
+      <button class="btn ${view==='history'?'btn-or':'btn-out'}" onclick="setAdminView('history')">歷史場次 <span style="opacity:.75">${archivedEvents.length}</span></button>
+    </div>
+    <div style="font-size:.72rem;color:var(--sll);margin-bottom:7px">${view==='history'?'選擇管理老師，查看已封存的過去場次':'依管理老師分類目前可點餐的場次'}</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:13px">
+      <button class="btn btn-sm ${S.adminTeacherFilter==='all'?'btn-or':'btn-out'}" onclick="setAdminTeacherFilterByIndex(-1)">全部老師</button>
+      ${teacherOptions.map((teacher,index)=>`<button class="btn btn-sm ${S.adminTeacherFilter===teacher?'btn-or':'btn-out'}" onclick="setAdminTeacherFilterByIndex(${index})">${esc(teacher)}</button>`).join('')}
     </div>`;
 
-  if(!ev){ html+='<div class="empty"><span class="ei">📭</span><p>請先建立場次</p></div>'; return html; }
+  Object.entries(byOrganizer).forEach(([organizer,events])=>{
+    html+=`<div class="event-picker-group">
+      <span class="organizer-capsule">👤 管理老師：${esc(organizer)}</span>
+      <div class="event-capsule-list">
+        ${events.map(event=>`<button class="btn event-capsule ${S.adminEid===event.id?'btn-or':'btn-out'}"
+          onclick="S.adminEid='${event.id}';S.loadedHistoryKeys=[];render()">${view==='history'?'📦 ':''}${esc(event.title)}${event.date?` · ${esc(fmtEventDate(event.date))}`:''}</button>`).join('')}
+      </div>
+    </div>`;
+  });
+
+  if(!ev){
+    html+=`<div class="empty"><span class="ei">${view==='history'?'🗂️':'📭'}</span><p>${view==='history'?'目前沒有歷史場次':'目前沒有進行中的場次'}</p></div>`;
+    return html;
+  }
 
   if(isEventClosed(ev)){
     html+=`<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;background:#eef2ff;border:1.5px solid #a5b4fc;border-radius:var(--rmd);padding:10px 12px;margin-bottom:13px;color:#3730a3">
-      <div><strong style="display:block;font-size:.84rem">📦 已儲存場次</strong><span style="font-size:.72rem">目前已從前台與「菜單與點餐」隱藏。</span></div>
+      <div><strong style="display:block;font-size:.84rem">📦 已封存場次</strong><span style="font-size:.72rem">目前已從前台與「菜單與點餐」隱藏，點餐紀錄仍完整保留。</span></div>
       <button class="btn btn-save-event btn-sm" onclick="restoreEvent('${ev.id}')">↩ 恢復場次</button>
     </div>`;
   }
@@ -1896,7 +1950,7 @@ function renderAdmin(){
   </div>
   <div class="exp-row" style="margin-top:4px;display:flex;gap:8px;flex-wrap:wrap">
     <button class="exp-btn" onclick="exportCSV()">📥 匯出CSV</button>
-    ${isEventClosed(ev)?'':`<button class="btn btn-save-event" onclick="archiveEvent('${ev.id}')">📦 場次移入後台</button>`}
+    ${isEventClosed(ev)?'':`<button class="btn btn-save-event" onclick="archiveEvent('${ev.id}')">📦 場次封存</button>`}
   </div>`;
 
   // 點餐紀錄
@@ -1921,7 +1975,7 @@ function renderAdmin(){
 /* 場次 & 菜單管理 */
 
 function renderMenuTab(){
-  // 「菜單與點餐」只顯示尚未收存的場次；已儲存場次集中在後台。
+  // 「菜單與點餐」只顯示尚未封存的場次；封存場次集中在後台的「歷史場次」。
   const activeEvents=S.events.filter(e=>!isEventClosed(e));
   if(S.adminEid&&!activeEvents.some(e=>e.id===S.adminEid)) S.adminEid=null;
   const ev=S.menuDraft||activeEvents.find(e=>e.id===S.adminEid);
@@ -1991,7 +2045,7 @@ function renderEventMgmt(ev){
       </div>
       <div style="flex:1;min-width:180px"><span class="mg-lbl">點餐截止時間</span>
         <input class="mg-inp" type="time" id="evDeadline" value="${esc(ev.deadline||'23:59')}" oninput="updateEditingEventField('deadline',this.value)">
-        <div style="font-size:.66rem;color:var(--sll);margin-top:4px">時間到後會自動移入後台</div>
+        <div style="font-size:.66rem;color:var(--sll);margin-top:4px">時間到後會自動封存至「歷史場次」</div>
       </div>
     </div>
     <div class="ev-mgmt-grid" style="margin-bottom:10px">
@@ -2231,6 +2285,8 @@ async function restoreEvent(eid){
   if(DEMO){
     ev.is_closed=false;
     S.adminEid=eid;
+    S.adminView='current';
+    S.adminTeacherFilter='all';
     goTab('menu');
     toast('✅ 場次已恢復','ok');
     return;
@@ -2239,6 +2295,8 @@ async function restoreEvent(eid){
   if(error||!data?.length){toast('恢復失敗：'+(error?.message||'資料未更新'),'err');return;}
   ev.is_closed=false;
   S.adminEid=eid;
+  S.adminView='current';
+  S.adminTeacherFilter='all';
   goTab('menu');
   toast('✅ 場次已恢復至「菜單與點餐」及前台','ok');
 }
@@ -2528,13 +2586,21 @@ function removeItem(i){ syncPendingItemsFromForm(); S.pendingItems.splice(i,1); 
 async function archiveEvent(eid){
   const ev=S.events.find(event=>event.id===eid);
   if(!ev){toast('找不到要封存的場次','err');return;}
-  if(ev.is_closed){toast('此場次已在後台','warn');return;}
-  if(!confirm(`確定將「${ev.title}」移入後台？\n移入後前台會停止顯示，但點餐紀錄與 CSV 資料都會保留。`)) return;
-  if(DEMO){ev.is_closed=true;toast('✅ 場次已移入後台','ok');render();return;}
+  if(ev.is_closed){toast('此場次已封存','warn');return;}
+  if(!confirm(`確定封存「${ev.title}」？\n封存後會從「目前場次」消失，並移到後台的「歷史場次」；點餐紀錄與 CSV 資料都會保留。`)) return;
+  if(DEMO){
+    ev.is_closed=true;
+    S.adminEid=S.events.find(event=>!isEventClosed(event))?.id||null;
+    toast('✅ 場次已封存，可至「歷史場次」查看','ok');
+    render();
+    return;
+  }
   const{data,error}=await sb.from('menus').update({is_closed:true}).eq('id',eid).select('id');
-  if(error||!data?.length){toast('移入後台失敗：'+(error?.message||'資料未更新'),'err');return;}
+  if(error||!data?.length){toast('場次封存失敗：'+(error?.message||'資料未更新'),'err');return;}
   ev.is_closed=true;
-  toast('✅ 場次已移入後台，點餐紀錄已保留','ok');
+  S.adminEid=S.events.find(event=>!isEventClosed(event))?.id||null;
+  S.adminView='current';
+  toast('✅ 場次已封存，可至「歷史場次」查看','ok');
   render();
 }
 async function saveMenu(){
