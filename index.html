@@ -2583,11 +2583,11 @@ function addItem(){
   render();
 }
 function removeItem(i){ syncPendingItemsFromForm(); S.pendingItems.splice(i,1); render(); }
-async function archiveEvent(eid,{skipConfirm=false}={}){
+async function archiveEvent(eid){
   const ev=S.events.find(event=>event.id===eid);
   if(!ev){toast('找不到要封存的場次','err');return;}
   if(ev.is_closed){toast('此場次已封存','warn');return;}
-  if(!skipConfirm&&!confirm(`確定封存「${ev.title}」？\n封存後會從「目前場次」消失，並移到後台的「歷史場次」；點餐紀錄與 CSV 資料都會保留。`)) return;
+  if(!confirm(`確定封存「${ev.title}」？\n封存後會從「目前場次」消失，並移到後台的「歷史場次」；點餐紀錄與 CSV 資料都會保留。`)) return;
   if(DEMO){
     ev.is_closed=true;
     S.adminEid=S.events.find(event=>!isEventClosed(event))?.id||null;
@@ -3284,11 +3284,6 @@ function exportCSV(){
   ];
   const ev=data.ev;
   dlCSV(rows,`點餐紀錄_${ev?.title||''}`);
-  if(ev&&!isEventClosed(ev)){
-    setTimeout(()=>{
-      if(confirm(`「${ev.title}」的 CSV 已匯出。\n是否現在封存此場次？`)) archiveEvent(ev.id,{skipConfirm:true});
-    },150);
-  }
 }
 function renderAdminOrderSummary(data){
   const group=(title,rows)=>`<section class="order-summary-group">
