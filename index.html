@@ -3283,6 +3283,12 @@ function buildOrderExportData(){
   const menuItems=S.items[S.adminEid]||[];
   const itemMap=Object.fromEntries(menuItems.map(item=>[item.id,item]));
   const eventInfo=[ev?.title&&`場次：${ev.title}`,ev?.date&&`日期：${ev.date}`,ev?.organizer&&`承辦：${ev.organizer}`].filter(Boolean).join('｜');
+  const printHeader=['點餐姓名','餐點內容','合計','缺額','訂單備註'];
+  const printRows=sortedOrders.map(order=>{
+    const shortfall=getOrderShortfallSummary(order,menuItems,ev);
+    const meals=summarizeOrderItems(order.order_items||[]).replace(/、/g,'\n');
+    return[order.user_name||'',meals,Number(order.total)||0,shortfall.csvText,order.note||''];
+  });
   const detailHeader=['場次資訊','點餐姓名','店家','品項','規格','糖度冰塊／品項備註','數量','單價','小計','缺額','訂單備註'];
   const detailRows=[];
   const summary={};
@@ -3314,18 +3320,22 @@ function buildOrderExportData(){
       const row=[formatMealSummary(x.name,x.specs,x.itemNote),names.length,names.join('、')];
       (x.workType==='飲料'?drinkSummaryRows:mealSummaryRows).push(row);
     });
-  return{ev,detailHeader,detailRows,summaryHeader:['餐點','點餐人數','點餐姓名'],mealSummaryRows,drinkSummaryRows};
+  return{ev,eventInfo,printHeader,printRows,detailHeader,detailRows,summaryHeader:['餐點','點餐人數','點餐姓名'],mealSummaryRows,drinkSummaryRows};
 }
 function exportCSV(){
   const data=buildOrderExportData();
-  if(!data.detailRows.length){toast('沒有資料','warn');return;}
+  if(!data.printRows.length){toast('沒有資料','warn');return;}
+  const ev=data.ev;
   const rows=[
-    data.detailHeader,...data.detailRows,
+    ['點餐紀錄（直式列印版）'],
+    ['場次',ev?.title||''],
+    ['日期',ev?.date?fmtEventDate(ev.date):''],
+    ['管理老師',ev?.organizer||''],
+    [],data.printHeader,...data.printRows,
     [],['便當餐點彙整'],data.summaryHeader,...data.mealSummaryRows,
     [],['飲料餐點彙整'],data.summaryHeader,...data.drinkSummaryRows
   ];
-  const ev=data.ev;
-  dlCSV(rows,`點餐紀錄_${ev?.title||''}`);
+  dlCSV(rows,`點餐紀錄_直式列印_${ev?.title||''}`);
 }
 function renderAdminOrderSummary(data){
   const group=(title,rows)=>`<section class="order-summary-group">
