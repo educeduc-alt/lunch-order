@@ -1974,13 +1974,14 @@ function renderAdmin(){
   html+=`${duplicateNameFlags.size?`<div style="background:var(--aml);border:1.5px solid #fbbf24;border-radius:var(--rmd);padding:9px 12px;margin-bottom:10px;color:#92400e;font-size:.76rem;font-weight:700">發現 ${duplicateNameFlags.size} 筆相同或相似姓名，已在下方標示。</div>`:''}<div class="panel"><div class="panel-head"><div class="panel-title">📋 點餐紀錄</div>
     <button class="btn btn-rd btn-sm" onclick="if(confirm('確定清空所有訂單？'))clearOrders()">清空</button>
   </div><div style="overflow-x:auto"><table class="atbl">
-    <thead><tr><th>時間</th><th>姓名</th><th>品項</th><th>合計</th><th></th></tr></thead><tbody>`;
+    <thead><tr><th>時間</th><th>姓名</th><th>品項</th><th>合計／缺額</th><th></th></tr></thead><tbody>`;
   if(!ords.length) html+='<tr><td colspan="5" style="text-align:center;color:var(--sll);padding:20px">尚無紀錄</td></tr>';
   else ords.forEach(o=>{
     const summ=summarizeOrderItems(o.order_items||[]);
+    const shortfall=getOrderShortfallSummary(o,S.items[S.adminEid]||[],ev);
     const nameFlags=duplicateNameFlags.get(o.id)||[];
     const flagLabel=nameFlags.some(flag=>flag.kind==='exact')?'相同姓名':'相似姓名：'+[...new Set(nameFlags.map(flag=>flag.name))].join('、');
-    html+=`<tr${nameFlags.length?' style="background:#fffbeb"':''}><td>${fmtTime(o.created_at)}</td><td><strong>${esc(o.user_name)}</strong>${nameFlags.length?`<div style="margin-top:3px;color:#b45309;font-size:.64rem;font-weight:800">${esc(flagLabel)}</div>`:''}</td><td style="font-size:.75rem">${esc(summ)}</td><td style="font-weight:700;color:var(--or)">${o.total>0?'$'+o.total:'—'}</td>
+    html+=`<tr${nameFlags.length?' style="background:#fffbeb"':''}><td>${fmtTime(o.created_at)}</td><td><strong>${esc(o.user_name)}</strong>${nameFlags.length?`<div style="margin-top:3px;color:#b45309;font-size:.64rem;font-weight:800">${esc(flagLabel)}</div>`:''}</td><td style="font-size:.75rem">${esc(summ)}</td><td style="font-weight:700;color:var(--or)">${o.total>0?'$'+o.total:'—'}${shortfall.total?`<div style="margin-top:4px;color:var(--rd);line-height:1.45">${shortfall.lines.map(line=>`<strong>缺額 $${line.amount}</strong><br><span style="font-size:.62rem">${esc(line.category)}／${esc(line.restaurant)}</span>`).join('<br>')}</div>`:''}</td>
       <td><button class="btn btn-rd btn-sm" onclick="if(confirm('刪除？'))delOrder('${o.id}','${ev.id}')">刪</button></td></tr>`;
   });
   html+='</tbody></table></div></div>';
@@ -3230,6 +3231,29 @@ function formatMealSummary(name,specs,itemNote){
   if(itemNote) label+=`｜${itemNote}`;
   return label;
 }
+function getOrderShortfallSummary(order,menuItems,ev){
+  const items=menuItems||[];
+  const itemMap=Object.fromEntries(items.map(item=>[item.id,item]));
+  const groups={};
+  (order?.order_items||[]).forEach(orderItem=>{
+    const source=itemMap[orderItem.item_id]||items.find(item=>item.name===orderItem.item_name)||{};
+    const category=source.category||'其他';
+    const limit=getSubsidyLimit({category});
+    if(!limit) return;
+    const restaurant=source.restaurant||ev?.store_name||'未設定店家';
+    const key=category+'__'+restaurant;
+    if(!groups[key]) groups[key]={category,restaurant,limit,total:0};
+    groups[key].total+=(Number(orderItem.unit_price)||0)*(Number(orderItem.quantity)||0);
+  });
+  const lines=Object.values(groups)
+    .filter(group=>group.total>group.limit)
+    .map(group=>({...group,amount:group.total-group.limit}));
+  return{
+    lines,
+    total:lines.reduce((sum,line)=>sum+line.amount,0),
+    csvText:lines.map(line=>`【缺額 $${line.amount}】${line.category}／${line.restaurant}`).join('；')
+  };
+}
 function sortBySimilarPersonName(records,getName){
   const list=[...records];
   const parent=list.map((_,index)=>index);
@@ -3259,11 +3283,12 @@ function buildOrderExportData(){
   const menuItems=S.items[S.adminEid]||[];
   const itemMap=Object.fromEntries(menuItems.map(item=>[item.id,item]));
   const eventInfo=[ev?.title&&`場次：${ev.title}`,ev?.date&&`日期：${ev.date}`,ev?.organizer&&`承辦：${ev.organizer}`].filter(Boolean).join('｜');
-  const detailHeader=['場次資訊','點餐姓名','店家','品項','規格','糖度冰塊／品項備註','數量','單價','小計','訂單備註'];
+  const detailHeader=['場次資訊','點餐姓名','店家','品項','規格','糖度冰塊／品項備註','數量','單價','小計','缺額','訂單備註'];
   const detailRows=[];
   const summary={};
   sortedOrders.forEach(o=>{
-    (o.order_items||[]).forEach(oi=>{
+    const shortfall=getOrderShortfallSummary(o,menuItems,ev);
+    (o.order_items||[]).forEach((oi,itemIndex)=>{
       const source=itemMap[oi.item_id]||menuItems.find(item=>item.name===oi.item_name)||{};
       const restaurant=source.restaurant||ev?.store_name||'未設定店家';
       const category=source.category||'其他';
@@ -3271,7 +3296,7 @@ function buildOrderExportData(){
       const qty=Number(oi.quantity)||0;
       const unitPrice=Number(oi.unit_price)||0;
       const subtotal=qty*unitPrice;
-      detailRows.push([eventInfo,o.user_name||'',restaurant,oi.item_name,oi.specs_str||'',oi.note||'',qty,unitPrice,subtotal,o.note||'']);
+      detailRows.push([eventInfo,o.user_name||'',restaurant,oi.item_name,oi.specs_str||'',oi.note||'',qty,unitPrice,subtotal,itemIndex===0?shortfall.csvText:'',o.note||'']);
       const key=[restaurant,workType,category,oi.item_name,oi.specs_str||'',oi.note||'',unitPrice].join('__');
       if(!summary[key]) summary[key]={diners:new Map(),restaurant,workType,category,name:oi.item_name,specs:oi.specs_str||'',itemNote:oi.note||''};
       if(o.user_name){
