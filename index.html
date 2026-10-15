@@ -415,7 +415,7 @@ body.shared-event-mode .main{padding-top:18px}
 <!-- TABS -->
 <div class="tab-bar">
   <div class="tab-bar-inner">
-    <button class="tab-btn on" id="tab-home" onclick="goTab('home')">場次列表</button>
+    <button class="tab-btn" id="tab-home" onclick="goTab('home')" style="display:none">場次列表</button>
     <button class="tab-btn" id="tab-menu" onclick="goTab('menu')">菜單與點餐</button>
     <button class="tab-btn" id="tab-admin" onclick="goTab('admin')">後台</button>
   </div>
@@ -501,15 +501,26 @@ let S = {
   S.sharedEventMode=isSharedEventUrl();
   document.body.classList.toggle('shared-event-mode',S.sharedEventMode);
   await loadEvents();
-  await autoArchiveExpiredEvents();
+  await autoArchiveExpiredEvents({rerender:false});
   if(requestedEventId&&S.events.some(ev=>ev.id===requestedEventId)){
     S.activeEventId=requestedEventId;
     S.tab='home';
   }else{
     S.sharedEventMode=false;
+    S.tab='menu';
+    S._pendingTab='menu';
+    prepareNewEventDraft();
   }
+  ['home','menu','admin'].forEach(tab=>{
+    const el=document.getElementById('tab-'+tab);
+    if(el) el.className='tab-btn'+(tab===S.tab?(tab==='admin'?' on-admin':' on'):'');
+  });
   subscribeRT();
   render();
+  if(S.tab==='menu'&&!S.authed){
+    document.getElementById('adminModal').style.display='flex';
+    setTimeout(()=>document.getElementById('adminPwInp').focus(),80);
+  }
   // 頁面持續開啟時也會檢查截止時間，不必重新整理。
   setInterval(()=>autoArchiveExpiredEvents({notify:true}),30000);
 })();
@@ -669,6 +680,12 @@ function render(){
   const mc=document.getElementById('main');
   const sb2=document.getElementById('subBar');
   const hasCart=Object.keys(S.cart).length>0;
+  if(S.tab!=='home'&&!S.authed){
+    document.title='資源教室點餐小助手';
+    mc.innerHTML='<div class="empty"><span class="ei">🔒</span><p>請先登入管理介面</p><button class="btn btn-or" onclick="S._pendingTab=S.tab;document.getElementById(\'adminModal\').style.display=\'flex\'">管理登入</button></div>';
+    sb2.style.display='none';
+    return;
+  }
   if(S.tab==='home'){
     if(S.activeEventId){
       const currentEvent=S.events.find(e=>e.id===S.activeEventId);
@@ -712,7 +729,7 @@ function isEventExpired(ev,now=Date.now()){
   const deadlineMs=getEventDeadlineMs(ev);
   return deadlineMs!==null&&deadlineMs<=now;
 }
-async function autoArchiveExpiredEvents({notify=false}={}){
+async function autoArchiveExpiredEvents({notify=false,rerender=true}={}){
   if(S.autoArchiving) return;
   const expired=S.events.filter(ev=>!ev.is_closed&&isEventExpired(ev));
   if(!expired.length) return;
@@ -730,7 +747,7 @@ async function autoArchiveExpiredEvents({notify=false}={}){
       setEventUrl(null,true);
     }
     if(notify) toast(`已自動封存 ${expired.length} 個逾時場次，可至「歷史場次」查看`,'ok');
-    render();
+    if(rerender) render();
   }finally{
     S.autoArchiving=false;
   }
