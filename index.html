@@ -2204,6 +2204,66 @@ function splitHistoryEntries(entries){
   return result;
 }
 
+function getHistoryItemType(item,fallbackType=''){
+  // AI 偶爾會把主餐標成「主餐／餐點／其他」；歷史菜單只需區分飲料與非飲料。
+  return item?.category==='飲料'||item?._uploadType==='drink'||fallbackType==='飲料'?'飲料':'便當';
+}
+
+function getLocalHistoryEntries(){
+  try{
+    return splitHistoryEntries(JSON.parse(localStorage.getItem('menuCache')||'[]'));
+  }catch(error){
+    console.warn('讀取瀏覽器歷史菜單失敗',error);
+    return [];
+  }
+}
+
+function buildDatabaseHistoryEntries(){
+  // S.events 已依日期、建立時間由新到舊排序；同店同類型只取最近一次場次。
+  const latest=new Map();
+  (S.events||[]).forEach(ev=>{
+    const grouped=new Map();
+    (S.items[ev.id]||[]).forEach(item=>{
+      const type=getHistoryItemType(item);
+      let store=String(item.restaurant||ev.store_name||'').replace('未知店家','').trim();
+      if(!store||store==='本日菜單') store=String(ev.store_name||'').replace('未知店家','').trim();
+      if(!store) return;
+      const key=normalizeCompareText(store)+'__'+type;
+      if(!grouped.has(key)) grouped.set(key,{store,type,items:new Map()});
+      const itemKey=normalizeCompareText(item.name)||String(item.id||grouped.get(key).items.size);
+      // 同一場次重複解析時，sort_order 較後面的新版資料會覆蓋同名舊資料。
+      grouped.get(key).items.set(itemKey,item);
+    });
+    grouped.forEach((group,key)=>{
+      if(latest.has(key)) return;
+      const items=[...group.items.values()].sort((a,b)=>(Number(a.sort_order)||0)-(Number(b.sort_order)||0));
+      latest.set(key,{
+        key:'database__'+ev.id+'__'+group.type+'__'+normalizeCompareText(group.store),
+        store:group.store,
+        type:group.type,
+        items,
+        eventId:ev.id,
+        imageType:group.type==='飲料'?'drink':'main',
+        savedAt:fmtEventDate(ev.date)||'已儲存場次'
+      });
+    });
+  });
+  return [...latest.values()];
+}
+
+function getHistoryMenuEntries(includePresets=false){
+  // 本機快取保留「剛解析完成」的精確版本；Supabase 紀錄讓換裝置或清快取後仍可找回。
+  const sources=[...getLocalHistoryEntries(),...buildDatabaseHistoryEntries()];
+  if(includePresets) sources.push(...splitHistoryEntries(PRESET_MENUS));
+  const seen=new Set();
+  return sources.filter(entry=>{
+    const key=normalizeCompareText(entry.store)+'__'+entry.type;
+    if(!entry.items?.length||seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 function getHistoryMenuImage(entry){
   if(entry?.imageUrl) return entry.imageUrl;
   const ev=S.events.find(event=>event.id===entry?.eventId);
@@ -2213,11 +2273,7 @@ function getHistoryMenuImage(entry){
 }
 
 function showMenuCache(){
-  const stored=JSON.parse(localStorage.getItem('menuCache')||'[]');
-  // 合併預設菜單（不重複）
-  const presetStores=PRESET_MENUS.map(p=>p.store);
-  const extra=stored.filter(s=>!presetStores.includes(s.store));
-  const cached=splitHistoryEntries([...PRESET_MENUS,...extra]);
+  const cached=getHistoryMenuEntries(true);
   if(!cached.length){toast('尚無歷史菜單紀錄','warn');return;}
   window._historyCacheEntries=cached;
   // 建立選單覆蓋層
@@ -2723,15 +2779,14 @@ async function saveMenu(){
       const cacheSourceItems=S.parseStatus==='complete'?newItems:allItems;
       const storeRaw=(document.getElementById('evStore')?.value.trim()||evNow?.store_name||'').replace('未知店家','').trim();
       const date=new Date().toLocaleDateString('zh-TW');
-      const bentoCats=['便當','點心'];
       // 每個店家獨立存快取（依 restaurant 欄位分組）
       const storeGroups={};
       cacheSourceItems.forEach(it=>{
         const s=it.restaurant||storeRaw;
         if(!s) return;
         if(!storeGroups[s]) storeGroups[s]={bento:[],drink:[]};
-        if((it.category||'其他')==='飲料') storeGroups[s].drink.push(it);
-        else if(bentoCats.includes(it.category||'其他')) storeGroups[s].bento.push(it);
+        if(getHistoryItemType(it)==='飲料') storeGroups[s].drink.push(it);
+        else storeGroups[s].bento.push(it);
       });
       Object.entries(storeGroups).forEach(([sName,{bento,drink}])=>{
         if(bento.length){
@@ -2748,7 +2803,7 @@ async function saveMenu(){
         }
       });
       localStorage.setItem('menuCache',JSON.stringify(cached.slice(0,20)));
-    }catch(e){}
+    }catch(error){console.warn('瀏覽器歷史菜單快取失敗，仍可由 Supabase 場次紀錄載入',error);}
     S.parseStatus='idle';
     S.parseComparison=null;
     S.parseRunId=null;
@@ -2836,8 +2891,7 @@ function compareParsedWithHistory(runId){
   const parsed=(S.pendingItems||[]).filter(item=>item._parseRunId===runId&&!item._historyMissing);
   const ev=S.events.find(e=>e.id===S.adminEid);
   const fallbackStore=(document.getElementById('evStore')?.value||ev?.store_name||'').trim();
-  let history=[];
-  try{history=splitHistoryEntries(JSON.parse(localStorage.getItem('menuCache')||'[]'));}catch(e){}
+  const history=getHistoryMenuEntries(false);
   const groups={};
   parsed.forEach(item=>{
     const type=item.category==='飲料'||item._uploadType==='drink'?'飲料':'便當';
