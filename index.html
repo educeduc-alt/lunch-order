@@ -379,7 +379,7 @@ body:has(#subBar:not([style*="display: none"])) .developer-card{bottom:82px}
   const host = window.location.hostname;
   const isLocalPreview = window.location.protocol === 'file:' || host === 'localhost' || host === '127.0.0.1';
   window._cfPages = host.includes('pages.dev') || (!host.includes('netlify') && !isLocalPreview);
-  window._geminiProxyUrl = isLocalPreview
+  window._geminiCloudflareProxyUrl = isLocalPreview
     ? 'https://lunch-order-2bw.pages.dev/gemini-proxy'
     : (window._cfPages ? '/gemini-proxy' : '/.netlify/functions/gemini-proxy');
 </script>
@@ -452,6 +452,7 @@ body:has(#subBar:not([style*="display: none"])) .developer-card{bottom:82px}
 const SUPABASE_URL  = 'https://mzwdujssjexrcjzzdnyu.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im16d2R1anNzamV4cmNqenpkbnl1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxNDA1MTMsImV4cCI6MjA5NDcxNjUxM30.BmCw2pE5PRMkyJ5qJUiRLHxkeWzkgJCBoDhvzFUseFc';
 const CLAUDE_KEY    = '';  // Key 已移至 Netlify 環境變數
+const GEMINI_EDGE_PROXY_URL = `${SUPABASE_URL}/functions/v1/gemini-proxy?forceFunctionRegion=us-east-1`;
 
 const { createClient } = supabase;
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON);
@@ -3221,7 +3222,6 @@ async function aiParseBase64(base64,mime,uploadType='main'){
   const statusEl=document.getElementById(uploadType==='drink'?'aiStatusDrink':'aiStatusMain')||document.getElementById('aiStatus');
   if(statusEl) statusEl.innerHTML=`<div class="scan-ldr"><div class="spin"></div>AI 正在解析菜單，請稍候…</div>`;
   try{
-    const proxyUrl=window._geminiProxyUrl;
     const requestBody=JSON.stringify({messages:[{role:'user',content:[
         {type:'image',source:{type:'base64',media_type:mime,data:base64}},
         {type:'text',text:'請解析這張菜單圖片，只回傳純 JSON 陣列，不要有任何其他文字或 markdown：\\n[{"restaurant":"店家名稱","category":"便當","name":"中文品項名稱","price":數字或0,"description":"描述","specs":[]}]\\n品名規則：name 只保留中文品名；中英文並列時完全省略英文翻譯。只有英文、沒有中文品名的項目不要輸出。\\nspecs 規格判斷規則（只加菜單上真實存在的）：\\n1. 若有多個價格欄（如八角飯盒/圓飯盒），price 填最小值，specs 加 {"cat":"飯盒","opts":["八角飯盒 $110","圓飯盒 $125"]} 把價格標在選項裡\\n2. 若有加量/加飯/加菜選項，specs 加 {"cat":"份量","opts":["正常","加量"]}\\n3. 飲料若有加料區，specs 加 {"cat":"加料","opts":["珍珠","椰果",...]} 只列菜單上有的料\\n4. 飲料若有杯型，specs 加 {"cat":"杯型","opts":["中杯","大杯"]}\\n5. 便當若有主食選擇（飯/麵/焗烤），specs 加 {"cat":"主食","opts":["白飯","麵",...]}\\n6. 沒有對應規格就保留 specs:[]\\ncategory 判斷規則：若整張菜單都是飲料（如飲料店菜單），所有品項 category 填「飲料」；加料區單獨列出的料也填「飲料」。若是便當/餐盒菜單，主餐填「便當」，湯品小菜填「點心」。只列出清楚可見的品項，看不清楚不要猜。忽略優惠說明。確保 JSON 完整不截斷。price 看不清楚填 0。無法辨識回傳 []。'}
@@ -3237,8 +3237,37 @@ async function aiParseBase64(base64,mime,uploadType='main'){
     let lastDetail='';
     let errorCode='';
     try{
-      res=await fetch(proxyUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:requestBody,signal:controller.signal});
-      text=await res.text();
+      const proxyTargets=[
+        {
+          name:'Supabase 固定區域代理',
+          url:GEMINI_EDGE_PROXY_URL,
+          headers:{
+            'Content-Type':'application/json',
+            'apikey':SUPABASE_ANON,
+            'Authorization':`Bearer ${SUPABASE_ANON}`,
+          },
+        },
+        {
+          name:'Cloudflare 備援代理',
+          url:window._geminiCloudflareProxyUrl,
+          headers:{'Content-Type':'application/json'},
+        },
+      ];
+      for(let proxyIndex=0;proxyIndex<proxyTargets.length;proxyIndex++){
+        const target=proxyTargets[proxyIndex];
+        res=await fetch(target.url,{method:'POST',headers:target.headers,body:requestBody,signal:controller.signal});
+        text=await res.text();
+        if(res.ok) break;
+        let targetCode='';
+        try{targetCode=JSON.parse(text)?.code||'';}catch(e){}
+        const edgeNotReady=proxyIndex===0&&(
+          [401,403,404].includes(res.status)||
+          (res.status===500&&/GEMINI_API_KEY|not configured|未設定/i.test(text))||
+          targetCode==='FUNCTION_NOT_FOUND'
+        );
+        if(edgeNotReady) continue;
+        break;
+      }
     }catch(fetchError){
       if(fetchError?.name==='AbortError'){
         throw new Error(S.parseCancelled?'已取消解析':'AI 解析超過時間上限，請重新嘗試');
