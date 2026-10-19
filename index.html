@@ -42,6 +42,11 @@ input,select,textarea{font-family:inherit}
 .main{max-width:1000px;margin:0 auto;width:100%;padding:26px 18px 100px}
 body.shared-event-mode .topbar,body.shared-event-mode .tab-bar{display:none}
 body.shared-event-mode .main{padding-top:18px}
+.developer-card{position:fixed;right:14px;bottom:14px;z-index:70;width:min(240px,calc(100vw - 28px));padding:11px 13px;border:1px solid var(--bo);border-left:4px solid var(--or);border-radius:var(--rmd);background:rgba(255,255,255,.96);box-shadow:var(--shmd);backdrop-filter:blur(10px);font-size:.68rem;line-height:1.55;color:var(--slm)}
+.developer-card strong{display:block;color:var(--sl);font-size:.78rem;font-weight:900}
+.developer-card a{color:var(--in);font-weight:700;text-decoration:none;overflow-wrap:anywhere}
+.developer-card a:hover{text-decoration:underline}
+body:has(#subBar:not([style*="display: none"])) .developer-card{bottom:82px}
 
 /* ── SESSION LIST (首頁) ── */
 .page-title{font-family:'Nunito',sans-serif;font-weight:900;font-size:1.35rem;letter-spacing:-.02em;margin-bottom:4px}
@@ -358,6 +363,9 @@ body.shared-event-mode .main{padding-top:18px}
   .modal-box{padding:22px 18px}
   .order-summary-grid{grid-template-columns:1fr;gap:9px}
   .order-summary-list{padding:8px}
+  .developer-card{right:10px;bottom:10px;width:auto;max-width:210px;padding:8px 10px;font-size:.6rem}
+  .developer-card strong{font-size:.69rem}
+  body:has(#subBar:not([style*="display: none"])) .developer-card{bottom:72px}
 
   /* sheet */
   .sheet{padding:15px 15px 28px}
@@ -430,6 +438,12 @@ body.shared-event-mode .main{padding-top:18px}
     <button class="sub-btn" id="subBtn" onclick="submitOrder()">✅ 送出點餐</button>
   </div>
 </div>
+
+<aside class="developer-card" aria-label="技術開發資訊">
+  <strong>張家銘　技術開發</strong>
+  <div>弘光科技大學行政助理</div>
+  <a href="mailto:educeduc@hk.edu.tw">educeduc@hk.edu.tw</a>
+</aside>
 
 <script>
 /* ═══ CONFIG ═══ */
