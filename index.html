@@ -229,8 +229,10 @@ body:has(#subBar:not([style*="display: none"])) .developer-card{bottom:82px}
 .atbl th{background:var(--bos);padding:8px 11px;text-align:left;font-weight:700;font-size:.68rem;color:var(--sll);text-transform:uppercase;letter-spacing:.4px;border-bottom:1.5px solid var(--bo)}
 .atbl td{padding:8px 11px;border-bottom:1px solid var(--bos);vertical-align:top}
 .atbl tr:hover td{background:var(--bos)}
+.check-col{width:72px;text-align:center!important;white-space:nowrap}
 .check-input{width:20px;height:20px;accent-color:var(--gr);cursor:pointer;vertical-align:middle}
-.order-summary-item.is-checked{background:#f0fdf4}
+.atbl tr.is-checked td,.order-summary-item.is-checked{background:#f0fdf4}
+.atbl tr.is-checked td:not(:last-child){color:#64748b}
 
 /* 場次管理卡片 */
 .ev-mgmt-card{background:var(--bos);border:1.5px solid var(--bo);border-radius:var(--rmd);padding:14px;margin-bottom:10px;position:relative}
@@ -1094,7 +1096,7 @@ function startCombo(id){
   // 有規格的主餐先選規格，選完再進套餐流程
   if(item.specs&&item.specs.length>0){
     S.specItem=item; S.specSel={}; S.specQty=1; S.specNote='';
-    (item.specs||[]).forEach(sp=>{const opts=getSpecOptions(sp,item);if(opts.length)S.specSel[sp.cat]=isMultiAddonSpec(sp.cat,item)?[]:opts[0];});
+    S.specSel=createInitialSpecSelection(item);
     S.specItem._comboMode=true;  // 標記為套餐模式
     renderSheet();
     document.getElementById('specOverlay').style.display='flex';
@@ -1245,7 +1247,7 @@ function selectComboMain(id){
   if(item.specs&&item.specs.length){
     // 有規格彈出選規格，之後再設定 comboMain
     S.specItem=item; S.specSel={}; S.specQty=1; S.specNote='';
-    (item.specs||[]).forEach(sp=>{const opts=getSpecOptions(sp,item);if(opts.length)S.specSel[sp.cat]=isMultiAddonSpec(sp.cat,item)?[]:opts[0];});
+    S.specSel=createInitialSpecSelection(item);
     S.specItem._comboMode=true;
     renderSheet();
     document.getElementById('comboOverlay').style.display='none';
@@ -1281,12 +1283,7 @@ function toggleComboItem(type, id){
 
 function showComboSpecPicker(type, item, arr){
   // 在 comboSheetContent 裡疊加一個規格選擇層
-  const specSel={};
-  (item.specs||[]).forEach(sp=>{
-    const opts=getSpecOptions(sp,item);
-    if(isMultiAddonSpec(sp.cat,item)) specSel[sp.cat]=[];
-    else if(opts.length) specSel[sp.cat]=opts[0];
-  });
+  const specSel=createInitialSpecSelection(item);
   window.comboSpecSel=specSel;
   window.comboSpecNote='';
 
@@ -1511,12 +1508,7 @@ function openSpec(id){
   const ev=S.events.find(e=>e.id===S.activeEventId);
   if(isEventClosed(ev)){toast('此場次已截止','err');return;}
   S.specItem=(S.items[S.activeEventId]||[]).find(i=>i.id===id);
-  S.specSel={};
-  (S.specItem.specs||[]).forEach(sp=>{
-    const opts=getSpecOptions(sp,S.specItem);
-    if(isMultiAddonSpec(sp.cat,S.specItem)) S.specSel[sp.cat]=[];
-    else if(opts.length) S.specSel[sp.cat]=opts[0];
-  });
+  S.specSel=createInitialSpecSelection(S.specItem);
   S.specQty=1;S.specNote='';
   renderSheet();
   document.getElementById('specOverlay').style.display='flex';
@@ -1532,16 +1524,41 @@ function parseOptPrice(optStr){
 function isAddonSpec(cat){
   return /加料|加價|配料|配餐|升級/.test(String(cat||''));
 }
+function isOptionalSpec(spec,item){
+  const cat=String(spec?.cat||'');
+  const opts=spec?.opts||[];
+  if(isAddonSpec(cat)||/加飯|飯量|加大|加量|焗烤|加購|份量/.test(cat)) return true;
+  return !!opts.length&&opts.every(opt=>isEmptyAddonOption(opt)||parseOptPrice(opt)?.isDelta);
+}
 function isMultiAddonSpec(cat,item){
   return item?.category==='飲料'&&/加料|配料/.test(String(cat||''));
 }
 function isEmptyAddonOption(opt){
-  return /^(不加(?:料)?|無|不要|原味|不需要|none)$/i.test(String(opt||'').trim());
+  return /^(不加(?:料|飯|大)?|不焗烤|不加購|正常(?:份量)?|無|不要|原味|不需要|none)$/i.test(String(opt||'').trim());
+}
+function getEmptySpecOption(spec){
+  const text=String(spec?.cat||'')+' '+(spec?.opts||[]).join(' ');
+  if(/加飯|飯量/.test(text)) return '不加飯';
+  if(/焗烤/.test(text)) return '不焗烤';
+  if(/加大|加量|份量/.test(text)) return '正常份量';
+  if(/加料|配料/.test(text)) return '不加料';
+  return '不加購';
 }
 function getSpecOptions(spec,item){
   const opts=[...(spec?.opts||[])];
-  if(item?.category==='點心'&&isAddonSpec(spec?.cat)&&!opts.some(isEmptyAddonOption)) opts.unshift('不加料');
+  if(isOptionalSpec(spec,item)&&!opts.some(isEmptyAddonOption)) opts.unshift(getEmptySpecOption(spec));
   return opts;
+}
+function createInitialSpecSelection(item){
+  const selection={};
+  (item?.specs||[]).forEach(spec=>{
+    const opts=getSpecOptions(spec,item);
+    if(!opts.length) return;
+    const empty=opts.find(isEmptyAddonOption);
+    if(isMultiAddonSpec(spec.cat,item)) selection[spec.cat]=empty?[empty]:[];
+    else selection[spec.cat]=(isOptionalSpec(spec,item)&&empty)?empty:opts[0];
+  });
+  return selection;
 }
 function isBentoStoreDrink(item){
   if(item?.category!=='飲料') return false;
@@ -2008,17 +2025,19 @@ function renderAdmin(){
   </div>`;
 
   // 點餐紀錄
-  html+=`${duplicateNameFlags.size?`<div style="background:var(--aml);border:1.5px solid #fbbf24;border-radius:var(--rmd);padding:9px 12px;margin-bottom:10px;color:#92400e;font-size:.76rem;font-weight:700">發現 ${duplicateNameFlags.size} 筆相同或相似姓名，已在下方標示。</div>`:''}<div class="panel"><div class="panel-head"><div class="panel-title">📋 點餐紀錄</div>
+  html+=`${duplicateNameFlags.size?`<div style="background:var(--aml);border:1.5px solid #fbbf24;border-radius:var(--rmd);padding:9px 12px;margin-bottom:10px;color:#92400e;font-size:.76rem;font-weight:700">發現 ${duplicateNameFlags.size} 筆相同或相似姓名，已在下方標示。</div>`:''}<div class="panel"><div class="panel-head"><div class="panel-title">📋 點餐紀錄</div><span style="font-size:.68rem;color:var(--sll)">個人分餐確認</span>
     <button class="btn btn-rd btn-sm" onclick="if(confirm('確定清空所有訂單？'))clearOrders()">清空</button>
   </div><div style="overflow-x:auto"><table class="atbl">
-    <thead><tr><th>時間</th><th>姓名</th><th>品項</th><th>合計／缺額</th><th></th></tr></thead><tbody>`;
-  if(!ords.length) html+='<tr><td colspan="5" style="text-align:center;color:var(--sll);padding:20px">尚無紀錄</td></tr>';
+    <thead><tr><th class="check-col">分餐確認</th><th>時間</th><th>姓名</th><th>品項</th><th>合計／缺額</th><th></th></tr></thead><tbody>`;
+  if(!ords.length) html+='<tr><td colspan="6" style="text-align:center;color:var(--sll);padding:20px">尚無紀錄</td></tr>';
   else ords.forEach(o=>{
     const summ=summarizeOrderItems(o.order_items||[]);
     const shortfall=getOrderShortfallSummary(o,S.items[S.adminEid]||[],ev);
     const nameFlags=duplicateNameFlags.get(o.id)||[];
     const flagLabel=nameFlags.some(flag=>flag.kind==='exact')?'相同姓名':'相似姓名：'+[...new Set(nameFlags.map(flag=>flag.name))].join('、');
-    html+=`<tr${nameFlags.length?' style="background:#fffbeb"':''}><td>${fmtTime(o.created_at)}</td><td><strong>${esc(o.user_name)}</strong>${nameFlags.length?`<div style="margin-top:3px;color:#b45309;font-size:.64rem;font-weight:800">${esc(flagLabel)}</div>`:''}</td><td style="font-size:.75rem">${esc(summ)}</td><td style="font-weight:700;color:var(--or)">${o.total>0?'$'+o.total:'—'}${shortfall.total?`<div style="margin-top:4px;color:var(--rd);line-height:1.45">${shortfall.lines.map(line=>`<strong>缺額 $${line.amount}</strong><br><span style="font-size:.62rem">${esc(line.category)}／${esc(line.restaurant)}</span>`).join('<br>')}</div>`:''}</td>
+    const checkKey='order__'+o.id;
+    const checked=isChecklistChecked(checkKey);
+    html+=`<tr class="${checked?'is-checked':''}"${nameFlags.length&&!checked?' style="background:#fffbeb"':''}><td class="check-col"><input type="checkbox" class="check-input" aria-label="${esc(o.user_name)} 已完成個人分餐" data-check-key="${esc(checkKey)}" onchange="toggleChecklist(this)"${checked?' checked':''}></td><td>${fmtTime(o.created_at)}</td><td><strong>${esc(o.user_name)}</strong>${nameFlags.length?`<div style="margin-top:3px;color:#b45309;font-size:.64rem;font-weight:800">${esc(flagLabel)}</div>`:''}</td><td style="font-size:.75rem">${esc(summ)}</td><td style="font-weight:700;color:var(--or)">${o.total>0?'$'+o.total:'—'}${shortfall.total?`<div style="margin-top:4px;color:var(--rd);line-height:1.45">${shortfall.lines.map(line=>`<strong>缺額 $${line.amount}</strong><br><span style="font-size:.62rem">${esc(line.category)}／${esc(line.restaurant)}</span>`).join('<br>')}</div>`:''}</td>
       <td><button class="btn btn-rd btn-sm" onclick="if(confirm('刪除？'))delOrder('${o.id}','${ev.id}')">刪</button></td></tr>`;
   });
   html+='</tbody></table></div></div>';
@@ -3188,6 +3207,7 @@ async function aiParseBase64(base64,mime,uploadType='main'){
         {type:'image',source:{type:'base64',media_type:mime,data:base64}},
         {type:'text',text:'請解析這張菜單圖片，只回傳純 JSON 陣列，不要有任何其他文字或 markdown：\\n[{"restaurant":"店家名稱","category":"便當","name":"中文品項名稱","price":數字或0,"description":"描述","specs":[]}]\\n品名規則：name 只保留中文品名；中英文並列時完全省略英文翻譯。只有英文、沒有中文品名的項目不要輸出。\\nspecs 規格判斷規則（只加菜單上真實存在的）：\\n1. 若有多個價格欄（如八角飯盒/圓飯盒），price 填最小值，specs 加 {"cat":"飯盒","opts":["八角飯盒 $110","圓飯盒 $125"]} 把價格標在選項裡\\n2. 若有加量/加飯/加菜選項，specs 加 {"cat":"份量","opts":["正常","加量"]}\\n3. 飲料若有加料區，specs 加 {"cat":"加料","opts":["珍珠","椰果",...]} 只列菜單上有的料\\n4. 飲料若有杯型，specs 加 {"cat":"杯型","opts":["中杯","大杯"]}\\n5. 便當若有主食選擇（飯/麵/焗烤），specs 加 {"cat":"主食","opts":["白飯","麵",...]}\\n6. 沒有對應規格就保留 specs:[]\\ncategory 判斷規則：若整張菜單都是飲料（如飲料店菜單），所有品項 category 填「飲料」；加料區單獨列出的料也填「飲料」。若是便當/餐盒菜單，主餐填「便當」，湯品小菜填「點心」。只列出清楚可見的品項，看不清楚不要猜。忽略優惠說明。確保 JSON 完整不截斷。price 看不清楚填 0。無法辨識回傳 []。'}
         ,{type:'text',text:'價格解析補充規則：杯型或容器的完整售價請寫成「選項 $金額」，例如「大杯 $35」；加料、加飯或升級的額外費用請寫成「選項 +$金額」，例如「珍珠 +$10」。只保留菜單上清楚可見的價格，絕對不可猜測。'}
+        ,{type:'text',text:'口味與選配的重要補充：菜單若用區塊標題區分醬汁或口味（例如茄汁紅醬、奶油白醬、咖哩醬、羅勒青醬、義式泡菜），絕對不能省略。請把區塊口味放在每個品名前方，例如「茄汁紅醬－鮮菇時蔬」；若菜單明確表示同一品項可任選多種口味，才改用 specs 的「口味」選項。選擇性加料、加飯、加大、焗烤或加菜必須各自獨立成規格，不得混入必選主食；額外費用需保留，例如「加飯 +$10」、「焗烤 +$30」。每個選擇性規格必須包含適合的取消選項，例如「不加料」、「不加飯」、「不焗烤」或「正常份量」。主食三選一仍屬必選規格，不可加入取消選項。'}
       ]}]});
     const retryableStatuses=new Set([429,500,502,503,504,524]);
     const controller=new AbortController();
@@ -3392,13 +3412,13 @@ function buildOrderExportData(){
   const menuItems=S.items[S.adminEid]||[];
   const itemMap=Object.fromEntries(menuItems.map(item=>[item.id,item]));
   const eventInfo=[ev?.title&&`場次：${ev.title}`,ev?.date&&`日期：${ev.date}`,ev?.organizer&&`承辦：${ev.organizer}`].filter(Boolean).join('｜');
-  const printHeader=['點餐姓名','餐點內容','合計','缺額','訂單備註'];
+  const printHeader=['分餐確認','點餐姓名','餐點內容','合計','缺額','訂單備註'];
   const printRows=sortedOrders.map(order=>{
     const shortfall=getOrderShortfallSummary(order,menuItems,ev);
     const meals=summarizeOrderItems(order.order_items||[]).replace(/、/g,'\n');
-    return[order.user_name||'',meals,Number(order.total)||0,shortfall.csvText,order.note||''];
+    return['☐',order.user_name||'',meals,Number(order.total)||0,shortfall.csvText,order.note||''];
   });
-  const detailHeader=['場次資訊','點餐姓名','店家','品項','規格','糖度冰塊／品項備註','數量','單價','小計','缺額','訂單備註'];
+  const detailHeader=['分餐確認','場次資訊','點餐姓名','店家','品項','規格','糖度冰塊／品項備註','數量','單價','小計','缺額','訂單備註'];
   const detailRows=[];
   const summary={};
   sortedOrders.forEach(o=>{
@@ -3411,7 +3431,7 @@ function buildOrderExportData(){
       const qty=Number(oi.quantity)||0;
       const unitPrice=Number(oi.unit_price)||0;
       const subtotal=qty*unitPrice;
-      detailRows.push([eventInfo,o.user_name||'',restaurant,oi.item_name,oi.specs_str||'',oi.note||'',qty,unitPrice,subtotal,itemIndex===0?shortfall.csvText:'',o.note||'']);
+      detailRows.push(['☐',eventInfo,o.user_name||'',restaurant,oi.item_name,oi.specs_str||'',oi.note||'',qty,unitPrice,subtotal,itemIndex===0?shortfall.csvText:'',o.note||'']);
       const key=[restaurant,workType,category,oi.item_name,oi.specs_str||'',oi.note||'',unitPrice].join('__');
       if(!summary[key]) summary[key]={diners:new Map(),restaurant,workType,category,name:oi.item_name,specs:oi.specs_str||'',itemNote:oi.note||''};
       if(o.user_name){
@@ -3456,7 +3476,7 @@ function renderAdminOrderSummary(data){
       <div class="order-summary-names">${esc(names)}</div>
     </div>`;}).join('')}</div>`:'<div class="order-summary-empty">尚無資料</div>'}
   </section>`;
-  return `<div class="panel"><div class="panel-head"><div class="panel-title">餐點飲料彙整</div><span style="font-size:.68rem;color:var(--sll)">可逐項勾選確認</span></div>
+  return `<div class="panel"><div class="panel-head"><div class="panel-title">餐點飲料彙整</div><span style="font-size:.68rem;color:var(--sll)">團體餐點確認</span></div>
     <div class="panel-body"><div class="order-summary-grid">
       ${group('餐點彙整',data.mealSummaryRows)}
       ${group('飲料彙整',data.drinkSummaryRows)}
