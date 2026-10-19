@@ -519,7 +519,14 @@ let S = {
   const requestedEventId=getEventIdFromUrl();
   S.sharedEventMode=isSharedEventUrl();
   document.body.classList.toggle('shared-event-mode',S.sharedEventMode);
-  await loadEvents();
+  try{
+    await loadEvents();
+  }catch(loadError){
+    console.error(loadError);
+    const main=document.getElementById('main');
+    if(main) main.innerHTML=`<div class="empty"><span class="ei">⚠️</span><p>點餐資料暫時無法載入</p><div style="font-size:.75rem;color:var(--slm);margin:8px 0 14px">${esc(loadError.message||'請檢查網路後再試')}</div><button class="btn btn-or" onclick="window.location.reload()">重新載入</button></div>`;
+    return;
+  }
   await autoArchiveExpiredEvents({rerender:false});
   if(requestedEventId&&S.events.some(ev=>ev.id===requestedEventId)){
     S.activeEventId=requestedEventId;
@@ -548,14 +555,17 @@ let S = {
 async function loadEvents(){
   if(DEMO){ S.events=demoEvents(); S.items={'e1':demoItems('e1'),'e2':demoItems2('e2')}; S.orders={'e1':demoOrders('e1'),'e2':[]}; return; }
   // 撈全部場次，不限日期（刪除才消失）
-  const {data:evs} = await sb.from('menus').select('*').order('date',{ascending:false}).order('created_at',{ascending:false});
+  const {data:evs,error:eventsError} = await sb.from('menus').select('*').order('date',{ascending:false}).order('created_at',{ascending:false});
+  if(eventsError) throw new Error('場次資料載入失敗：'+eventsError.message);
   S.events = evs||[];
   // 批次載入所有場次的品項和訂單
   await Promise.all(S.events.map(async ev=>{
-    const [{data:its},{data:ords}] = await Promise.all([
+    const [{data:its,error:itemsError},{data:ords,error:ordersError}] = await Promise.all([
       sb.from('menu_items').select('*').eq('menu_id',ev.id).order('sort_order'),
       sb.from('orders').select('*, order_items(*)').eq('menu_id',ev.id).order('created_at',{ascending:false}),
     ]);
+    if(itemsError) throw new Error(`「${ev.title}」菜單載入失敗：${itemsError.message}`);
+    if(ordersError) throw new Error(`「${ev.title}」點餐紀錄載入失敗：${ordersError.message}`);
     S.items[ev.id] = (its||[]).map(it=>({...it, specs:parseSpecs(it.specs)}));
     S.orders[ev.id] = ords||[];
   }));
@@ -870,6 +880,15 @@ function copyEventUrl(){
 }
 function copyEventUrlById(eid){
   if(!eid){toast('請先選擇場次','err');return;}
+  const savedItems=S.items[eid]||[];
+  if(S.adminEid===eid&&S.pendingItems.length){
+    toast('目前還有未儲存的品項，請先按「儲存菜單」再複製網址','warn');
+    return;
+  }
+  if(!savedItems.length){
+    toast('此場次尚未儲存菜單，請先新增品項並按「儲存菜單」','warn');
+    return;
+  }
   try{
     // 本機預覽時改複製正式站網址，避免把只能在自己電腦開啟的 file:// 路徑分享出去。
     const isLocal=window.location.protocol==='file:'||window.location.hostname==='localhost'||window.location.hostname==='127.0.0.1';
@@ -3216,6 +3235,7 @@ async function aiParseBase64(base64,mime,uploadType='main'){
     let res=null;
     let text='';
     let lastDetail='';
+    let errorCode='';
     try{
       res=await fetch(proxyUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:requestBody,signal:controller.signal});
       text=await res.text();
@@ -3232,11 +3252,14 @@ async function aiParseBase64(base64,mime,uploadType='main'){
       try{
         const errBody=JSON.parse(text);
         lastDetail=errBody?.error?.message||errBody?.error||errBody?.message||'';
+        errorCode=errBody?.code||'';
         if(Array.isArray(errBody?.attempted_models)&&errBody.attempted_models.length){
           lastDetail+=`${lastDetail?'；':''}已嘗試 ${errBody.attempted_models.join('、')}`;
         }
       }catch(e){ lastDetail=text.slice(0,120); }
-      const friendly=retryableStatuses.has(res.status)
+      const friendly=errorCode==='GEMINI_LOCATION_UNSUPPORTED'
+        ? lastDetail
+        : retryableStatuses.has(res.status)
         ? `AI 服務目前忙碌，代理已自動切換備援模型${lastDetail?'：'+lastDetail:''}`
         : `API 錯誤 ${res.status}${lastDetail?'：'+lastDetail:''}`;
       throw new Error(friendly);
