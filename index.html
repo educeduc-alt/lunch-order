@@ -3229,13 +3229,16 @@ async function aiParseBase64(base64,mime,uploadType='main'){
         ,{type:'text',text:'口味與選配的重要補充：菜單若用區塊標題區分醬汁或口味（例如茄汁紅醬、奶油白醬、咖哩醬、羅勒青醬、義式泡菜），絕對不能省略。請把區塊口味放在每個品名前方，例如「茄汁紅醬－鮮菇時蔬」；若菜單明確表示同一品項可任選多種口味，才改用 specs 的「口味」選項。選擇性加料、加飯、加大、焗烤或加菜必須各自獨立成規格，不得混入必選主食；額外費用需保留，例如「加飯 +$10」、「焗烤 +$30」。每個選擇性規格必須包含適合的取消選項，例如「不加料」、「不加飯」、「不焗烤」或「正常份量」。主食三選一仍屬必選規格，不可加入取消選項。'}
       ]}]});
     const retryableStatuses=new Set([429,500,502,503,504,524]);
+    // 外層 controller 只負責「使用者取消」；每個代理各自有逾時，
+    // 這樣 Supabase 忙碌或逾時後，Cloudflare 備援仍有完整的等待時間。
     const controller=new AbortController();
     window._aiParseController=controller;
-    const timeoutId=setTimeout(()=>controller.abort(),52000);
+    const PER_PROXY_TIMEOUT_MS=55000;
     let res=null;
     let text='';
     let lastDetail='';
     let errorCode='';
+    let lastNetworkError=null;
     try{
       const proxyTargets=[
         {
@@ -3255,8 +3258,27 @@ async function aiParseBase64(base64,mime,uploadType='main'){
       ];
       for(let proxyIndex=0;proxyIndex<proxyTargets.length;proxyIndex++){
         const target=proxyTargets[proxyIndex];
-        res=await fetch(target.url,{method:'POST',headers:target.headers,body:requestBody,signal:controller.signal});
-        text=await res.text();
+        const hasNext=proxyIndex<proxyTargets.length-1;
+        if(controller.signal.aborted) break;
+        if(proxyIndex>0&&statusEl) statusEl.innerHTML=`<div class="scan-ldr"><div class="spin"></div>主要 AI 代理忙碌，改用備援代理重新解析…</div>`;
+        const targetController=new AbortController();
+        const onCancel=()=>targetController.abort();
+        controller.signal.addEventListener('abort',onCancel);
+        const targetTimeout=setTimeout(()=>targetController.abort(),PER_PROXY_TIMEOUT_MS);
+        try{
+          res=await fetch(target.url,{method:'POST',headers:target.headers,body:requestBody,signal:targetController.signal});
+          text=await res.text();
+        }catch(fetchError){
+          if(controller.signal.aborted) throw fetchError;
+          // 單一代理逾時或連線失敗：還有下一個就換，否則往外拋。
+          lastNetworkError=fetchError;
+          res=null;
+          if(hasNext) continue;
+          throw fetchError;
+        }finally{
+          clearTimeout(targetTimeout);
+          controller.signal.removeEventListener('abort',onCancel);
+        }
         if(res.ok) break;
         let targetCode='';
         try{targetCode=JSON.parse(text)?.code||'';}catch(e){}
@@ -3265,16 +3287,20 @@ async function aiParseBase64(base64,mime,uploadType='main'){
           (res.status===500&&/GEMINI_API_KEY|not configured|未設定/i.test(text))||
           targetCode==='FUNCTION_NOT_FOUND'
         );
-        if(edgeNotReady) continue;
+        // 忙碌（429/5xx）時也改走下一個代理，不同出口區域常常能避開尖峰。
+        if(hasNext&&(edgeNotReady||retryableStatuses.has(res.status))) continue;
         break;
       }
+      if(!res) throw lastNetworkError||new Error('AbortError');
     }catch(fetchError){
+      if(S.parseCancelled||controller.signal.aborted){
+        throw new Error('已取消解析');
+      }
       if(fetchError?.name==='AbortError'){
-        throw new Error(S.parseCancelled?'已取消解析':'AI 解析超過時間上限，請重新嘗試');
+        throw new Error('AI 解析超過時間上限，請重新嘗試');
       }
       throw new Error('無法連線 AI 服務：'+(fetchError.message||'網路連線失敗'));
     }finally{
-      clearTimeout(timeoutId);
       if(window._aiParseController===controller) window._aiParseController=null;
     }
     if(!res.ok){
