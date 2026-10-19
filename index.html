@@ -633,15 +633,17 @@ function resetMenuEditorState(){
 }
 
 function prepareNewEventDraft(){
+  const today=new Date(Date.now()+8*60*60*1000).toISOString().slice(0,10);
   S.adminEid=null;
   S.menuDraft={
     id:null,
     title:'',
     activity_note:'',
     deadline:'11:30',
+    deadline_date:today,
     organizer:'',
     store_name:'',
-    date:new Date(Date.now()+8*60*60*1000).toISOString().slice(0,10),
+    date:today,
     is_closed:false
   };
   resetMenuEditorState();
@@ -735,11 +737,11 @@ function isEventClosed(ev){
   return ev.is_closed===true;
 }
 function getEventDeadlineMs(ev){
-  const date=String(ev?.date||'').trim();
+  const date=String(ev?.deadline_date||ev?.date||'').trim();
   if(!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
   const deadline=String(ev?.deadline||'23:59').trim();
-  if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(deadline)) return null;
-  const ms=Date.parse(`${date}T${deadline}:00+08:00`);
+  if(!/^([01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$/.test(deadline)) return null;
+  const ms=Date.parse(`${date}T${deadline.slice(0,5)}:00+08:00`);
   return Number.isFinite(ms)?ms:null;
 }
 function isEventExpired(ev,now=Date.now()){
@@ -780,6 +782,23 @@ function fmtEventDate(dateStr){
   const weekday=week[new Date(Date.UTC(y,m-1,d)).getUTCDay()];
   return `${y}/${String(m).padStart(2,'0')}/${String(d).padStart(2,'0')}（${weekday}）`;
 }
+function fmtEventDeadline(ev){
+  const date=ev?.deadline_date||ev?.date||'';
+  const time=String(ev?.deadline||'23:59').slice(0,5);
+  return date?`${fmtEventDate(date)} ${time}`:time;
+}
+function getDeadlineInputValue(ev){
+  const date=ev?.deadline_date||ev?.date||'';
+  const time=String(ev?.deadline||'23:59').slice(0,5);
+  return date?`${date}T${time}`:'';
+}
+function updateDeadlineDateTime(value){
+  const ev=S.menuDraft||S.events.find(event=>event.id===S.adminEid);
+  if(!ev||!value) return;
+  const [date,time]=String(value).split('T');
+  ev.deadline_date=date||ev.date||'';
+  ev.deadline=time||'23:59';
+}
 function renderHome(){
   let html=`<div class="page-title">點餐場次</div>
     <div class="page-sub">選擇您要參加的場次，即可開始點餐</div>
@@ -798,7 +817,7 @@ function renderHome(){
           <div class="ec-title">${esc(ev.title)}</div>
           ${ev.organizer?`<div class="ec-organizer">👤 負責老師：${esc(ev.organizer)}</div>`:''}
         </div>
-        ${ev.date?`<div class="ec-right"><div class="ec-date">📅 ${esc(fmtEventDate(ev.date))}</div></div>`:''}
+        ${ev.date?`<div class="ec-right"><div class="ec-date">📅 ${esc(fmtEventDate(ev.date))}</div><div class="ec-deadline">截止：${esc(fmtEventDeadline(ev))}</div></div>`:''}
       </div>
     </div>`;
   });
@@ -928,6 +947,7 @@ function renderOrderPage(){
       ${S.sharedEventMode?'':'<button class="back-btn" onclick="closeEvent()">← 返回場次</button>'}
       <div class="event-info-banner">
         ${ev.date?`<span style="display:block;font-size:.7rem;font-weight:800;color:var(--or);margin-bottom:2px">📅 ${esc(fmtEventDate(ev.date))}</span>`:''}
+        <span style="display:block;font-size:.66rem;font-weight:700;color:var(--rd);margin-bottom:3px">截止：${esc(fmtEventDeadline(ev))}</span>
         <strong>${esc(ev.title)}</strong>
         ${ev.organizer?`負責老師：${esc(ev.organizer)}`:''}
       </div>
@@ -2078,8 +2098,8 @@ function renderEventMgmt(ev){
       <div style="flex:1;min-width:180px"><span class="mg-lbl">場次日期</span>
         <input class="mg-inp" type="date" id="evDate" value="${esc(ev.date||'')}" oninput="updateEditingEventField('date',this.value)">
       </div>
-      <div style="flex:1;min-width:180px"><span class="mg-lbl">點餐截止時間</span>
-        <input class="mg-inp" type="time" id="evDeadline" value="${esc(ev.deadline||'23:59')}" oninput="updateEditingEventField('deadline',this.value)">
+      <div style="flex:1;min-width:220px"><span class="mg-lbl">點餐截止日期與時間</span>
+        <input class="mg-inp" type="datetime-local" id="evDeadline" value="${esc(getDeadlineInputValue(ev))}" oninput="updateDeadlineDateTime(this.value)">
         <div style="font-size:.66rem;color:var(--sll);margin-top:4px">時間到後會自動封存至「歷史場次」</div>
       </div>
     </div>
@@ -2717,7 +2737,8 @@ async function saveMenu(){
   // 「儲存菜單」會保留目前畫面上的場次設定；若有新菜單品項則一併儲存。
   // 不變更 is_closed，因此不會把場次移到後台或從前台隱藏。
   const date=document.getElementById('evDate')?.value||'';
-  const deadline=document.getElementById('evDeadline')?.value||'23:59';
+  const deadlineValue=document.getElementById('evDeadline')?.value||'';
+  const [deadline_date,deadline]=deadlineValue.split('T');
   const title=document.getElementById('evTitle')?.value.trim();
   const activity_note=document.getElementById('evActivityNote')?.value.trim()||'';
   const store_name=document.getElementById('evStore')?.value.trim()||'';
@@ -2725,11 +2746,11 @@ async function saveMenu(){
   let evNow=S.menuDraft||S.events.find(e=>e.id===eid);
   const organizer=orgInput||evNow?.organizer||'';
   if(!date){toast('請選擇場次日期','err');return;}
-  if(!deadline){toast('請選擇點餐截止時間','err');return;}
+  if(!deadline_date||!deadline){toast('請選擇點餐截止日期與時間','err');return;}
   if(!title){toast('請填場次標題','err');return;}
   if(isNewDraft){
     const{data:newEvent,error:createError}=await sb.from('menus')
-      .insert({date,title,activity_note,organizer,store_name,deadline,is_closed:false})
+      .insert({date,title,activity_note,organizer,store_name,deadline_date,deadline,is_closed:false})
       .select()
       .single();
     if(createError||!newEvent){toast('場次建立失敗：'+(createError?.message||'沒有回傳場次資料'),'err');return;}
@@ -2744,14 +2765,14 @@ async function saveMenu(){
     evNow=newEvent;
   }else{
     const{data:settingRows,error:settingError}=await sb.from('menus')
-      .update({date,title,activity_note,organizer,store_name,deadline})
+      .update({date,title,activity_note,organizer,store_name,deadline_date,deadline})
       .eq('id',eid)
       .select('id');
     if(settingError||!settingRows?.length){
       toast('設定儲存失敗：'+(settingError?.message||'資料未更新'),'err');
       return;
     }
-    if(evNow) Object.assign(evNow,{date,title,activity_note,organizer,store_name,deadline});
+    if(evNow) Object.assign(evNow,{date,title,activity_note,organizer,store_name,deadline_date,deadline});
   }
   try{
     const savedImageValue=await persistPendingMenuImages(eid,evNow?.img_url||'');
