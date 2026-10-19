@@ -137,6 +137,9 @@ body:has(#subBar:not([style*="display: none"])) .developer-card{bottom:82px}
 .m-price{font-family:'Nunito',sans-serif;font-weight:900;font-size:1.05rem;color:var(--or)}
 .overage-tag{display:inline-flex;align-items:center;gap:3px;margin-top:4px;padding:3px 7px;border-radius:20px;background:var(--rdl);color:var(--rd);font-size:.65rem;font-weight:800}
 .m-spec{font-size:.65rem;color:var(--in);margin-top:2px}
+.flavor-sel{width:100%;margin:4px 0 6px;border:1.5px solid var(--bo);border-radius:var(--rsm);padding:6px 8px;font-size:.78rem;color:var(--sl);background:var(--ca);outline:none;cursor:pointer}
+.flavor-sel:focus{border-color:var(--or)}
+.flavor-picked{font-size:.65rem;color:var(--ord);margin-top:4px;line-height:1.4}
 .qty-row{display:flex;align-items:center;gap:7px;margin-top:7px}
 .qb{width:25px;height:25px;border-radius:50%;border:1.5px solid var(--bo);background:var(--ca);display:flex;align-items:center;justify-content:center;font-size:.95rem;font-weight:700;color:var(--slm);transition:all .15s}
 .qb:hover{background:var(--or);color:#fff;border-color:var(--or)}
@@ -496,6 +499,7 @@ let S = {
   parseComparison:null,
   menuSearchQ:'',    // 菜單搜尋關鍵字
   collapsedCats:{},   // 收縮的分類 {cat: true/false}
+  flavorPick:{},      // 同主菜多口味卡片目前選的口味 {groupKey: itemId}
   // 套餐組合 sheet
   comboStep:null,     // null | 'side' | 'drink'
   comboMain:null,     // 選定的主餐 item
@@ -1021,25 +1025,9 @@ function renderOrderPage(){
         </button>
         ${collapsed?'':`<div class="menu-grid" style="margin-top:8px">`}`;
       if(!collapsed){
-        its.forEach(item=>{
-          const keys=Object.keys(S.cart).filter(k=>k.startsWith(item.id+'__'));
-          const totalQty=keys.reduce((s,k)=>s+(S.cart[k]?.qty||0),0);
-          const hasSpec=item.specs&&item.specs.length>0;
-          const needsDetailSheet=hasSpec||cat==='飲料';
-          const subsidyLimit=(cat==='便當'||cat==='點心')?120:(cat==='飲料'?40:0);
-          const overage=subsidyLimit&&item.price>subsidyLimit?item.price-subsidyLimit:0;
-          html+=`<div class="m-card${totalQty>0?' sel':''}">
-          <div class="m-name">${esc(item.name)}</div>
-          ${item.description?`<div class="m-desc">${esc(item.description)}</div>`:''}
-          ${item.price>0?`<div class="m-price">$${item.price}</div>`:'<div class="m-price" style="color:var(--sll)">詢價</div>'}
-          ${overage?`<div class="overage-tag">⚠️ ${cat==='點心'?'超額自付':'需補額'} $${overage}</div>`:''}
-          ${needsDetailSheet?`<div class="m-spec">${cat==='飲料'?(isBentoStoreDrink(item)?'可選不選擇糖冰':'需填甜度冰塊'):'點擊選規格'} ›</div>`:''}
-          <div class="qty-row" onclick="event.stopPropagation()">
-            <button class="qb" onclick="event.stopPropagation();adjCart('${item.id}',-1)">−</button>
-            <span class="qn">${totalQty}</span>
-            <button class="qb" onclick="event.stopPropagation();${needsDetailSheet?`openSpec('${item.id}')`:`quickAdd('${item.id}')`}">＋</button>
-          </div>
-        </div>`;
+        const cardEntries=cat==='便當'?groupFlavorItems(its):its.map(item=>({type:'single',item}));
+        cardEntries.forEach(entry=>{
+          html+=entry.type==='group'?renderFlavorGroupCard(entry,cat):renderMenuCard(entry.item,cat);
         });
         html+='</div>';
       }
@@ -1072,6 +1060,88 @@ function renderOrderPage(){
   return html;
 }
 
+/* ── 同主菜多口味：合併成一張卡片＋下拉選單 ── */
+// 支援「口味－主菜」（AI 解析的格式）與「主菜（口味）」兩種寫法。
+function splitFlavorName(name){
+  const text=String(name||'').trim();
+  // 只認全形／長破折號，避免把「A-1 雞腿飯」這類編號誤判成口味；主菜至少兩個字。
+  let m=text.match(/^(.+?)\s*[－—–]\s*(.{2,})$/);
+  if(m) return {flavor:m[1].trim(),main:m[2].trim()};
+  m=text.match(/^(.{2,}?)\s*[（(]\s*([^（()）]+?)\s*[)）]$/);
+  if(m) return {flavor:m[2].trim(),main:m[1].trim()};
+  return null;
+}
+function groupFlavorItems(items){
+  const groups=new Map();
+  items.forEach(item=>{
+    const parts=splitFlavorName(item.name);
+    if(!parts) return;
+    const key=String(item.restaurant||'').trim()+'|'+parts.main;
+    if(!groups.has(key)) groups.set(key,[]);
+    groups.get(key).push({item,flavor:parts.flavor,main:parts.main});
+  });
+  const entries=[];
+  const emitted=new Set();
+  items.forEach(item=>{
+    const parts=splitFlavorName(item.name);
+    const key=parts?String(item.restaurant||'').trim()+'|'+parts.main:null;
+    const members=key?groups.get(key):null;
+    if(members&&members.length>1){
+      if(emitted.has(key)) return;
+      emitted.add(key);
+      entries.push({type:'group',key,main:parts.main,members});
+    } else {
+      entries.push({type:'single',item});
+    }
+  });
+  return entries;
+}
+function getCartQty(itemId){
+  return Object.keys(S.cart).filter(k=>k.startsWith(itemId+'__')).reduce((s,k)=>s+(S.cart[k]?.qty||0),0);
+}
+function pickFlavor(key,itemId){
+  S.flavorPick[key]=itemId;
+  render();
+}
+function renderMenuCard(item,cat,opt={}){
+  const totalQty=getCartQty(item.id);
+  const groupQty=opt.groupQty??totalQty;
+  const hasSpec=item.specs&&item.specs.length>0;
+  const needsDetailSheet=hasSpec||cat==='飲料';
+  const subsidyLimit=(cat==='便當'||cat==='點心')?120:(cat==='飲料'?40:0);
+  const overage=subsidyLimit&&item.price>subsidyLimit?item.price-subsidyLimit:0;
+  return `<div class="m-card${groupQty>0?' sel':''}"${opt.search?` data-search="${esc(opt.search)}"`:''}>
+          <div class="m-name">${esc(opt.title||item.name)}</div>
+          ${opt.selectHtml||''}
+          ${item.description?`<div class="m-desc">${esc(item.description)}</div>`:''}
+          ${item.price>0?`<div class="m-price">$${item.price}</div>`:'<div class="m-price" style="color:var(--sll)">詢價</div>'}
+          ${overage?`<div class="overage-tag">⚠️ ${cat==='點心'?'超額自付':'需補額'} $${overage}</div>`:''}
+          ${needsDetailSheet?`<div class="m-spec">${cat==='飲料'?(isBentoStoreDrink(item)?'可選不選擇糖冰':'需填甜度冰塊'):'點擊選規格'} ›</div>`:''}
+          <div class="qty-row" onclick="event.stopPropagation()">
+            <button class="qb" onclick="event.stopPropagation();adjCart('${item.id}',-1)">−</button>
+            <span class="qn">${totalQty}</span>
+            <button class="qb" onclick="event.stopPropagation();${needsDetailSheet?`openSpec('${item.id}')`:`quickAdd('${item.id}')`}">＋</button>
+          </div>
+          ${opt.pickedHtml||''}
+        </div>`;
+}
+function renderFlavorGroupCard(group,cat){
+  const ids=group.members.map(m=>m.item.id);
+  let currentId=S.flavorPick[group.key];
+  if(!ids.includes(currentId)) currentId=(group.members.find(m=>getCartQty(m.item.id)>0)||group.members[0]).item.id;
+  const current=group.members.find(m=>m.item.id===currentId);
+  const samePrice=group.members.every(m=>m.item.price===group.members[0].item.price);
+  const keyArg=esc(JSON.stringify(group.key));
+  const selectHtml=`<select class="flavor-sel" aria-label="${esc(group.main)} 口味" onclick="event.stopPropagation()" onchange="pickFlavor(${keyArg},this.value)">
+            ${group.members.map(m=>`<option value="${m.item.id}"${m.item.id===currentId?' selected':''}>${esc(m.flavor)}${!samePrice&&m.item.price>0?` $${m.item.price}`:''}</option>`).join('')}
+          </select>`;
+  const picked=group.members.map(m=>({flavor:m.flavor,qty:getCartQty(m.item.id)})).filter(x=>x.qty>0);
+  const groupQty=picked.reduce((s,x)=>s+x.qty,0);
+  const pickedHtml=picked.length?`<div class="flavor-picked">已選：${picked.map(x=>`${esc(x.flavor)} ×${x.qty}`).join('、')}</div>`:'';
+  const search=[group.main,...group.members.map(m=>m.item.name+' '+(m.item.description||''))].join(' ');
+  return renderMenuCard(current.item,cat,{title:group.main,selectHtml,pickedHtml,groupQty,search});
+}
+
 /* ── CART OPS ── */
 function filterMenu(val){
   S.menuSearchQ=val||'';
@@ -1080,7 +1150,8 @@ function filterMenu(val){
   document.querySelectorAll('.m-card').forEach(card=>{
     const name=(card.querySelector('.m-name')?.textContent||'').toLowerCase();
     const desc=(card.querySelector('.m-desc')?.textContent||'').toLowerCase();
-    card.style.display=(!q||name.includes(q)||desc.includes(q))?'':'none';
+    const extra=(card.dataset.search||'').toLowerCase();
+    card.style.display=(!q||name.includes(q)||desc.includes(q)||extra.includes(q))?'':'none';
   });
   // 隱藏空分類
   document.querySelectorAll('.rest-block').forEach(block=>{
