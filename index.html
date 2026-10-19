@@ -224,6 +224,10 @@ body.shared-event-mode .main{padding-top:18px}
 .atbl th{background:var(--bos);padding:8px 11px;text-align:left;font-weight:700;font-size:.68rem;color:var(--sll);text-transform:uppercase;letter-spacing:.4px;border-bottom:1.5px solid var(--bo)}
 .atbl td{padding:8px 11px;border-bottom:1px solid var(--bos);vertical-align:top}
 .atbl tr:hover td{background:var(--bos)}
+.check-col{width:58px;text-align:center!important;white-space:nowrap}
+.check-input{width:20px;height:20px;accent-color:var(--gr);cursor:pointer;vertical-align:middle}
+.atbl tr.is-checked td,.order-summary-item.is-checked{background:#f0fdf4}
+.atbl tr.is-checked td:not(:last-child){color:#64748b}
 
 /* 場次管理卡片 */
 .ev-mgmt-card{background:var(--bos);border:1.5px solid var(--bo);border-radius:var(--rmd);padding:14px;margin-bottom:10px;position:relative}
@@ -267,10 +271,11 @@ body.shared-event-mode .main{padding-top:18px}
 .order-summary-group{border:1px solid var(--bo);border-radius:var(--rmd);background:var(--ca);overflow:hidden}
 .order-summary-title{padding:9px 11px;background:var(--orl);color:var(--ord);font-size:.82rem;font-weight:900;border-bottom:1px solid var(--bo)}
 .order-summary-list{display:grid;gap:7px;padding:9px}
-.order-summary-item{border:1px solid var(--bos);border-radius:9px;padding:9px 10px;background:#fff}
+.order-summary-item{border:1px solid var(--bos);border-radius:9px;padding:9px 10px;background:#fff;display:grid;grid-template-columns:24px minmax(0,1fr) auto;column-gap:8px;align-items:start}
+.order-summary-check{grid-column:1;grid-row:1/3;padding-top:1px}
 .order-summary-meal{font-size:.8rem;font-weight:800;color:var(--sl);line-height:1.45}
-.order-summary-count{display:inline-flex;margin-top:5px;padding:2px 7px;border-radius:999px;background:var(--inl);color:var(--in);font-size:.66rem;font-weight:800}
-.order-summary-names{margin-top:5px;font-size:.72rem;line-height:1.55;color:var(--slm);overflow-wrap:anywhere}
+.order-summary-count{grid-column:3;display:inline-flex;padding:2px 7px;border-radius:999px;background:var(--inl);color:var(--in);font-size:.66rem;font-weight:800}
+.order-summary-names{grid-column:2/4;margin-top:5px;font-size:.72rem;line-height:1.55;color:var(--slm);overflow-wrap:anywhere}
 .order-summary-empty{padding:18px 10px;text-align:center;color:var(--sll);font-size:.75rem}
 
 /* ── TOAST ── */
@@ -1974,14 +1979,16 @@ function renderAdmin(){
   html+=`${duplicateNameFlags.size?`<div style="background:var(--aml);border:1.5px solid #fbbf24;border-radius:var(--rmd);padding:9px 12px;margin-bottom:10px;color:#92400e;font-size:.76rem;font-weight:700">發現 ${duplicateNameFlags.size} 筆相同或相似姓名，已在下方標示。</div>`:''}<div class="panel"><div class="panel-head"><div class="panel-title">📋 點餐紀錄</div>
     <button class="btn btn-rd btn-sm" onclick="if(confirm('確定清空所有訂單？'))clearOrders()">清空</button>
   </div><div style="overflow-x:auto"><table class="atbl">
-    <thead><tr><th>時間</th><th>姓名</th><th>品項</th><th>合計／缺額</th><th></th></tr></thead><tbody>`;
-  if(!ords.length) html+='<tr><td colspan="5" style="text-align:center;color:var(--sll);padding:20px">尚無紀錄</td></tr>';
+    <thead><tr><th class="check-col">檢核</th><th>時間</th><th>姓名</th><th>品項</th><th>合計／缺額</th><th></th></tr></thead><tbody>`;
+  if(!ords.length) html+='<tr><td colspan="6" style="text-align:center;color:var(--sll);padding:20px">尚無紀錄</td></tr>';
   else ords.forEach(o=>{
     const summ=summarizeOrderItems(o.order_items||[]);
     const shortfall=getOrderShortfallSummary(o,S.items[S.adminEid]||[],ev);
     const nameFlags=duplicateNameFlags.get(o.id)||[];
     const flagLabel=nameFlags.some(flag=>flag.kind==='exact')?'相同姓名':'相似姓名：'+[...new Set(nameFlags.map(flag=>flag.name))].join('、');
-    html+=`<tr${nameFlags.length?' style="background:#fffbeb"':''}><td>${fmtTime(o.created_at)}</td><td><strong>${esc(o.user_name)}</strong>${nameFlags.length?`<div style="margin-top:3px;color:#b45309;font-size:.64rem;font-weight:800">${esc(flagLabel)}</div>`:''}</td><td style="font-size:.75rem">${esc(summ)}</td><td style="font-weight:700;color:var(--or)">${o.total>0?'$'+o.total:'—'}${shortfall.total?`<div style="margin-top:4px;color:var(--rd);line-height:1.45">${shortfall.lines.map(line=>`<strong>缺額 $${line.amount}</strong><br><span style="font-size:.62rem">${esc(line.category)}／${esc(line.restaurant)}</span>`).join('<br>')}</div>`:''}</td>
+    const checkKey='order__'+o.id;
+    const checked=isChecklistChecked(checkKey);
+    html+=`<tr class="${checked?'is-checked':''}"${nameFlags.length&&!checked?' style="background:#fffbeb"':''}><td class="check-col"><input type="checkbox" class="check-input" aria-label="確認 ${esc(o.user_name)} 的點餐" data-check-key="${esc(checkKey)}" onchange="toggleChecklist(this)"${checked?' checked':''}></td><td>${fmtTime(o.created_at)}</td><td><strong>${esc(o.user_name)}</strong>${nameFlags.length?`<div style="margin-top:3px;color:#b45309;font-size:.64rem;font-weight:800">${esc(flagLabel)}</div>`:''}</td><td style="font-size:.75rem">${esc(summ)}</td><td style="font-weight:700;color:var(--or)">${o.total>0?'$'+o.total:'—'}${shortfall.total?`<div style="margin-top:4px;color:var(--rd);line-height:1.45">${shortfall.lines.map(line=>`<strong>缺額 $${line.amount}</strong><br><span style="font-size:.62rem">${esc(line.category)}／${esc(line.restaurant)}</span>`).join('<br>')}</div>`:''}</td>
       <td><button class="btn btn-rd btn-sm" onclick="if(confirm('刪除？'))delOrder('${o.id}','${ev.id}')">刪</button></td></tr>`;
   });
   html+='</tbody></table></div></div>';
@@ -3285,6 +3292,23 @@ function formatMealSummary(name,specs,itemNote){
   if(itemNote) label+=`｜${itemNote}`;
   return label;
 }
+function getChecklistState(eventId=S.adminEid){
+  try{return JSON.parse(localStorage.getItem('orderChecklist__'+eventId)||'{}');}
+  catch(error){console.warn('讀取檢核狀態失敗',error);return {};}
+}
+function isChecklistChecked(key){
+  return getChecklistState()[key]===true;
+}
+function toggleChecklist(input){
+  const key=input?.dataset?.checkKey;
+  if(!key||!S.adminEid) return;
+  const state=getChecklistState();
+  if(input.checked) state[key]=true;
+  else delete state[key];
+  try{localStorage.setItem('orderChecklist__'+S.adminEid,JSON.stringify(state));}
+  catch(error){console.warn('儲存檢核狀態失敗',error);toast('檢核狀態無法儲存','warn');}
+  input.closest('tr,.order-summary-item')?.classList.toggle('is-checked',input.checked);
+}
 function getOrderShortfallSummary(order,menuItems,ev){
   const items=menuItems||[];
   const itemMap=Object.fromEntries(items.map(item=>[item.id,item]));
@@ -3337,13 +3361,13 @@ function buildOrderExportData(){
   const menuItems=S.items[S.adminEid]||[];
   const itemMap=Object.fromEntries(menuItems.map(item=>[item.id,item]));
   const eventInfo=[ev?.title&&`場次：${ev.title}`,ev?.date&&`日期：${ev.date}`,ev?.organizer&&`承辦：${ev.organizer}`].filter(Boolean).join('｜');
-  const printHeader=['點餐姓名','餐點內容','合計','缺額','訂單備註'];
+  const printHeader=['檢核','點餐姓名','餐點內容','合計','缺額','訂單備註'];
   const printRows=sortedOrders.map(order=>{
     const shortfall=getOrderShortfallSummary(order,menuItems,ev);
     const meals=summarizeOrderItems(order.order_items||[]).replace(/、/g,'\n');
-    return[order.user_name||'',meals,Number(order.total)||0,shortfall.csvText,order.note||''];
+    return['☐',order.user_name||'',meals,Number(order.total)||0,shortfall.csvText,order.note||''];
   });
-  const detailHeader=['場次資訊','點餐姓名','店家','品項','規格','糖度冰塊／品項備註','數量','單價','小計','缺額','訂單備註'];
+  const detailHeader=['檢核','場次資訊','點餐姓名','店家','品項','規格','糖度冰塊／品項備註','數量','單價','小計','缺額','訂單備註'];
   const detailRows=[];
   const summary={};
   sortedOrders.forEach(o=>{
@@ -3356,7 +3380,7 @@ function buildOrderExportData(){
       const qty=Number(oi.quantity)||0;
       const unitPrice=Number(oi.unit_price)||0;
       const subtotal=qty*unitPrice;
-      detailRows.push([eventInfo,o.user_name||'',restaurant,oi.item_name,oi.specs_str||'',oi.note||'',qty,unitPrice,subtotal,itemIndex===0?shortfall.csvText:'',o.note||'']);
+      detailRows.push(['☐',eventInfo,o.user_name||'',restaurant,oi.item_name,oi.specs_str||'',oi.note||'',qty,unitPrice,subtotal,itemIndex===0?shortfall.csvText:'',o.note||'']);
       const key=[restaurant,workType,category,oi.item_name,oi.specs_str||'',oi.note||'',unitPrice].join('__');
       if(!summary[key]) summary[key]={diners:new Map(),restaurant,workType,category,name:oi.item_name,specs:oi.specs_str||'',itemNote:oi.note||''};
       if(o.user_name){
@@ -3374,7 +3398,7 @@ function buildOrderExportData(){
       const row=[formatMealSummary(x.name,x.specs,x.itemNote),names.length,names.join('、')];
       (x.workType==='飲料'?drinkSummaryRows:mealSummaryRows).push(row);
     });
-  return{ev,eventInfo,printHeader,printRows,detailHeader,detailRows,summaryHeader:['餐點','點餐人數','點餐姓名'],mealSummaryRows,drinkSummaryRows};
+  return{ev,eventInfo,printHeader,printRows,detailHeader,detailRows,summaryHeader:['檢核','餐點','點餐人數','點餐姓名'],mealSummaryRows,drinkSummaryRows};
 }
 function exportCSV(){
   const data=buildOrderExportData();
@@ -3386,21 +3410,22 @@ function exportCSV(){
     ['日期',ev?.date?fmtEventDate(ev.date):''],
     ['管理老師',ev?.organizer||''],
     [],data.printHeader,...data.printRows,
-    [],['便當餐點彙整'],data.summaryHeader,...data.mealSummaryRows,
-    [],['飲料餐點彙整'],data.summaryHeader,...data.drinkSummaryRows
+    [],['便當餐點彙整'],data.summaryHeader,...data.mealSummaryRows.map(row=>['☐',...row]),
+    [],['飲料餐點彙整'],data.summaryHeader,...data.drinkSummaryRows.map(row=>['☐',...row])
   ];
   dlCSV(rows,`點餐紀錄_直式列印_${ev?.title||''}`);
 }
 function renderAdminOrderSummary(data){
   const group=(title,rows)=>`<section class="order-summary-group">
     <div class="order-summary-title">${esc(title)}</div>
-    ${rows.length?`<div class="order-summary-list">${rows.map(([meal,count,names])=>`<div class="order-summary-item">
+    ${rows.length?`<div class="order-summary-list">${rows.map(([meal,count,names])=>{const checkKey='summary__'+title+'__'+meal+'__'+names;const checked=isChecklistChecked(checkKey);return `<div class="order-summary-item ${checked?'is-checked':''}">
+      <div class="order-summary-check"><input type="checkbox" class="check-input" aria-label="確認 ${esc(meal)}" data-check-key="${esc(checkKey)}" onchange="toggleChecklist(this)"${checked?' checked':''}></div>
       <div class="order-summary-meal">${esc(meal)}</div>
       <span class="order-summary-count">${count} 人</span>
       <div class="order-summary-names">${esc(names)}</div>
-    </div>`).join('')}</div>`:'<div class="order-summary-empty">尚無資料</div>'}
+    </div>`;}).join('')}</div>`:'<div class="order-summary-empty">尚無資料</div>'}
   </section>`;
-  return `<div class="panel"><div class="panel-head"><div class="panel-title">餐點飲料彙整</div></div>
+  return `<div class="panel"><div class="panel-head"><div class="panel-title">餐點飲料彙整</div><span style="font-size:.68rem;color:var(--sll)">可逐項勾選確認</span></div>
     <div class="panel-body"><div class="order-summary-grid">
       ${group('餐點彙整',data.mealSummaryRows)}
       ${group('飲料彙整',data.drinkSummaryRows)}
