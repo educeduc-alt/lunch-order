@@ -224,10 +224,8 @@ body.shared-event-mode .main{padding-top:18px}
 .atbl th{background:var(--bos);padding:8px 11px;text-align:left;font-weight:700;font-size:.68rem;color:var(--sll);text-transform:uppercase;letter-spacing:.4px;border-bottom:1.5px solid var(--bo)}
 .atbl td{padding:8px 11px;border-bottom:1px solid var(--bos);vertical-align:top}
 .atbl tr:hover td{background:var(--bos)}
-.check-col{width:58px;text-align:center!important;white-space:nowrap}
 .check-input{width:20px;height:20px;accent-color:var(--gr);cursor:pointer;vertical-align:middle}
-.atbl tr.is-checked td,.order-summary-item.is-checked{background:#f0fdf4}
-.atbl tr.is-checked td:not(:last-child){color:#64748b}
+.order-summary-item.is-checked{background:#f0fdf4}
 
 /* 場次管理卡片 */
 .ev-mgmt-card{background:var(--bos);border:1.5px solid var(--bo);border-radius:var(--rmd);padding:14px;margin-bottom:10px;position:relative}
@@ -1979,16 +1977,14 @@ function renderAdmin(){
   html+=`${duplicateNameFlags.size?`<div style="background:var(--aml);border:1.5px solid #fbbf24;border-radius:var(--rmd);padding:9px 12px;margin-bottom:10px;color:#92400e;font-size:.76rem;font-weight:700">發現 ${duplicateNameFlags.size} 筆相同或相似姓名，已在下方標示。</div>`:''}<div class="panel"><div class="panel-head"><div class="panel-title">📋 點餐紀錄</div>
     <button class="btn btn-rd btn-sm" onclick="if(confirm('確定清空所有訂單？'))clearOrders()">清空</button>
   </div><div style="overflow-x:auto"><table class="atbl">
-    <thead><tr><th class="check-col">檢核</th><th>時間</th><th>姓名</th><th>品項</th><th>合計／缺額</th><th></th></tr></thead><tbody>`;
-  if(!ords.length) html+='<tr><td colspan="6" style="text-align:center;color:var(--sll);padding:20px">尚無紀錄</td></tr>';
+    <thead><tr><th>時間</th><th>姓名</th><th>品項</th><th>合計／缺額</th><th></th></tr></thead><tbody>`;
+  if(!ords.length) html+='<tr><td colspan="5" style="text-align:center;color:var(--sll);padding:20px">尚無紀錄</td></tr>';
   else ords.forEach(o=>{
     const summ=summarizeOrderItems(o.order_items||[]);
     const shortfall=getOrderShortfallSummary(o,S.items[S.adminEid]||[],ev);
     const nameFlags=duplicateNameFlags.get(o.id)||[];
     const flagLabel=nameFlags.some(flag=>flag.kind==='exact')?'相同姓名':'相似姓名：'+[...new Set(nameFlags.map(flag=>flag.name))].join('、');
-    const checkKey='order__'+o.id;
-    const checked=isChecklistChecked(checkKey);
-    html+=`<tr class="${checked?'is-checked':''}"${nameFlags.length&&!checked?' style="background:#fffbeb"':''}><td class="check-col"><input type="checkbox" class="check-input" aria-label="確認 ${esc(o.user_name)} 的點餐" data-check-key="${esc(checkKey)}" onchange="toggleChecklist(this)"${checked?' checked':''}></td><td>${fmtTime(o.created_at)}</td><td><strong>${esc(o.user_name)}</strong>${nameFlags.length?`<div style="margin-top:3px;color:#b45309;font-size:.64rem;font-weight:800">${esc(flagLabel)}</div>`:''}</td><td style="font-size:.75rem">${esc(summ)}</td><td style="font-weight:700;color:var(--or)">${o.total>0?'$'+o.total:'—'}${shortfall.total?`<div style="margin-top:4px;color:var(--rd);line-height:1.45">${shortfall.lines.map(line=>`<strong>缺額 $${line.amount}</strong><br><span style="font-size:.62rem">${esc(line.category)}／${esc(line.restaurant)}</span>`).join('<br>')}</div>`:''}</td>
+    html+=`<tr${nameFlags.length?' style="background:#fffbeb"':''}><td>${fmtTime(o.created_at)}</td><td><strong>${esc(o.user_name)}</strong>${nameFlags.length?`<div style="margin-top:3px;color:#b45309;font-size:.64rem;font-weight:800">${esc(flagLabel)}</div>`:''}</td><td style="font-size:.75rem">${esc(summ)}</td><td style="font-weight:700;color:var(--or)">${o.total>0?'$'+o.total:'—'}${shortfall.total?`<div style="margin-top:4px;color:var(--rd);line-height:1.45">${shortfall.lines.map(line=>`<strong>缺額 $${line.amount}</strong><br><span style="font-size:.62rem">${esc(line.category)}／${esc(line.restaurant)}</span>`).join('<br>')}</div>`:''}</td>
       <td><button class="btn btn-rd btn-sm" onclick="if(confirm('刪除？'))delOrder('${o.id}','${ev.id}')">刪</button></td></tr>`;
   });
   html+='</tbody></table></div></div>';
@@ -3361,13 +3357,13 @@ function buildOrderExportData(){
   const menuItems=S.items[S.adminEid]||[];
   const itemMap=Object.fromEntries(menuItems.map(item=>[item.id,item]));
   const eventInfo=[ev?.title&&`場次：${ev.title}`,ev?.date&&`日期：${ev.date}`,ev?.organizer&&`承辦：${ev.organizer}`].filter(Boolean).join('｜');
-  const printHeader=['檢核','點餐姓名','餐點內容','合計','缺額','訂單備註'];
+  const printHeader=['點餐姓名','餐點內容','合計','缺額','訂單備註'];
   const printRows=sortedOrders.map(order=>{
     const shortfall=getOrderShortfallSummary(order,menuItems,ev);
     const meals=summarizeOrderItems(order.order_items||[]).replace(/、/g,'\n');
-    return['☐',order.user_name||'',meals,Number(order.total)||0,shortfall.csvText,order.note||''];
+    return[order.user_name||'',meals,Number(order.total)||0,shortfall.csvText,order.note||''];
   });
-  const detailHeader=['檢核','場次資訊','點餐姓名','店家','品項','規格','糖度冰塊／品項備註','數量','單價','小計','缺額','訂單備註'];
+  const detailHeader=['場次資訊','點餐姓名','店家','品項','規格','糖度冰塊／品項備註','數量','單價','小計','缺額','訂單備註'];
   const detailRows=[];
   const summary={};
   sortedOrders.forEach(o=>{
@@ -3380,7 +3376,7 @@ function buildOrderExportData(){
       const qty=Number(oi.quantity)||0;
       const unitPrice=Number(oi.unit_price)||0;
       const subtotal=qty*unitPrice;
-      detailRows.push(['☐',eventInfo,o.user_name||'',restaurant,oi.item_name,oi.specs_str||'',oi.note||'',qty,unitPrice,subtotal,itemIndex===0?shortfall.csvText:'',o.note||'']);
+      detailRows.push([eventInfo,o.user_name||'',restaurant,oi.item_name,oi.specs_str||'',oi.note||'',qty,unitPrice,subtotal,itemIndex===0?shortfall.csvText:'',o.note||'']);
       const key=[restaurant,workType,category,oi.item_name,oi.specs_str||'',oi.note||'',unitPrice].join('__');
       if(!summary[key]) summary[key]={diners:new Map(),restaurant,workType,category,name:oi.item_name,specs:oi.specs_str||'',itemNote:oi.note||''};
       if(o.user_name){
