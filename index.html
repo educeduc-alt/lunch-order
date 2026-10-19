@@ -3239,6 +3239,7 @@ async function aiParseBase64(base64,mime,uploadType='main'){
     let lastDetail='';
     let errorCode='';
     let lastNetworkError=null;
+    let primaryFailure=null; // 主要代理（Supabase）的失敗結果，備援也失敗時優先顯示它
     try{
       const proxyTargets=[
         {
@@ -3274,6 +3275,7 @@ async function aiParseBase64(base64,mime,uploadType='main'){
           lastNetworkError=fetchError;
           res=null;
           if(hasNext) continue;
+          if(primaryFailure) break;
           throw fetchError;
         }finally{
           clearTimeout(targetTimeout);
@@ -3288,8 +3290,17 @@ async function aiParseBase64(base64,mime,uploadType='main'){
           targetCode==='FUNCTION_NOT_FOUND'
         );
         // 忙碌（429/5xx）時也改走下一個代理，不同出口區域常常能避開尖峰。
-        if(hasNext&&(edgeNotReady||retryableStatuses.has(res.status))) continue;
+        if(hasNext&&(edgeNotReady||retryableStatuses.has(res.status))){
+          if(!edgeNotReady) primaryFailure={res,text};
+          continue;
+        }
         break;
+      }
+      // Cloudflare 備援若被 Google 判定為不支援地區（台灣常被分到香港節點）或連線失敗，
+      // 它的錯誤沒有參考價值，改顯示主要代理真正的失敗原因。
+      if(primaryFailure&&(!res||(!res.ok&&/GEMINI_LOCATION_UNSUPPORTED/.test(text)))){
+        res=primaryFailure.res;
+        text=primaryFailure.text;
       }
       if(!res) throw lastNetworkError||new Error('AbortError');
     }catch(fetchError){
