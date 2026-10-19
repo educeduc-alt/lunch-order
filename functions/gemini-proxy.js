@@ -8,6 +8,37 @@ const jsonResponse = (data, status = 200) => new Response(JSON.stringify(data), 
 
 const getErrorMessage = (data, fallback) => data?.error?.message || data?.message || fallback;
 const isLocationError = (message) => /location is not supported|unsupported location/i.test(message || '');
+const isThinkingConfigError = (message) => /thinking/i.test(message || '');
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// 2026-10-08 起，Google 已將這些模型 ID 自動轉送到其他模型：
+//   gemini-3.7-flash → gemini-3.8-flash
+//   gemini-3.5-flash → gemini-3.6-flash
+// 放在備援清單裡等於重複打同一個（可能正忙碌的）模型，白白耗掉逾時預算，所以排除。
+// 2.5 系列只開放給先前有用量的帳號，也一併排除。
+const SKIPPED_MODELS = new Set([
+  'gemini-3.7-flash',
+  'gemini-3.5-flash',
+  'gemini-2.5-flash',
+  'gemini-2.5-flash-lite',
+]);
+
+// 菜單辨識不需要深度推理；降低思考等級可大幅縮短回應時間。
+// 3.8 Flash 不支援 minimal（會回 400），最低只能 low。
+const THINKING_LEVEL = {
+  'gemini-3.8-flash': 'low',
+  'gemini-3.6-flash': 'minimal',
+  'gemini-3.5-flash-lite': 'minimal',
+};
+
+// 每個模型「最多」等待的秒數。最後一個模型拿剩下的全部時間。
+const PLANNED_TIMEOUT_MS = {
+  'gemini-3.8-flash': 20000,
+  'gemini-3.6-flash': 14000,
+};
+const DEFAULT_TIMEOUT_MS = 15000;
+const LAST_MODEL_RESERVE_MS = 10000; // 保留給最後一個（最快的）備援模型
+const TOTAL_BUDGET_MS = 48000;       // 前端單一代理等待上限為 55 秒
 
 export const onRequest = async ({ request, env }) => {
   if (request.method === 'OPTIONS') {
@@ -39,8 +70,6 @@ export const onRequest = async ({ request, env }) => {
     return jsonResponse({ error: '缺少圖片或解析提示' }, 400);
   }
 
-  // 菜單解析只需要一次圖片輸入與一次 JSON 輸出。generateContent 比
-  // Interactions API 更精簡，也避免部分邊緣節點對 Interactions 的地區誤判。
   const parts = sourceContent.map((part) => {
     if (part?.type === 'text' && typeof part.text === 'string') return { text: part.text };
     if (part?.type === 'image' && part.source?.type === 'base64') {
@@ -58,27 +87,22 @@ export const onRequest = async ({ request, env }) => {
     return jsonResponse({ error: '請求必須包含圖片和文字提示' }, 400);
   }
 
-  const configuredModel = (env.GEMINI_MODEL || '').trim();
-  const retiredModels = new Set(['gemini-2.5-flash', 'gemini-2.5-flash-lite']);
-  const primaryModel = configuredModel && !retiredModels.has(configuredModel)
-    ? configuredModel
-    : 'gemini-3.8-flash';
   const models = [
-    primaryModel,
+    (env.GEMINI_MODEL || '').trim() || 'gemini-3.8-flash',
     (env.GEMINI_FALLBACK_MODEL || '').trim(),
-    'gemini-3.7-flash',
+    'gemini-3.8-flash',
     'gemini-3.6-flash',
     'gemini-3.5-flash-lite',
   ]
-    .filter((model, index, list) => model && !retiredModels.has(model) && list.indexOf(model) === index)
-    .slice(0, 4);
+    .filter((model, index, list) => model && !SKIPPED_MODELS.has(model) && list.indexOf(model) === index)
+    .slice(0, 3);
+
+  const configuredTimeout = Number(env.GEMINI_MODEL_TIMEOUT_MS);
+  const overrideTimeoutMs = Number.isFinite(configuredTimeout) && configuredTimeout > 0
+    ? Math.min(30000, Math.max(8000, configuredTimeout))
+    : null;
 
   const retryableStatuses = new Set([429, 500, 502, 503, 504, 524]);
-  const configuredTimeout = Number(env.GEMINI_MODEL_TIMEOUT_MS);
-  const modelTimeoutMs = Number.isFinite(configuredTimeout)
-    ? Math.min(25000, Math.max(8000, configuredTimeout))
-    : 15000;
-  const totalBudgetMs = 45000;
   const startedAt = Date.now();
   const attemptedModels = [];
   let lastStatus = 503;
@@ -87,22 +111,18 @@ export const onRequest = async ({ request, env }) => {
   let usedModel = models[0];
   let usage = null;
 
-  for (const model of models) {
-    const remainingMs = totalBudgetMs - (Date.now() - startedAt);
-    if (remainingMs < 2000) {
-      lastStatus = 504;
-      lastError = 'AI 解析已達 45 秒上限';
-      break;
+  const callModel = async (model, timeoutMs, useThinkingConfig) => {
+    const generationConfig = {
+      responseMimeType: 'application/json',
+      temperature: 0.1,
+    };
+    if (useThinkingConfig && THINKING_LEVEL[model]) {
+      generationConfig.thinkingConfig = { thinkingLevel: THINKING_LEVEL[model] };
     }
-
-    usedModel = model;
-    attemptedModels.push(model);
     const controller = new AbortController();
-    const timeoutMs = Math.min(modelTimeoutMs, remainingMs);
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-    let response;
     try {
-      response = await fetch(
+      const response = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
         {
           method: 'POST',
@@ -111,28 +131,59 @@ export const onRequest = async ({ request, env }) => {
             'Content-Type': 'application/json',
             'x-goog-api-key': apiKey,
           },
-          body: JSON.stringify({
-            contents: [{ role: 'user', parts }],
-            generationConfig: {
-              responseMimeType: 'application/json',
-              temperature: 0.1,
-            },
-          }),
+          body: JSON.stringify({ contents: [{ role: 'user', parts }], generationConfig }),
         },
       );
+      // 讀取 body 也在逾時範圍內，避免卡在串流中途。
+      const responseText = await response.text();
+      return { response, responseText };
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  };
+
+  for (let index = 0; index < models.length; index++) {
+    const model = models[index];
+    const isLast = index === models.length - 1;
+    const remainingMs = TOTAL_BUDGET_MS - (Date.now() - startedAt);
+    if (remainingMs < 3000) {
+      lastStatus = 504;
+      lastError = `AI 解析已達 ${Math.round(TOTAL_BUDGET_MS / 1000)} 秒上限`;
+      break;
+    }
+
+    const plannedMs = overrideTimeoutMs || PLANNED_TIMEOUT_MS[model] || DEFAULT_TIMEOUT_MS;
+    const timeoutMs = isLast
+      ? remainingMs
+      : Math.max(3000, Math.min(plannedMs, remainingMs - LAST_MODEL_RESERVE_MS));
+
+    usedModel = model;
+    attemptedModels.push(model);
+
+    let result;
+    const modelStartedAt = Date.now();
+    try {
+      result = await callModel(model, timeoutMs, true);
+      // 萬一 Google 調整了思考等級規則，不帶 thinkingConfig 再試一次同一模型。
+      if (result.response.status === 400) {
+        let message = '';
+        try { message = getErrorMessage(JSON.parse(result.responseText), ''); } catch {}
+        if (isThinkingConfigError(message)) {
+          const retryMs = Math.max(3000, timeoutMs - (Date.now() - modelStartedAt));
+          result = await callModel(model, retryMs, false);
+        }
+      }
     } catch (error) {
       const timedOut = error?.name === 'AbortError';
       lastStatus = timedOut ? 504 : 502;
       lastError = timedOut
-        ? `${model} 排隊超過 ${Math.round(timeoutMs / 1000)} 秒`
+        ? `${model} 超過 ${Math.round(timeoutMs / 1000)} 秒未回應`
         : `無法連線 Gemini API：${error.message}`;
       continue;
-    } finally {
-      clearTimeout(timeoutId);
     }
 
+    const { response, responseText } = result;
     lastStatus = response.status;
-    const responseText = await response.text();
     let data;
     try {
       data = JSON.parse(responseText);
@@ -146,7 +197,6 @@ export const onRequest = async ({ request, env }) => {
 
     if (!response.ok) {
       lastError = getErrorMessage(data, `Gemini API 錯誤 ${response.status}`);
-      // 地區限制取決於代理伺服器的出口 IP，換模型不會改善，因此直接回傳明確說明。
       if (isLocationError(lastError)) {
         return jsonResponse({
           error: 'Google 將目前 Cloudflare 代理節點判定為不支援地區。這不是圖片問題，請重新部署新版代理；若仍發生，需改用固定地區的 Google Cloud／Supabase Edge Function。',
@@ -155,11 +205,17 @@ export const onRequest = async ({ request, env }) => {
           attempted_models: attemptedModels,
         }, 503);
       }
-      if (response.status === 404 || retryableStatuses.has(response.status)) continue;
-      return jsonResponse({ error: lastError, retryable: false }, response.status);
+      if (response.status === 404 || retryableStatuses.has(response.status)) {
+        // 忙碌時稍等一下再換模型，降低連續撞到同一波尖峰的機率。
+        if (!isLast) await sleep(500);
+        continue;
+      }
+      return jsonResponse({ error: lastError, retryable: false, attempted_models: attemptedModels }, response.status);
     }
 
-    outputText = (data.candidates?.[0]?.content?.parts || [])
+    const candidate = data.candidates?.[0];
+    outputText = (candidate?.content?.parts || [])
+      .filter((part) => !part?.thought)
       .map((part) => part?.text || '')
       .join('')
       .trim();
@@ -169,12 +225,12 @@ export const onRequest = async ({ request, env }) => {
     lastStatus = 422;
     lastError = data.promptFeedback?.blockReason
       ? `Gemini 拒絕解析：${data.promptFeedback.blockReason}`
-      : 'Gemini 沒有輸出內容';
+      : `Gemini 沒有輸出內容${candidate?.finishReason ? `（${candidate.finishReason}）` : ''}`;
   }
 
   if (!outputText) {
     return jsonResponse({
-      error: models.length > 1
+      error: attemptedModels.length > 1
         ? `${lastError}，已自動切換 ${attemptedModels.length} 個模型仍未成功，請稍候再試`
         : `${lastError}，請稍候再試`,
       retryable: retryableStatuses.has(lastStatus),
