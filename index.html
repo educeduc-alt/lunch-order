@@ -250,10 +250,6 @@ body:has(#subBar:not([style*="display: none"])) .developer-card{bottom:82px}
 .dl-clock{display:flex;align-items:center;gap:4px;flex:1 1 200px}
 .dl-clock .dl-time{flex:1;min-width:0;padding:6px 6px;font-size:.9rem;font-weight:700;cursor:pointer}
 .dl-colon{font-weight:800;color:var(--sll)}
-.dl-chips{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}
-.dl-chip{border:1.5px solid var(--bo);background:var(--ca);color:var(--slm);border-radius:20px;padding:4px 10px;font-size:.74rem;font-weight:700;cursor:pointer;line-height:1.2}
-.dl-chip:hover{border-color:var(--or);color:var(--or)}
-.dl-chip.on{background:var(--or);border-color:var(--or);color:#fff}
 .dl-summary{margin-top:6px;font-size:.76rem;font-weight:800;color:var(--rd)}
 .mg-lbl{font-size:.68rem;font-weight:700;color:var(--sll);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:3px}
 .mgmt-item-row{display:flex;gap:6px;align-items:center;flex-wrap:wrap;background:var(--ca);border-radius:6px;padding:7px 8px;margin-bottom:5px}
@@ -827,9 +823,8 @@ function updateDeadlineDateTime(value){
   ev.deadline=time||'23:59';
 }
 
-/* ── 截止時間選擇器：日期＋「時」「分」下拉選單＋常用時間快速鍵 ──
+/* ── 截止時間選擇器：日期＋「時」「分」下拉選單 ──
    瀏覽器內建的 datetime-local 要在 00～59 分的長清單裡捲動，很難點選。 */
-const DEADLINE_QUICK_TIMES=['09:00','10:00','10:30','11:00','11:30','12:00','14:00','16:00','17:00'];
 function getEditingEvent(){
   return S.menuDraft||S.events.find(event=>event.id===S.adminEid);
 }
@@ -860,19 +855,7 @@ function renderDeadlinePicker(ev){
       </select>
       </div>
     </div>
-    <div class="dl-chips" id="dlDayChips">${dlDayChipsHtml(date,ev?.date||'')}</div>
-    <div class="dl-chips" id="dlTimeChips">${dlTimeChipsHtml(`${hh}:${mm}`)}</div>
     <div class="dl-summary" id="dlSummary" style="color:${dlSummaryInfo(date,`${hh}:${mm}`).color}">${esc(dlSummaryInfo(date,`${hh}:${mm}`).text)}</div>`;
-}
-function dlDayChipsHtml(date,eventDate){
-  if(!eventDate) return '';
-  return [
-    {label:'場次前一天',value:addDaysToDate(eventDate,-1)},
-    {label:'場次當天',value:eventDate},
-  ].map(d=>`<button type="button" class="dl-chip${d.value===date?' on':''}" onclick="setDeadlinePart('date','${d.value}')">${d.label}</button>`).join('');
-}
-function dlTimeChipsHtml(time){
-  return DEADLINE_QUICK_TIMES.map(t=>`<button type="button" class="dl-chip${t===time?' on':''}" onclick="setDeadlinePart('time','${t}')">${t}</button>`).join('');
 }
 function dlSummaryInfo(date,time){
   if(!date) return {text:'請選擇截止日期',color:'var(--rd)'};
@@ -900,11 +883,6 @@ function refreshDeadlinePicker(){
     if(![...minSel.options].some(o=>o.value===mm)) minSel.add(new Option(`${mm} 分`,mm));
     minSel.value=mm;
   }
-  const eventDate=document.getElementById('evDate')?.value||ev.date||'';
-  const dayChips=document.getElementById('dlDayChips');
-  if(dayChips) dayChips.innerHTML=dlDayChipsHtml(date,eventDate);
-  const timeChips=document.getElementById('dlTimeChips');
-  if(timeChips) timeChips.innerHTML=dlTimeChipsHtml(time);
   const summary=document.getElementById('dlSummary');
   if(summary){
     const info=dlSummaryInfo(date,time);
@@ -919,7 +897,6 @@ function setDeadlinePart(part,value){
   if(part==='date') ev.deadline_date=value;
   if(part==='hour') hh=value;
   if(part==='minute') mm=value;
-  if(part==='time') [hh,mm]=value.split(':');
   if(!ev.deadline_date) ev.deadline_date=document.getElementById('evDate')?.value||ev.date||'';
   ev.deadline=`${hh}:${mm}`;
   refreshDeadlinePicker();
@@ -2504,6 +2481,7 @@ function buildDatabaseHistoryEntries(){
       if(latest.has(key)) return;
       const items=[...group.items.values()].sort((a,b)=>(Number(a.sort_order)||0)-(Number(b.sort_order)||0));
       latest.set(key,{
+        createdMs:Date.parse(ev.created_at||'')||Date.parse(ev.date||'')||0,
         key:'database__'+ev.id+'__'+group.type+'__'+normalizeCompareText(group.store),
         store:group.store,
         type:group.type,
@@ -2517,14 +2495,55 @@ function buildDatabaseHistoryEntries(){
   return [...latest.values()];
 }
 
+/* ── 刪除歷史菜單 ──
+   歷史菜單有一部分是從以前的場次整理出來的，不能真的刪掉那些品項（舊訂單會壞掉），
+   所以「刪除」是記住「這個店家＋類型在這個時間之前的菜單不要再列出」。
+   之後重新解析、儲存同一家店的新菜單，會再正常出現在清單裡。 */
+function getHistoryEntryKey(entry){
+  return normalizeCompareText(entry?.store)+'__'+(entry?.type||'');
+}
+function getHiddenHistoryMenus(){
+  try{return JSON.parse(localStorage.getItem('hiddenHistoryMenus')||'{}')||{};}
+  catch(error){return {};}
+}
+function isHistoryEntryHidden(entry,hidden=getHiddenHistoryMenus()){
+  const hiddenAt=hidden[getHistoryEntryKey(entry)];
+  if(!hiddenAt) return false;
+  if(entry.createdMs===undefined) return false; // 本機快取在刪除時已直接移除，之後存的都是新菜單
+  return (Number(entry.createdMs)||0)<=hiddenAt;
+}
+function deleteHistoryMenu(entry){
+  const key=getHistoryEntryKey(entry);
+  try{
+    const hidden=getHiddenHistoryMenus();
+    hidden[key]=Date.now();
+    localStorage.setItem('hiddenHistoryMenus',JSON.stringify(hidden));
+  }catch(error){console.warn('無法記錄已刪除的歷史菜單',error);}
+  // 本機快取：移除這家店這個類型的品項（舊版快取可能便當、飲料存在同一筆）
+  try{
+    const cached=JSON.parse(localStorage.getItem('menuCache')||'[]');
+    const next=(Array.isArray(cached)?cached:[]).map(c=>{
+      if(normalizeCompareText(c.store)!==normalizeCompareText(entry.store)) return c;
+      const items=(Array.isArray(c.items)?c.items:[]).filter(item=>{
+        const type=item.category==='飲料'||(!item.category&&c.type==='飲料')?'飲料':'便當';
+        return type!==entry.type;
+      });
+      return items.length?{...c,items}:null;
+    }).filter(Boolean);
+    localStorage.setItem('menuCache',JSON.stringify(next));
+  }catch(error){console.warn('移除本機歷史菜單快取失敗',error);}
+}
+
 function getHistoryMenuEntries(includePresets=false){
   // 本機快取保留「剛解析完成」的精確版本；Supabase 紀錄讓換裝置或清快取後仍可找回。
   const sources=[...getLocalHistoryEntries(),...buildDatabaseHistoryEntries()];
-  if(includePresets) sources.push(...splitHistoryEntries(PRESET_MENUS));
+  if(includePresets) sources.push(...splitHistoryEntries(PRESET_MENUS).map(entry=>({...entry,createdMs:0})));
   const seen=new Set();
+  const hidden=getHiddenHistoryMenus();
   return sources.filter(entry=>{
     const key=normalizeCompareText(entry.store)+'__'+entry.type;
     if(!entry.items?.length||seen.has(key)) return false;
+    if(isHistoryEntryHidden(entry,hidden)) return false;
     seen.add(key);
     return true;
   });
@@ -2566,12 +2585,28 @@ function showMenuCache(){
         +'<div style="font-size:.65rem;opacity:.72;margin-top:1px">'+(entry.items||[]).length+' 個品項'+(entry.savedAt&&entry.savedAt!=='內建菜單'?' · '+esc(entry.savedAt):'')+(entry.savedAt==='內建菜單'?' · 內建':'')+'</div>'
         +'</button>'
         +(imageUrl?'<button type="button" data-cache-image-idx="'+index+'" title="放大菜單圖片" style="width:42px;min-width:42px;border:1.5px solid '+border+';border-radius:12px;background:#fff;cursor:pointer;padding:3px"><img src="'+esc(imageUrl)+'" alt="菜單原圖" style="width:100%;height:100%;max-height:42px;object-fit:cover;border-radius:8px"></button>':'')
+        +'<button type="button" data-cache-delete-idx="'+index+'" title="刪除這份歷史菜單" aria-label="刪除 '+esc(entry.store||'未知店家')+' '+entry.type+' 歷史菜單" style="width:34px;min-width:34px;border:1.5px solid #fecaca;border-radius:12px;background:#fef2f2;color:#dc2626;cursor:pointer;font-size:.9rem;padding:0">🗑</button>'
         +'</div>';
     }).join('');
   }
   inner.querySelector('#cacheList').addEventListener('click',e=>{
     const imageBtn=e.target.closest('button[data-cache-image-idx]');
     if(imageBtn){const entry=cached[Number(imageBtn.dataset.cacheImageIdx)];openMenuImage(getHistoryMenuImage(entry),(entry?.store||'歷史菜單')+'菜單原圖');return;}
+    const deleteBtn=e.target.closest('button[data-cache-delete-idx]');
+    if(deleteBtn){
+      const index=Number(deleteBtn.dataset.cacheDeleteIdx);
+      const entry=cached[index];
+      if(!entry) return;
+      const label=(entry.store||'未知店家')+' · '+entry.type;
+      if(!confirm(`確定從歷史菜單刪除「${label}」？\n\n只會從這個清單移除，已建立的場次和訂單不受影響。\n之後重新解析並儲存這家店的菜單，會再出現在清單裡。`)) return;
+      deleteHistoryMenu(entry);
+      cached.splice(index,1);
+      window._historyCacheEntries=cached;
+      toast(`已刪除歷史菜單：${label}`,'ok');
+      if(!cached.length){overlay.remove();return;}
+      renderHistoryChoices();
+      return;
+    }
     const btn=e.target.closest('button[data-cache-idx]');
     if(btn){ loadCachedMenu(Number(btn.dataset.cacheIdx)); }
   });
