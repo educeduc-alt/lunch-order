@@ -8,7 +8,6 @@ const jsonResponse = (data, status = 200) => new Response(JSON.stringify(data), 
 
 const getErrorMessage = (data, fallback) => data?.error?.message || data?.message || fallback;
 const isLocationError = (message) => /location is not supported|unsupported location/i.test(message || '');
-const isThinkingConfigError = (message) => /thinking/i.test(message || '');
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // 2026-10-08 起，Google 已將這些模型 ID 自動轉送到其他模型：
@@ -31,14 +30,44 @@ const THINKING_LEVEL = {
   'gemini-3.5-flash-lite': 'minimal',
 };
 
-// 每個模型「最多」等待的秒數。最後一個模型拿剩下的全部時間。
+// 每個模型「最多」等待的秒數。大張菜單要輸出上百個品項，需要較長時間。
+// 忙碌（503/429）通常幾秒內就會回應，所以這裡的上限主要是給「正在產生內容」用的。
 const PLANNED_TIMEOUT_MS = {
-  'gemini-3.8-flash': 20000,
-  'gemini-3.6-flash': 14000,
+  'gemini-3.8-flash': 50000,
+  'gemini-3.6-flash': 25000,
 };
-const DEFAULT_TIMEOUT_MS = 15000;
-const LAST_MODEL_RESERVE_MS = 10000; // 保留給最後一個（最快的）備援模型
-const TOTAL_BUDGET_MS = 48000;       // 前端單一代理等待上限為 55 秒
+const DEFAULT_TIMEOUT_MS = 25000;
+const LAST_MODEL_RESERVE_MS = 15000; // 保留給最後一個（最快的）備援模型
+const TOTAL_BUDGET_MS = 90000;       // 前端單一代理等待上限為 100 秒
+
+// 菜單解析的固定輸出格式：讓 Gemini 一定回傳完整、可解析的 JSON 陣列。
+const MENU_ITEMS_SCHEMA = {
+  type: 'ARRAY',
+  items: {
+    type: 'OBJECT',
+    properties: {
+      restaurant: { type: 'STRING' },
+      category: { type: 'STRING', enum: ['便當', '點心', '飲料', '其他'] },
+      name: { type: 'STRING' },
+      price: { type: 'NUMBER' },
+      description: { type: 'STRING' },
+      specs: {
+        type: 'ARRAY',
+        items: {
+          type: 'OBJECT',
+          properties: {
+            cat: { type: 'STRING' },
+            opts: { type: 'ARRAY', items: { type: 'STRING' } },
+          },
+          required: ['cat', 'opts'],
+        },
+      },
+      is_addon: { type: 'BOOLEAN' },
+    },
+    required: ['restaurant', 'category', 'name', 'price', 'specs'],
+    propertyOrdering: ['restaurant', 'category', 'name', 'price', 'description', 'specs', 'is_addon'],
+  },
+};
 
 export const onRequest = async ({ request, env }) => {
   if (request.method === 'OPTIONS') {
@@ -111,13 +140,20 @@ export const onRequest = async ({ request, env }) => {
   let usedModel = models[0];
   let usage = null;
 
-  const callModel = async (model, timeoutMs, useThinkingConfig) => {
+  const wantsMenuSchema = body?.schema === 'menu_items';
+
+  // enhanced=true：加上思考等級、高解析度、固定格式與較大輸出上限。
+  // 若 Google 不接受其中某個設定（回 400），會改用最基本設定再試一次。
+  const callModel = async (model, timeoutMs, enhanced) => {
     const generationConfig = {
       responseMimeType: 'application/json',
       temperature: 0.1,
     };
-    if (useThinkingConfig && THINKING_LEVEL[model]) {
-      generationConfig.thinkingConfig = { thinkingLevel: THINKING_LEVEL[model] };
+    if (enhanced) {
+      if (THINKING_LEVEL[model]) generationConfig.thinkingConfig = { thinkingLevel: THINKING_LEVEL[model] };
+      generationConfig.mediaResolution = 'MEDIA_RESOLUTION_HIGH';
+      generationConfig.maxOutputTokens = 32768;
+      if (wantsMenuSchema) generationConfig.responseSchema = MENU_ITEMS_SCHEMA;
     }
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
@@ -164,11 +200,11 @@ export const onRequest = async ({ request, env }) => {
     const modelStartedAt = Date.now();
     try {
       result = await callModel(model, timeoutMs, true);
-      // 萬一 Google 調整了思考等級規則，不帶 thinkingConfig 再試一次同一模型。
+      // 萬一 Google 不接受加強設定（思考等級、解析度、輸出格式），用最基本設定再試一次同一模型。
       if (result.response.status === 400) {
         let message = '';
         try { message = getErrorMessage(JSON.parse(result.responseText), ''); } catch {}
-        if (isThinkingConfigError(message)) {
+        if (!isLocationError(message)) {
           const retryMs = Math.max(3000, timeoutMs - (Date.now() - modelStartedAt));
           result = await callModel(model, retryMs, false);
         }
@@ -225,7 +261,9 @@ export const onRequest = async ({ request, env }) => {
     lastStatus = 422;
     lastError = data.promptFeedback?.blockReason
       ? `Gemini 拒絕解析：${data.promptFeedback.blockReason}`
-      : `Gemini 沒有輸出內容${candidate?.finishReason ? `（${candidate.finishReason}）` : ''}`;
+      : candidate?.finishReason === 'MAX_TOKENS'
+        ? 'Gemini 輸出內容過長被截斷，請把菜單分成兩張圖上傳'
+        : `Gemini 沒有輸出內容${candidate?.finishReason ? `（${candidate.finishReason}）` : ''}`;
   }
 
   if (!outputText) {
