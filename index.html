@@ -251,6 +251,11 @@ body:has(#subBar:not([style*="display: none"])) .developer-card{bottom:82px}
 .dl-clock .dl-time{flex:1;min-width:0;padding:6px 6px;font-size:.9rem;font-weight:700;cursor:pointer}
 .dl-colon{font-weight:800;color:var(--sll)}
 .dl-summary{margin-top:6px;font-size:.76rem;font-weight:800;color:var(--rd)}
+.oi-line{line-height:1.55;padding:1px 0}
+.oi-spec{color:var(--sll)}
+.oi-note{display:inline-block;margin-left:5px;padding:1px 7px;border-radius:999px;font-size:.68rem;font-weight:800;background:#f1f5f9;color:#475569;white-space:nowrap}
+.oi-note.is-drink{background:#e0f2fe;color:#0369a1}
+.oi-note.is-missing{background:#fef2f2;color:#dc2626}
 .mg-lbl{font-size:.68rem;font-weight:700;color:var(--sll);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:3px}
 .mgmt-item-row{display:flex;gap:6px;align-items:center;flex-wrap:wrap;background:var(--ca);border-radius:6px;padding:7px 8px;margin-bottom:5px}
 .mi-em{width:46px;text-align:center}
@@ -1972,14 +1977,38 @@ function getPersonNameMatchKind(a,b){
   return left[0]===right[0]&&Math.min(left.length,right.length)>=2&&nameEditDistance(left,right)<=1?'similar':'';
 }
 
-function summarizeOrderItems(items){
+function groupOrderItems(items){
   const grouped=new Map();
   (items||[]).forEach(item=>{
     const key=[item.item_name,item.specs_str||'',item.note||'',Number(item.unit_price)||0].join('__');
     if(!grouped.has(key)) grouped.set(key,{...item,quantity:0});
     grouped.get(key).quantity+=Number(item.quantity)||0;
   });
-  return [...grouped.values()].map(item=>`${item.item_name}${item.specs_str?' ('+item.specs_str+')':''}×${item.quantity}`).join('、');
+  return [...grouped.values()];
+}
+// 從菜單找回品項分類，用來判斷是不是飲料（甜度冰塊存在品項備註 note 裡）
+function isDrinkOrderItem(item,menuId=S.adminEid){
+  const menuItem=(S.items[menuId]||[]).find(m=>m.id===item.item_id)
+    ||(S.items[menuId]||[]).find(m=>m.name===item.item_name);
+  return menuItem?.category==='飲料';
+}
+function summarizeOrderItems(items){
+  return groupOrderItems(items).map(item=>{
+    const note=String(item.note||'').trim();
+    const noteText=note?`［${isDrinkOrderItem(item)?'糖冰':'備註'}：${note}］`:'';
+    return `${item.item_name}${item.specs_str?' ('+item.specs_str+')':''}${noteText}×${item.quantity}`;
+  }).join('、');
+}
+// 後台點餐紀錄表格：每個品項一行，飲料的甜度冰塊用藍色標籤標出
+function renderOrderItemsCell(items){
+  return groupOrderItems(items).map(item=>{
+    const isDrink=isDrinkOrderItem(item);
+    const note=String(item.note||'').trim();
+    const noteHtml=note
+      ?`<span class="oi-note${isDrink?' is-drink':''}">${isDrink?'🧊 ':'📝 '}${esc(note)}</span>`
+      :(isDrink?'<span class="oi-note is-missing">未填糖冰</span>':'');
+    return `<div class="oi-line">${esc(item.item_name)}${item.specs_str?` <span class="oi-spec">(${esc(item.specs_str)})</span>`:''} ×${item.quantity}${noteHtml}</div>`;
+  }).join('');
 }
 
 function getDuplicateNameFlags(orders){
@@ -2303,7 +2332,7 @@ function renderAdmin(){
     const flagLabel=nameFlags.some(flag=>flag.kind==='exact')?'相同姓名':'相似姓名：'+[...new Set(nameFlags.map(flag=>flag.name))].join('、');
     const checkKey='order__'+o.id;
     const checked=isChecklistChecked(checkKey);
-    html+=`<tr class="${checked?'is-checked':''}"${nameFlags.length&&!checked?' style="background:#fffbeb"':''}><td class="check-col"><input type="checkbox" class="check-input" aria-label="${esc(o.user_name)} 已完成個人分餐" data-check-key="${esc(checkKey)}" onchange="toggleChecklist(this)"${checked?' checked':''}></td><td>${fmtTime(o.created_at)}</td><td><strong>${esc(o.user_name)}</strong>${nameFlags.length?`<div style="margin-top:3px;color:#b45309;font-size:.64rem;font-weight:800">${esc(flagLabel)}</div>`:''}</td><td style="font-size:.75rem">${esc(summ)}</td><td style="font-weight:700;color:var(--or)">${o.total>0?'$'+o.total:'—'}${shortfall.total?`<div style="margin-top:4px;color:var(--rd);line-height:1.45">${shortfall.lines.map(line=>`<strong>缺額 $${line.amount}</strong><br><span style="font-size:.62rem">${esc(line.category)}／${esc(line.restaurant)}</span>`).join('<br>')}</div>`:''}</td>
+    html+=`<tr class="${checked?'is-checked':''}"${nameFlags.length&&!checked?' style="background:#fffbeb"':''}><td class="check-col"><input type="checkbox" class="check-input" aria-label="${esc(o.user_name)} 已完成個人分餐" data-check-key="${esc(checkKey)}" onchange="toggleChecklist(this)"${checked?' checked':''}></td><td>${fmtTime(o.created_at)}</td><td><strong>${esc(o.user_name)}</strong>${nameFlags.length?`<div style="margin-top:3px;color:#b45309;font-size:.64rem;font-weight:800">${esc(flagLabel)}</div>`:''}</td><td style="font-size:.75rem">${renderOrderItemsCell(o.order_items||[])}</td><td style="font-weight:700;color:var(--or)">${o.total>0?'$'+o.total:'—'}${shortfall.total?`<div style="margin-top:4px;color:var(--rd);line-height:1.45">${shortfall.lines.map(line=>`<strong>缺額 $${line.amount}</strong><br><span style="font-size:.62rem">${esc(line.category)}／${esc(line.restaurant)}</span>`).join('<br>')}</div>`:''}</td>
       <td><button class="btn btn-rd btn-sm" onclick="if(confirm('刪除？'))delOrder('${o.id}','${ev.id}')">刪</button></td></tr>`;
   });
   html+='</tbody></table></div></div>';
