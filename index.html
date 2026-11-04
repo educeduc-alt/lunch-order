@@ -1680,9 +1680,16 @@ function closeCombo(){
 function getSubsidyLimit(item){
   return item?.category==='便當'||item?.category==='點心'?120:(item?.category==='飲料'?40:0);
 }
+// 補助是「便當＋點心」合併算一份 120 元、飲料另外 40 元（同一家店累計）。
+// 以前便當和點心各算 120，點心的錢沒有被算進缺額。
+function getSubsidyGroup(category){
+  if(category==='便當'||category==='點心') return '便當＋點心';
+  if(category==='飲料') return '飲料';
+  return '';
+}
 
 function getStoreCategoryKey(item){
-  return `${item?.category||''}__${item?.restaurant||'未設定店家'}`;
+  return `${getSubsidyGroup(item?.category)||item?.category||''}__${item?.restaurant||'未設定店家'}`;
 }
 
 function getCartStoreCategoryTotal(item){
@@ -1700,7 +1707,7 @@ function getStoreTotalNotice(item, addedTotal){
   const before=getCartStoreCategoryTotal(item);
   const total=before+(Number(addedTotal)||0);
   if(total<=limit) return null;
-  return {kind:'store-total',category:item.category,store:item.restaurant||'未設定店家',before,addedTotal:Number(addedTotal)||0,total,limit,overage:total-limit};
+  return {kind:'store-total',category:getSubsidyGroup(item.category)||item.category,store:item.restaurant||'未設定店家',before,addedTotal:Number(addedTotal)||0,total,limit,overage:total-limit};
 }
 
 function showOverageNotice(lines){
@@ -3986,8 +3993,9 @@ function getOrderShortfallSummary(order,menuItems,ev){
     const limit=getSubsidyLimit({category});
     if(!limit) return;
     const restaurant=source.restaurant||ev?.store_name||'未設定店家';
-    const key=category+'__'+restaurant;
-    if(!groups[key]) groups[key]={category,restaurant,limit,total:0};
+    const group=getSubsidyGroup(category)||category;
+    const key=group+'__'+restaurant;
+    if(!groups[key]) groups[key]={category:group,restaurant,limit,total:0};
     groups[key].total+=(Number(orderItem.unit_price)||0)*(Number(orderItem.quantity)||0);
   });
   const lines=Object.values(groups)
