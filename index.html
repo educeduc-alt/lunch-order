@@ -527,7 +527,6 @@ let S = {
   adminTeacherFilter:'all',
   menuDraft:null,      // 尚未寫入 Supabase 的新場次草稿
   delId:null,
-  autoArchiving:false,
 };
 
 /* ═══ BOOT ═══ */
@@ -543,7 +542,6 @@ let S = {
     if(main) main.innerHTML=`<div class="empty"><span class="ei">⚠️</span><p>點餐資料暫時無法載入</p><div style="font-size:.75rem;color:var(--slm);margin:8px 0 14px">${esc(loadError.message||'請檢查網路後再試')}</div><button class="btn btn-or" onclick="window.location.reload()">重新載入</button></div>`;
     return;
   }
-  await autoArchiveExpiredEvents({rerender:false});
   if(requestedEventId&&S.events.some(ev=>ev.id===requestedEventId)){
     S.activeEventId=requestedEventId;
     S.tab='home';
@@ -563,8 +561,17 @@ let S = {
     document.getElementById('adminModal').style.display='flex';
     setTimeout(()=>document.getElementById('adminPwInp').focus(),80);
   }
-  // 頁面持續開啟時也會檢查截止時間，不必重新整理。
-  setInterval(()=>autoArchiveExpiredEvents({notify:true}),30000);
+  // 頁面持續開啟時也會檢查截止時間：點餐頁剛好過了截止時間就重畫一次，顯示「已截止」。
+  setInterval(()=>{
+    const ev=S.events.find(e=>e.id===S.activeEventId);
+    if(S.tab!=='home'||!ev) return;
+    const expired=isEventExpired(ev);
+    if(expired&&!ev._expiredNotified){
+      ev._expiredNotified=true;
+      toast('點餐時間已截止，無法再新增或送出餐點','warn');
+      render();
+    }
+  },30000);
 })();
 
 /* ═══ DATA ═══ */
@@ -817,7 +824,7 @@ function render(){
     }
     sb2.style.display=(hasCart&&S.activeEventId)?'block':'none';
     const btn=document.getElementById('subBtn');
-    if(btn){ const ev=S.events.find(e=>e.id===S.activeEventId); btn.disabled=isEventClosed(ev); }
+    if(btn){ const ev=S.events.find(e=>e.id===S.activeEventId); btn.disabled=isOrderingClosed(ev); }
   } else if(S.tab==='menu'){
     mc.innerHTML=renderMenuTab(); sb2.style.display='none';
   } else {
@@ -849,28 +856,10 @@ function isEventExpired(ev,now=Date.now()){
   const deadlineMs=getEventDeadlineMs(ev);
   return deadlineMs!==null&&deadlineMs<=now;
 }
-async function autoArchiveExpiredEvents({notify=false,rerender=true}={}){
-  if(S.autoArchiving) return;
-  const expired=S.events.filter(ev=>!ev.is_closed&&isEventExpired(ev));
-  if(!expired.length) return;
-  S.autoArchiving=true;
-  try{
-    if(!DEMO){
-      const ids=expired.map(ev=>ev.id);
-      const{error}=await sb.from('menus').update({is_closed:true}).in('id',ids);
-      if(error){console.error('自動封存失敗',error);return;}
-    }
-    expired.forEach(ev=>{ev.is_closed=true;});
-    if(S.activeEventId&&expired.some(ev=>ev.id===S.activeEventId)){
-      S.activeEventId=null;
-      S.sharedEventMode=false;
-      setEventUrl(null,true);
-    }
-    if(notify) toast(`已自動封存 ${expired.length} 個逾時場次，可至「歷史場次」查看`,'ok');
-    if(rerender) render();
-  }finally{
-    S.autoArchiving=false;
-  }
+// 能不能點餐：已封存，或截止時間已過，都不能再點。
+// 「封存」改成由承辦人手動按，截止後場次仍留在「目前場次」，只是停止點餐。
+function isOrderingClosed(ev){
+  return isEventClosed(ev)||isEventExpired(ev);
 }
 function fmtDeadline(ev){
   return{text:'開放中',cls:'badge-open'};
@@ -1001,14 +990,14 @@ function renderHome(){
     return html;
   }
   allEvs.forEach(ev=>{
-    const closed=isEventClosed(ev);
+    const closed=isOrderingClosed(ev);
     html+=`<div class="event-card${closed?' closed-card':''}" onclick="openEvent('${ev.id}')">
       <div class="ec-top">
         <div class="ec-left">
           <div class="ec-title">${esc(ev.title)}</div>
           ${ev.organizer?`<div class="ec-organizer">👤 負責老師：${esc(ev.organizer)}</div>`:''}
         </div>
-        ${ev.date?`<div class="ec-right"><div class="ec-date">📅 ${esc(fmtEventDate(ev.date))}</div><div class="ec-deadline">截止：${esc(fmtEventDeadline(ev))}</div></div>`:''}
+        ${ev.date?`<div class="ec-right"><div class="ec-date">📅 ${esc(fmtEventDate(ev.date))}</div><div class="ec-deadline">${closed?'⛔ 已截止：':'截止：'}${esc(fmtEventDeadline(ev))}</div></div>`:''}
       </div>
     </div>`;
   });
@@ -1146,7 +1135,7 @@ function renderOrderPage(){
   const ev=S.events.find(e=>e.id===S.activeEventId);
   if(!ev) return '<div class="empty"><span class="ei">❌</span><p>找不到此場次</p></div>';
   const items=S.items[S.activeEventId]||[];
-  const closed=isEventClosed(ev);
+  const closed=isOrderingClosed(ev);
 
   let html=`
     <div class="order-page-header">
@@ -1361,7 +1350,7 @@ function filterMenu(val){
 ══════════════════════════════════ */
 function startCombo(id){
   const ev=S.events.find(e=>e.id===S.activeEventId);
-  if(isEventClosed(ev)){toast('此場次已截止','err');return;}
+  if(isOrderingClosed(ev)){toast('此場次已截止','err');return;}
   const item=(S.items[S.activeEventId]||[]).find(i=>i.id===id);
   if(!item) return;
   // 有規格的主餐先選規格，選完再進套餐流程
@@ -1649,7 +1638,7 @@ function showComboSpecPicker(type, item, arr){
 
 async function confirmCombo(){
   const ev=S.events.find(e=>e.id===S.activeEventId);
-  if(isEventClosed(ev)){toast('此場次已截止','err');return;}
+  if(isOrderingClosed(ev)){toast('此場次已截止','err');return;}
   if(!S.comboMain){toast('請先選擇主餐','warn');return;}
   const comboItems=[S.comboMain.item,...S.comboSides.map(x=>x.item),...S.comboDrinks.map(x=>x.item)];
   const comboGroups={};
@@ -1736,7 +1725,7 @@ function showOverageNotice(lines){
 
 async function quickAdd(id){
   const ev=S.events.find(e=>e.id===S.activeEventId);
-  if(isEventClosed(ev)){toast('此場次已截止','err');return;}
+  if(isOrderingClosed(ev)){toast('此場次已截止','err');return;}
   const nameEl=document.getElementById('uName');
   if(nameEl&&nameEl.value) S.myName=nameEl.value;
   // 檢查上限 5 份
@@ -1753,7 +1742,7 @@ async function quickAdd(id){
 }
 async function adjCart(id,d){
   const ev=S.events.find(e=>e.id===S.activeEventId);
-  if(d>0&&isEventClosed(ev)){toast('此場次已截止','err');return;}
+  if(d>0&&isOrderingClosed(ev)){toast('此場次已截止','err');return;}
   const nameEl=document.getElementById('uName');
   if(nameEl&&nameEl.value) S.myName=nameEl.value;
   const keys=Object.keys(S.cart).filter(k=>k.startsWith(id+'__'));
@@ -1777,7 +1766,7 @@ function removeKey(k){delete S.cart[k];render();}
 /* ── SPEC SHEET ── */
 function openSpec(id){
   const ev=S.events.find(e=>e.id===S.activeEventId);
-  if(isEventClosed(ev)){toast('此場次已截止','err');return;}
+  if(isOrderingClosed(ev)){toast('此場次已截止','err');return;}
   S.specItem=(S.items[S.activeEventId]||[]).find(i=>i.id===id);
   S.specSel=createInitialSpecSelection(S.specItem);
   S.specQty=1;S.specNote='';
@@ -2124,7 +2113,7 @@ function showSubmittedOrderNotice(orderId){
 
 async function submitOrder(){
   const ev=S.events.find(e=>e.id===S.activeEventId);
-  if(isEventClosed(ev)){toast('此場次已截止','err');return;}
+  if(isOrderingClosed(ev)){toast('此場次已截止','err');return;}
   const nameEl=document.getElementById('uName');
   S.myName=nameEl?.value.trim()||S.myName;
   S.myClass='同仁';
@@ -2288,6 +2277,12 @@ function renderAdmin(){
     return html;
   }
 
+  if(!isEventClosed(ev)&&isEventExpired(ev)){
+    html+=`<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;background:var(--aml);border:1.5px solid #fbbf24;border-radius:var(--rmd);padding:10px 12px;margin-bottom:13px;color:#92400e">
+      <div><strong style="display:block;font-size:.84rem">⏰ 點餐已截止（${esc(fmtEventDeadline(ev))}）</strong><span style="font-size:.72rem">前台已停止點餐。確認訂單都沒問題後，請按「📦 場次封存」移到「歷史場次」。</span></div>
+      <button class="btn btn-save-event btn-sm" onclick="archiveEvent('${ev.id}')">📦 場次封存</button>
+    </div>`;
+  }
   if(isEventClosed(ev)){
     html+=`<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;background:#eef2ff;border:1.5px solid #a5b4fc;border-radius:var(--rmd);padding:10px 12px;margin-bottom:13px;color:#3730a3">
       <div><strong style="display:block;font-size:.84rem">📦 已封存場次</strong><span style="font-size:.72rem">目前已從前台與「菜單與點餐」隱藏，點餐紀錄仍完整保留。</span></div>
@@ -2414,7 +2409,7 @@ function renderEventMgmt(ev){
       </div>
       <div style="flex:1;min-width:260px"><span class="mg-lbl">點餐截止日期與時間</span>
         ${renderDeadlinePicker(ev)}
-        <div style="font-size:.66rem;color:var(--sll);margin-top:4px">時間到後會自動封存至「歷史場次」</div>
+        <div style="font-size:.66rem;color:var(--sll);margin-top:4px">時間到後前台會停止點餐；場次需手動按「📦 場次封存」才會移到「歷史場次」</div>
       </div>
     </div>
     <div class="ev-mgmt-grid" style="margin-bottom:10px">
