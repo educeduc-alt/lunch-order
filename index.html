@@ -657,6 +657,7 @@ function getPreferredEventId({activeOnly=false}={}){
 
 function resetMenuEditorState(){
   S.pendingItems=[];
+  S.editRemovedIds=[];
   S.loadedHistoryKeys=[];
   S.parseStatus='idle';
   S.parseRunId=null;
@@ -2486,13 +2487,17 @@ function renderEventMgmt(ev){
       const saved=S.items[S.adminEid]||[];
       if(!saved.length) return '';
       const cats=[...new Set(saved.map(i=>i.category||'其他'))];
+      const editing=(S.pendingItems||[]).some(item=>item._savedId);
        return '<div style="background:var(--grl);border-radius:var(--rsm);padding:8px 12px;margin-bottom:10px;font-size:.78rem;color:var(--gr)">'
-         +'✅ 已儲存 '+saved.length+' 個品項（'+cats.join('、')+'）'
-         +'<button onclick="if(confirm(\'確定清空此場次所有品項？\'))clearItems()" style="float:right;font-size:.7rem;color:var(--rd);background:none;border:none;cursor:pointer">清空</button>'
-         +'</div>';
+         +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
+         +'<span style="flex:1;min-width:160px">✅ 已儲存 '+saved.length+' 個品項（'+cats.join('、')+'）</span>'
+         +(editing?'<span style="font-size:.72rem;font-weight:800;color:var(--in)">✏️ 修改中，改完請按「💾 儲存場次」</span>'
+           :'<button class="btn btn-or btn-sm" onclick="editSavedItems()">✏️ 逐項修改已儲存品項</button>')
+         +'<button onclick="if(confirm(\'確定清空此場次所有品項？\'))clearItems()" style="font-size:.7rem;color:var(--rd);background:none;border:none;cursor:pointer">清空</button>'
+         +'</div></div>';
     })()}
-      <span class="mg-lbl">${S.pendingItems.length?'本次解析品項（確認後按儲存場次）':'尚未解析品項'}</span>
-      ${S.pendingItems.length?'<button class="btn btn-out btn-sm" onclick="clearPending()">✕ 清除解析</button>':''}
+      <span class="mg-lbl">${S.pendingItems.some(item=>item._savedId)?'修改品項（改完按「💾 儲存場次」）':(S.pendingItems.length?'本次解析品項（確認後按儲存場次）':'尚未解析品項')}</span>
+      ${S.pendingItems.length?`<button class="btn btn-out btn-sm" onclick="clearPending()">${S.pendingItems.some(item=>item._savedId)?'✕ 取消修改':'✕ 清除解析'}</button>`:''}
     </div>
     ${S.pendingItems.length?'<div style="font-size:.68rem;color:var(--slm);background:var(--bos);border-radius:7px;padding:7px 9px;margin-bottom:8px">價格格式：杯型完整售價請填「大杯 $35」；加料請填「珍珠 +$10」。</div>':''}
     <div id="mgmtItems">
@@ -2509,6 +2514,7 @@ function renderEventMgmt(ev){
             </div>`).join('')
           : '';
         return `<div class="mgmt-item-row" style="flex-wrap:wrap;flex-direction:column;align-items:stretch;padding:9px 8px;${it._historyMissing?'border-color:#f59e0b;background:#fffbeb':''}">
+          ${it._savedId?`<div style="font-size:.66rem;font-weight:800;color:var(--gr);margin-bottom:4px">✅ 已儲存品項${getSavedItemOrderCount(it._savedId)?`・已有 ${getSavedItemOrderCount(it._savedId)} 筆點餐`:''}</div>`:'<div style="font-size:.66rem;font-weight:800;color:var(--in);margin-bottom:4px">🆕 新增品項</div>'}
           ${it._historyMissing?'<div style="font-size:.7rem;font-weight:800;color:#92400e;background:#fef3c7;border-radius:7px;padding:6px 8px;margin-bottom:7px">⚠️ 歷史菜單有此品項，但本次未解析到。請確認是否為解析遺漏；要保留可直接儲存，不需要請按「不保留」。</div>':''}
           <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
             <select class="mg-inp" id="mc-${i}" onchange="updatePendingItem(${i},'category',this.value)" style="width:78px">
@@ -2885,6 +2891,7 @@ async function deleteEvent(eid,confirmationText){
 // 清除本次解析資料（不刪資料庫，只清暫存）
 function clearPending(){
   S.pendingItems=[];
+  S.editRemovedIds=[];
   S.loadedHistoryKeys=[];
   S.parseStatus=(window._pendingMainFile||window._pendingDrinkFile)?'ready':'idle';
   S.parseComparison=null;
@@ -2949,7 +2956,8 @@ async function clearOrders(){
 function renderStoreCapsules(currentStore){
   try{
     // 只顯示本場次已解析、已儲存或從右上角歷史菜單載入的項目。
-    const currentItems=[...(S.pendingItems||[]),...(((S.items||{})[S.adminEid])||[])];
+    const editingIds=new Set((S.pendingItems||[]).map(item=>item._savedId).filter(Boolean));
+    const currentItems=[...(S.pendingItems||[]),...(((S.items||{})[S.adminEid])||[]).filter(item=>!editingIds.has(item.id))];
     const capsuleMap=new Map();
     currentItems.forEach(item=>{
       const store=String(item.restaurant||'').trim();
@@ -3095,7 +3103,68 @@ function addItem(){
   S.pendingItems.push({id:'new-'+Date.now(),menu_id:S.adminEid||'',restaurant:'',emoji:'',name:'',description:'',price:0,specs:[],sort_order:S.pendingItems.length,ai_parsed:false,category:'其他'});
   render();
 }
-function removeItem(i){ syncPendingItemsFromForm(); S.pendingItems.splice(i,1); render(); }
+function removeItem(i){
+  syncPendingItemsFromForm();
+  const item=S.pendingItems[i];
+  if(item?._savedId){
+    const ordered=getSavedItemOrderCount(item._savedId);
+    if(ordered){
+      toast(`「${item.name}」已經有 ${ordered} 筆點餐，不能刪除；可以直接修改名稱或價格`,'warn');
+      return;
+    }
+    if(!S.editRemovedIds) S.editRemovedIds=[];
+    S.editRemovedIds.push(item._savedId);
+  }
+  S.pendingItems.splice(i,1);
+  render();
+}
+function getSavedItemOrderCount(itemId){
+  return (S.orders[S.adminEid]||[]).reduce((sum,order)=>
+    sum+(order.order_items||[]).filter(oi=>oi.item_id===itemId).length,0);
+}
+/* ── 修改已儲存的品項 ──
+   把已儲存的品項複製到下方編輯清單（標記 _savedId），改完按「儲存場次」會直接更新原品項；
+   點餐紀錄仍對應同一個品項，不會因為修改而遺失。 */
+function editSavedItems(){
+  const saved=S.items[S.adminEid]||[];
+  if(!saved.length){toast('這個場次還沒有已儲存的品項','warn');return;}
+  syncPendingItemsFromForm();
+  const already=new Set((S.pendingItems||[]).map(item=>item._savedId).filter(Boolean));
+  const copies=saved.filter(item=>!already.has(item.id)).map(item=>({
+    ...item,
+    specs:JSON.parse(JSON.stringify(parseSpecs(item.specs))),
+    id:'edit_'+item.id,
+    _savedId:item.id,
+  }));
+  S.pendingItems=[...copies,...(S.pendingItems||[])];
+  if(!S.editRemovedIds) S.editRemovedIds=[];
+  render();
+  toast(`已載入 ${copies.length} 個已儲存品項，改完請按「💾 儲存場次」`,'ok');
+  setTimeout(()=>document.getElementById('mgmtItems')?.scrollIntoView({behavior:'smooth',block:'start'}),80);
+}
+async function saveMenuItemUpdates(rows){
+  // 先用一次 upsert 更新全部；若資料庫不允許，改成逐筆 update。
+  const{error}=await sb.from('menu_items').upsert(rows,{onConflict:'id'});
+  if(!error) return true;
+  console.warn('批次更新品項失敗，改逐筆更新',error);
+  for(const row of rows){
+    const{id,...fields}=row;
+    const{data,error:rowError}=await sb.from('menu_items').update(fields).eq('id',id).select('id');
+    if(rowError||!data?.length){
+      toast(`品項「${row.name}」更新失敗：${rowError?.message||'資料庫沒有更新（可能是 Supabase 權限未開放修改 menu_items）'}`,'err');
+      return false;
+    }
+  }
+  return true;
+}
+async function deleteRemovedSavedItems(){
+  const ids=[...new Set(S.editRemovedIds||[])].filter(id=>!getSavedItemOrderCount(id));
+  if(!ids.length) return true;
+  const{error}=await sb.from('menu_items').delete().in('id',ids);
+  if(error){toast('刪除品項失敗：'+error.message,'err');return false;}
+  S.editRemovedIds=[];
+  return true;
+}
 async function archiveEvent(eid){
   const ev=S.events.find(event=>event.id===eid);
   if(!ev){toast('找不到要封存的場次','err');return;}
@@ -3133,7 +3202,7 @@ async function saveMenu(){
     const counts=(S.parseComparison||[]).reduce((sum,g)=>({added:sum.added+g.added.length,removed:sum.removed+g.removed.length,changed:sum.changed+g.changed.length}),{added:0,removed:0,changed:0});
     const keptMissing=(S.pendingItems||[]).filter(item=>item._historyMissing&&item._parseRunId===S.parseRunId).length;
     if(!confirm(`已確認完成一鍵解析與歷史比對。\n新增 ${counts.added} 項、疑似漏解析 ${counts.removed} 項（目前保留 ${keptMissing} 項）、價格或規格變更 ${counts.changed} 項。\n\n將以新解析內容為主更新歷史菜單，確定儲存？`)) return;
-  }else if(S.pendingItems.length){
+  }else if(S.pendingItems.some(item=>!item._savedId)){
     if(!confirm('本次品項來自歷史菜單或手動新增，尚未執行一鍵解析。\n確定仍要儲存？')) return;
   }
   // 「儲存場次」會保留目前畫面上的場次設定；若有新菜單品項則一併儲存。
@@ -3184,6 +3253,13 @@ async function saveMenu(){
     return;
   }
   if(!S.pendingItems.length){
+    if((S.editRemovedIds||[]).length){
+      if(!(await deleteRemovedSavedItems())) return;
+      await loadEventDetail(eid);
+      toast('✅ 已儲存，並刪除移除的品項','ok');
+      render();
+      return;
+    }
     toast(isNewDraft?'✅ 新場次已建立並顯示於上方':'✅ 目前畫面設定已儲存','ok');
     render();
     return;
@@ -3191,7 +3267,7 @@ async function saveMenu(){
 
   // 把 pendingItems 讀取欄位後 append 到資料庫（不刪除既有品項）
   const existingCount=(S.items[eid]||[]).length;
-  const newItems=S.pendingItems.map((it,i)=>({
+  const formRows=S.pendingItems.map((it,i)=>({
     emoji:'',
     category:document.getElementById('mc-'+i)?.value||it.category||'其他',
     restaurant:document.getElementById('mr-'+i)?.value||it.restaurant,
@@ -3199,14 +3275,22 @@ async function saveMenu(){
     price:(()=>{const v=document.getElementById('mp-'+i)?.value;return v!==undefined&&v!==''?+v:it.price;})(),
     description:document.getElementById('md-'+i)?.value||it.description||'',
     specs:it.specs||[],          // specs 直接從 state 讀取（已即時更新）
-    sort_order:existingCount+i,
-    ai_parsed:true,
-    menu_id:eid
+    sort_order:it._savedId?(Number(it.sort_order)||0):existingCount+i,
+    ai_parsed:it._savedId?it.ai_parsed!==false:true,
+    menu_id:eid,
+    _savedId:it._savedId||null
   }));
+  // 有 _savedId 的是修改既有品項（更新），其餘是新品項（新增）
+  const updateRows=formRows.filter(row=>row._savedId).map(({_savedId,...row})=>({...row,id:_savedId}));
+  const newItems=formRows.filter(row=>!row._savedId).map(({_savedId,...row})=>row);
 
-  if(newItems.length){
-    const{error:e2}=await sb.from('menu_items').insert(newItems);
-    if(e2){toast('品項儲存失敗：'+e2.message,'err');return;}
+  if(updateRows.length||newItems.length){
+    if(updateRows.length&&!(await saveMenuItemUpdates(updateRows))) return;
+    if(newItems.length){
+      const{error:e2}=await sb.from('menu_items').insert(newItems);
+      if(e2){toast('品項儲存失敗：'+e2.message,'err');return;}
+    }
+    if(!(await deleteRemovedSavedItems())) return;
     S.pendingItems=[];
     await loadEventDetail(eid);
     const total=(S.items[eid]||[]).length;
@@ -3983,6 +4067,21 @@ function toggleChecklist(input){
   catch(error){console.warn('儲存檢核狀態失敗',error);toast('檢核狀態無法儲存','warn');}
   input.closest('tr,.order-summary-item')?.classList.toggle('is-checked',input.checked);
 }
+// 每筆訂單的「便當＋點心」與「飲料」金額
+function getOrderCategoryAmounts(order,menuItems){
+  const items=menuItems||[];
+  const itemMap=Object.fromEntries(items.map(item=>[item.id,item]));
+  const result={meal:0,drink:0,other:0};
+  (order?.order_items||[]).forEach(orderItem=>{
+    const source=itemMap[orderItem.item_id]||items.find(item=>item.name===orderItem.item_name)||{};
+    const amount=(Number(orderItem.unit_price)||0)*(Number(orderItem.quantity)||0);
+    const group=getSubsidyGroup(source.category);
+    if(group==='飲料') result.drink+=amount;
+    else if(group) result.meal+=amount;
+    else result.other+=amount;
+  });
+  return result;
+}
 function getOrderShortfallSummary(order,menuItems,ev){
   const items=menuItems||[];
   const itemMap=Object.fromEntries(items.map(item=>[item.id,item]));
@@ -4036,12 +4135,17 @@ function buildOrderExportData(){
   const menuItems=S.items[S.adminEid]||[];
   const itemMap=Object.fromEntries(menuItems.map(item=>[item.id,item]));
   const eventInfo=[ev?.title&&`場次：${ev.title}`,ev?.date&&`日期：${ev.date}`,ev?.organizer&&`承辦：${ev.organizer}`].filter(Boolean).join('｜');
-  const printHeader=['分餐確認','點餐姓名','餐點內容','合計','缺額','訂單備註'];
+  const printHeader=['分餐確認','點餐姓名','餐點內容','便當＋點心金額','飲料金額','合計','缺額','訂單備註'];
+  const grand={meal:0,drink:0,total:0,shortfall:0};
   const printRows=sortedOrders.map(order=>{
     const shortfall=getOrderShortfallSummary(order,menuItems,ev);
     const meals=summarizeOrderItems(order.order_items||[]).replace(/、/g,'\n');
-    return['☐',order.user_name||'',meals,Number(order.total)||0,shortfall.csvText,order.note||''];
+    const amounts=getOrderCategoryAmounts(order,menuItems);
+    grand.meal+=amounts.meal;grand.drink+=amounts.drink;
+    grand.total+=Number(order.total)||0;grand.shortfall+=shortfall.total;
+    return['☐',order.user_name||'',meals,amounts.meal,amounts.drink,Number(order.total)||0,shortfall.csvText,order.note||''];
   });
+  const printTotalRow=['','總計（'+sortedOrders.length+' 筆）','',grand.meal,grand.drink,grand.total,grand.shortfall?'缺額合計 $'+grand.shortfall:'',''];
   const detailHeader=['分餐確認','場次資訊','點餐姓名','店家','品項','規格','糖度冰塊／品項備註','數量','單價','小計','缺額','訂單備註'];
   const detailRows=[];
   const summary={};
@@ -4073,7 +4177,7 @@ function buildOrderExportData(){
       const row=[formatMealSummary(x.name,x.specs,x.itemNote),names.length,names.join('、')];
       (x.workType==='飲料'?drinkSummaryRows:mealSummaryRows).push(row);
     });
-  return{ev,eventInfo,printHeader,printRows,detailHeader,detailRows,summaryHeader:['檢核','餐點','點餐人數','點餐姓名'],mealSummaryRows,drinkSummaryRows};
+  return{ev,eventInfo,printHeader,printRows,printTotalRow,grand,detailHeader,detailRows,summaryHeader:['檢核','餐點','點餐人數','點餐姓名'],mealSummaryRows,drinkSummaryRows};
 }
 function exportCSV(){
   const data=buildOrderExportData();
@@ -4084,7 +4188,12 @@ function exportCSV(){
     ['場次',ev?.title||''],
     ['日期',ev?.date?fmtEventDate(ev.date):''],
     ['管理老師',ev?.organizer||''],
-    [],data.printHeader,...data.printRows,
+    [],data.printHeader,...data.printRows,data.printTotalRow,
+    [],['金額總計'],
+    ['便當＋點心總額',data.grand.meal],
+    ['飲料總額',data.grand.drink],
+    ['全部合計',data.grand.total],
+    ['缺額合計',data.grand.shortfall],
     [],['便當餐點彙整'],data.summaryHeader,...data.mealSummaryRows.map(row=>['☐',...row]),
     [],['飲料餐點彙整'],data.summaryHeader,...data.drinkSummaryRows.map(row=>['☐',...row])
   ];
