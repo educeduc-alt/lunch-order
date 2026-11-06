@@ -2318,7 +2318,8 @@ function renderAdmin(){
     <div class="stat-box"><div class="stat-n" style="color:var(--am)">${totAmt>0?'$'+totAmt:'—'}</div><div class="stat-l">總金額</div></div>
   </div>
   <div class="exp-row" style="margin-top:4px;display:flex;gap:8px;flex-wrap:wrap">
-    <button class="exp-btn" onclick="exportCSV()">📥 匯出CSV</button>
+    <button class="exp-btn" onclick="exportExcel()">📥 匯出 Excel（A4 列印）</button>
+    <button class="exp-btn" onclick="exportCSV()" title="純文字格式，沒有框線與紙張設定">CSV</button>
     ${isEventClosed(ev)?'':`<button class="btn btn-save-event" onclick="archiveEvent('${ev.id}')">📦 場次封存</button>`}
   </div>`;
 
@@ -4215,6 +4216,163 @@ function renderAdminOrderSummary(data){
       ${group('飲料彙整',data.drinkSummaryRows)}
     </div></div>
   </div>`;
+}
+/* ── 匯出 Excel：A4 直式、粗框線，打開就能直接列印 ──
+   CSV 是純文字，存不了框線和紙張大小，所以改用 ExcelJS 產生 .xlsx。 */
+async function loadExcelJS(){
+  if(window.ExcelJS) return window.ExcelJS;
+  const urls=[
+    'https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js',
+    'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js',
+  ];
+  for(const url of urls){
+    try{
+      await new Promise((resolve,reject)=>{
+        const script=document.createElement('script');
+        script.src=url;script.onload=resolve;script.onerror=reject;
+        document.head.appendChild(script);
+      });
+      if(window.ExcelJS) return window.ExcelJS;
+    }catch(error){console.warn('Excel 元件載入失敗',url,error);}
+  }
+  throw new Error('Excel 元件載入失敗');
+}
+// 估算文字在 Excel 欄寬下會佔幾行（中文字約佔 2 個字寬）
+function estimateExcelLines(text,widthChars){
+  return String(text??'').split('\n').reduce((sum,line)=>{
+    let w=0;
+    for(const ch of line) w+=/[\u0000-ÿ]/.test(ch)?1:2;
+    return sum+Math.max(1,Math.ceil(w/Math.max(1,widthChars-1)));
+  },0);
+}
+async function exportExcel(){
+  const data=buildOrderExportData();
+  if(!data.printRows.length){toast('沒有資料','warn');return;}
+  let ExcelJS;
+  try{ExcelJS=await loadExcelJS();}
+  catch(error){toast('Excel 元件載入失敗，改用 CSV 匯出','err');exportCSV();return;}
+  const ev=data.ev;
+  const FONT='Microsoft JhengHei';
+  const BLACK={argb:'FF000000'};
+  const THICK={style:'thick',color:BLACK};
+  const MED={style:'medium',color:BLACK};
+  const widths=[6,11,40,11,9,9,18,14];
+  const N=widths.length;
+  const wb=new ExcelJS.Workbook();
+  wb.creator='資源教室點餐小助手';
+  const newSheet=name=>{
+    const sheet=wb.addWorksheet(name,{
+      pageSetup:{paperSize:9,orientation:'portrait',fitToPage:true,fitToWidth:1,fitToHeight:0,horizontalCentered:true,
+        margins:{left:0.4,right:0.4,top:0.5,bottom:0.55,header:0.2,footer:0.25}},
+      headerFooter:{oddFooter:'&C'+name+'　第 &P 頁，共 &N 頁'},
+      views:[{showGridLines:false}],
+    });
+    sheet.columns=widths.map(width=>({width}));
+    return sheet;
+  };
+  let ws=newSheet('點餐紀錄');
+  let r=1;
+  const style=(cell,opt={})=>{
+    cell.font={name:FONT,size:opt.size||11,bold:!!opt.bold};
+    cell.alignment={vertical:'middle',horizontal:opt.align||'left',wrapText:true};
+    if(opt.fill) cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:opt.fill}};
+    if(opt.money) cell.numFmt='"$"#,##0';
+  };
+  // 一列資料：spans 是每個值要合併幾欄
+  const writeRow=(values,spans,opt={})=>{
+    let c=1;let lines=1;
+    values.forEach((value,i)=>{
+      const span=spans[i]||1;
+      if(span>1) ws.mergeCells(r,c,r,c+span-1);
+      const cell=ws.getCell(r,c);
+      cell.value=value;
+      const isMoney=opt.moneyCols?.includes(i)&&typeof value==='number';
+      style(cell,{bold:opt.bold,fill:opt.fill,align:opt.aligns?.[i]||(isMoney?'right':'left'),money:isMoney});
+      const w=widths.slice(c-1,c-1+span).reduce((a,b)=>a+b,0);
+      lines=Math.max(lines,estimateExcelLines(value,w));
+      c+=span;
+    });
+    ws.getRow(r).height=Math.max(20,lines*15+5);
+    r++;
+  };
+  // 表格框線：外框粗線、內部中粗線、標題列下方粗線
+  const frame=(r0,r1,c0=1,c1=N)=>{
+    for(let row=r0;row<=r1;row++){
+      for(let col=c0;col<=c1;col++){
+        ws.getCell(row,col).border={
+          top:row===r0||row===r0+1?THICK:MED,
+          bottom:row===r1||row===r0?THICK:MED,
+          left:col===c0?THICK:MED,
+          right:col===c1?THICK:MED,
+        };
+      }
+    }
+  };
+  const section=title=>{
+    ws.mergeCells(r,1,r,N);
+    const cell=ws.getCell(r,1);cell.value=title;
+    style(cell,{bold:true,size:13});
+    ws.getRow(r).height=24;r++;
+  };
+
+  const writeTitle=heading=>{
+    ws.mergeCells(r,1,r,N);
+    ws.getCell(r,1).value=heading+(ev?.title?'｜'+ev.title:'');
+    style(ws.getCell(r,1),{bold:true,size:16,align:'center'});
+    ws.getRow(r).height=30;r++;
+    ws.mergeCells(r,1,r,N);
+    ws.getCell(r,1).value=[ev?.date&&`日期：${fmtEventDate(ev.date)}`,ev?.organizer&&`管理老師：${ev.organizer}`,`匯出時間：${new Date().toLocaleString('zh-TW',{hour12:false})}`].filter(Boolean).join('　　');
+    style(ws.getCell(r,1),{align:'center'});
+    ws.getRow(r).height=20;r+=2;
+  };
+  writeTitle('點餐紀錄');
+
+  // 點餐明細
+  const headerRow=r;
+  writeRow(data.printHeader,[],{bold:true,fill:'FFE5E7EB',aligns:data.printHeader.map(()=>'center')});
+  data.printRows.forEach(row=>writeRow(row,[],{moneyCols:[3,4,5],aligns:['center']}));
+  // 總計列：「總計（N 筆）」佔兩欄，避免換行
+  const t=data.printTotalRow;
+  writeRow([t[0],t[1],t[3],t[4],t[5],t[6],t[7]],[1,2,1,1,1,1,1],{bold:true,fill:'FFF3F4F6',moneyCols:[2,3,4]});
+  frame(headerRow,r-1);
+  ws.pageSetup.printTitlesRow=`${headerRow}:${headerRow}`;
+  r++;
+
+  // 金額總計
+  section('金額總計');
+  const moneyStart=r;
+  writeRow(['項目','金額'],[3,2],{bold:true,fill:'FFE5E7EB',aligns:['center','center']});
+  [['便當＋點心總額',data.grand.meal],['飲料總額',data.grand.drink],['全部合計',data.grand.total],['缺額合計',data.grand.shortfall]]
+    .forEach((row,i)=>writeRow(row,[3,2],{moneyCols:[1],bold:i===2}));
+  frame(moneyStart,r-1,1,5);
+  r++;
+
+  // 便當、飲料彙整放在第二張工作表，列印時各自有標題，不會和點餐明細的表頭混在一起
+  ws=newSheet('餐點彙整');
+  r=1;
+  writeTitle('餐點彙整');
+  const summaryTable=(title,rows)=>{
+    section(title);
+    if(!rows.length){
+      ws.mergeCells(r,1,r,N);ws.getCell(r,1).value='尚無資料';style(ws.getCell(r,1));r+=2;return;
+    }
+    const start=r;
+    writeRow(['檢核','餐點','人數','點餐姓名'],[1,2,1,4],{bold:true,fill:'FFE5E7EB',aligns:['center','center','center','center']});
+    rows.forEach(([meal,count,names])=>writeRow(['☐',meal,count,names],[1,2,1,4],{aligns:['center','left','center','left']}));
+    frame(start,r-1);
+    r++;
+  };
+  summaryTable('便當餐點彙整',data.mealSummaryRows);
+  summaryTable('飲料餐點彙整',data.drinkSummaryRows);
+
+  const buffer=await wb.xlsx.writeBuffer();
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+  a.download=`點餐紀錄_${(ev?.title||'').replace(/[\\/:*?"<>|]/g,'')}_${new Date().toLocaleDateString('zh-TW').replace(/\//g,'-')}.xlsx`;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1000);
+  toast('Excel 已匯出（A4 直式，可直接列印）','ok');
 }
 function dlCSV(rows,name){
   if(rows.length<=1){toast('沒有資料','warn');return;}
