@@ -699,14 +699,14 @@ function prepareNewEventDraft(){
 function hasUnsavedMenuWork(){
   return !!S.authed&&(
     S.parseStatus==='parsing'||
-    (S.pendingItems||[]).length>0||
+    getUnsavedMenuItemCount()>0||
     !!window._pendingMainFile||!!window._pendingDrinkFile
   );
 }
 function confirmDiscardMenuWork(){
   return new Promise(resolve=>{
     const parsing=S.parseStatus==='parsing';
-    const count=(S.pendingItems||[]).length;
+    const count=getUnsavedMenuItemCount();
     const detail=parsing
       ?'AI 正在解析菜單，離開會中斷解析。'
       :(count?`目前有 <strong>${count}</strong> 個品項還沒儲存。`:'已選擇的菜單圖片還沒解析、儲存。');
@@ -2444,7 +2444,7 @@ function renderEventMgmt(ev){
 
     <!-- 圖片 + AI -->
     <div style="display:flex;justify-content:flex-end;align-items:center;margin:2px 0 7px">
-      <button class="btn btn-out btn-sm" onclick="addItem()">＋ 新增品項</button>
+      <button class="btn btn-out btn-sm" onclick="addSavedItemExpanded()">＋ 新增品項</button>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:13px">
 
@@ -2490,12 +2490,12 @@ function renderEventMgmt(ev){
       const cats=[...new Set(saved.map(i=>i.category||'其他'))];
       const editing=(S.pendingItems||[]).some(item=>item._savedId);
        return '<div style="background:var(--grl);border-radius:var(--rsm);padding:8px 12px;margin-bottom:10px;font-size:.78rem;color:var(--gr)">'
-         +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
-         +'<span style="flex:1;min-width:160px">✅ 已儲存 '+saved.length+' 個品項（'+cats.join('、')+'）</span>'
-         +(editing?'<span style="font-size:.72rem;font-weight:800;color:var(--in)">✏️ 修改中，改完請按「💾 儲存場次」</span>'
-           :'<button class="btn btn-or btn-sm" onclick="editSavedItems()">✏️ 逐項修改已儲存品項</button>')
-         +'<button class="btn btn-out btn-sm" onclick="addItem()">＋ 新增品項</button>'
-         +'<button onclick="if(confirm(\'確定清空此場次所有品項？\'))clearItems()" style="font-size:.7rem;color:var(--rd);background:none;border:none;cursor:pointer">清空</button>'
+         +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;cursor:pointer" onclick="toggleSavedItems()" title="'+(editing?'收合':'展開後可直接修改、新增')+'">'
+         +'<span style="flex:1;min-width:160px;font-weight:800">✅ 已儲存 '+saved.length+' 個品項（'+cats.join('、')+'）'
+         +(editing?'<span style="font-size:.72rem;color:var(--in);margin-left:6px">✏️ 改完請按「💾 儲存場次」</span>':'<span style="font-size:.72rem;color:var(--slm);margin-left:6px">點這裡展開，直接修改或新增</span>')+'</span>'
+         +'<button class="btn btn-out btn-sm" onclick="event.stopPropagation();addSavedItemExpanded()">＋ 新增品項</button>'
+         +'<button class="btn btn-sm '+(editing?'btn-out':'btn-or')+'" onclick="event.stopPropagation();toggleSavedItems()">'+(editing?'▲ 收合':'▼ 展開')+'</button>'
+         +'<button onclick="event.stopPropagation();if(confirm(\'確定清空此場次所有品項？\'))clearItems()" style="font-size:.7rem;color:var(--rd);background:none;border:none;cursor:pointer">清空</button>'
          +'</div></div>';
     })()}
       <span class="mg-lbl">${S.pendingItems.some(item=>item._savedId)?'修改品項（改完按「💾 儲存場次」）':(S.pendingItems.length?'本次解析品項（確認後按儲存場次）':'尚未解析品項')}</span>
@@ -2537,7 +2537,7 @@ function renderEventMgmt(ev){
         </div>`;
       })}
     </div>
-    ${S.pendingItems.length?'<button class="btn btn-out" style="width:100%;margin-top:8px;border-style:dashed" onclick="addItem()">＋ 新增品項</button>':''}
+    ${S.pendingItems.length?'<button class="btn btn-out" style="width:100%;margin-top:8px;border-style:dashed" onclick="addSavedItemExpanded()">＋ 新增品項</button>':''}
 
   </div></div>`;
 }
@@ -3150,7 +3150,7 @@ function getSavedItemOrderCount(itemId){
 /* ── 修改已儲存的品項 ──
    把已儲存的品項複製到下方編輯清單（標記 _savedId），改完按「儲存場次」會直接更新原品項；
    點餐紀錄仍對應同一個品項，不會因為修改而遺失。 */
-function editSavedItems(){
+function editSavedItems(silent=false){
   const saved=S.items[S.adminEid]||[];
   if(!saved.length){toast('這個場次還沒有已儲存的品項','warn');return;}
   syncPendingItemsFromForm();
@@ -3164,8 +3164,41 @@ function editSavedItems(){
   S.pendingItems=[...copies,...(S.pendingItems||[])];
   if(!S.editRemovedIds) S.editRemovedIds=[];
   render();
-  toast(`已載入 ${copies.length} 個已儲存品項，改完請按「💾 儲存場次」`,'ok');
+  if(silent) return;
   setTimeout(()=>document.getElementById('mgmtItems')?.scrollIntoView({behavior:'smooth',block:'start'}),80);
+}
+// 已儲存的品項有沒有被改過（展開但沒改，就不需要提醒「還沒儲存」）
+function isSavedCopyChanged(item){
+  const original=(S.items[S.adminEid]||[]).find(saved=>saved.id===item._savedId);
+  if(!original) return true;
+  const norm=v=>String(v??'').trim();
+  return norm(item.category)!==norm(original.category)
+    ||norm(item.restaurant)!==norm(original.restaurant)
+    ||norm(item.name)!==norm(original.name)
+    ||Number(item.price)!==Number(original.price)
+    ||norm(item.description)!==norm(original.description)
+    ||JSON.stringify(item.specs||[])!==JSON.stringify(parseSpecs(original.specs));
+}
+function getUnsavedMenuItemCount(){
+  if(typeof syncPendingItemsFromForm==='function'&&document.getElementById('mgmtItems')) syncPendingItemsFromForm();
+  return (S.pendingItems||[]).filter(item=>!item._savedId||isSavedCopyChanged(item)).length
+    +(S.editRemovedIds||[]).length;
+}
+function toggleSavedItems(){
+  if((S.pendingItems||[]).some(item=>item._savedId)) collapseSavedItems();
+  else editSavedItems();
+}
+function collapseSavedItems(){
+  syncPendingItemsFromForm();
+  const changed=(S.pendingItems||[]).filter(item=>item._savedId&&isSavedCopyChanged(item)).length+(S.editRemovedIds||[]).length;
+  if(changed&&!confirm(`有 ${changed} 個已儲存品項改過但還沒儲存。\n收合會放棄這些修改，確定嗎？`)) return;
+  S.pendingItems=(S.pendingItems||[]).filter(item=>!item._savedId);
+  S.editRemovedIds=[];
+  render();
+}
+function addSavedItemExpanded(){
+  if(!(S.pendingItems||[]).some(item=>item._savedId)&&(S.items[S.adminEid]||[]).length) editSavedItems(true);
+  addItem();
 }
 async function saveMenuItemUpdates(rows){
   // 先用一次 upsert 更新全部；若資料庫不允許，改成逐筆 update。
@@ -3315,8 +3348,19 @@ async function saveMenu(){
     _savedId:it._savedId||null
   }));
   // 有 _savedId 的是修改既有品項（更新），其餘是新品項（新增）
-  const updateRows=formRows.filter(row=>row._savedId).map(({_savedId,...row})=>({...row,id:_savedId}));
+  const changedSavedIds=new Set(S.pendingItems.filter(item=>item._savedId&&isSavedCopyChanged(item)).map(item=>item._savedId));
+  const updateRows=formRows.filter(row=>row._savedId&&changedSavedIds.has(row._savedId)).map(({_savedId,...row})=>({...row,id:_savedId}));
   const newItems=formRows.filter(row=>!row._savedId).map(({_savedId,...row})=>row);
+  // 只有展開、沒有改任何品項：處理刪除後直接收合
+  if(!updateRows.length&&!newItems.length){
+    if(!(await deleteRemovedSavedItems())) return;
+    S.pendingItems=[];
+    S.editRemovedIds=[];
+    await loadEventDetail(eid);
+    toast('✅ 場次已儲存','ok');
+    render();
+    return;
+  }
 
   if(updateRows.length||newItems.length){
     if(updateRows.length&&!(await saveMenuItemUpdates(updateRows))) return;
