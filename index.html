@@ -2444,7 +2444,7 @@ function renderEventMgmt(ev){
 
     <!-- 圖片 + AI -->
     <div style="display:flex;justify-content:flex-end;align-items:center;margin:2px 0 7px">
-      <button class="btn btn-out btn-sm" onclick="addItem()">＋ 品項</button>
+      <button class="btn btn-out btn-sm" onclick="addItem()">＋ 新增品項</button>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:13px">
 
@@ -2494,6 +2494,7 @@ function renderEventMgmt(ev){
          +'<span style="flex:1;min-width:160px">✅ 已儲存 '+saved.length+' 個品項（'+cats.join('、')+'）</span>'
          +(editing?'<span style="font-size:.72rem;font-weight:800;color:var(--in)">✏️ 修改中，改完請按「💾 儲存場次」</span>'
            :'<button class="btn btn-or btn-sm" onclick="editSavedItems()">✏️ 逐項修改已儲存品項</button>')
+         +'<button class="btn btn-out btn-sm" onclick="addItem()">＋ 新增品項</button>'
          +'<button onclick="if(confirm(\'確定清空此場次所有品項？\'))clearItems()" style="font-size:.7rem;color:var(--rd);background:none;border:none;cursor:pointer">清空</button>'
          +'</div></div>';
     })()}
@@ -2515,7 +2516,7 @@ function renderEventMgmt(ev){
             </div>`).join('')
           : '';
         return `<div class="mgmt-item-row" style="flex-wrap:wrap;flex-direction:column;align-items:stretch;padding:9px 8px;${it._historyMissing?'border-color:#f59e0b;background:#fffbeb':''}">
-          ${it._savedId?`<div style="font-size:.66rem;font-weight:800;color:var(--gr);margin-bottom:4px">✅ 已儲存品項${getSavedItemOrderCount(it._savedId)?`・已有 ${getSavedItemOrderCount(it._savedId)} 筆點餐`:''}</div>`:'<div style="font-size:.66rem;font-weight:800;color:var(--in);margin-bottom:4px">🆕 新增品項</div>'}
+          ${it._savedId?`<div style="font-size:.66rem;font-weight:800;color:var(--gr);margin-bottom:4px">✅ 已儲存品項${getSavedItemOrderCount(it._savedId)?`・已有 ${getSavedItemOrderCount(it._savedId)} 筆點餐`:''}</div>`:`<div style="font-size:.66rem;font-weight:800;color:var(--in);margin-bottom:4px">🆕 ${it._manual?'手動新增品項':'新增品項'}</div>`}
           ${it._historyMissing?'<div style="font-size:.7rem;font-weight:800;color:#92400e;background:#fef3c7;border-radius:7px;padding:6px 8px;margin-bottom:7px">⚠️ 歷史菜單有此品項，但本次未解析到。請確認是否為解析遺漏；要保留可直接儲存，不需要請按「不保留」。</div>':''}
           <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
             <select class="mg-inp" id="mc-${i}" onchange="updatePendingItem(${i},'category',this.value)" style="width:78px">
@@ -2536,6 +2537,7 @@ function renderEventMgmt(ev){
         </div>`;
       })}
     </div>
+    ${S.pendingItems.length?'<button class="btn btn-out" style="width:100%;margin-top:8px;border-style:dashed" onclick="addItem()">＋ 新增品項</button>':''}
 
   </div></div>`;
 }
@@ -2554,7 +2556,8 @@ function renderPendingItemGroups(items,renderRow){
   const ordered=[...groups.values()].sort((a,b)=>(a.type===b.type?0:(a.type==='便當'?-1:1)));
   return ordered.map(group=>{
     const isDrink=group.type==='飲料';
-    return `<div style="margin:12px 0 6px;padding:6px 10px;border-radius:8px;font-size:.78rem;font-weight:800;background:${isDrink?'#eef2ff':'#fff7ed'};color:${isDrink?'#3730a3':'#9a3412'}">${isDrink?'🧋 飲料':'🍱 便當・點心'} · ${esc(group.store)}<span style="font-weight:700;opacity:.75;margin-left:6px">${group.rows.length} 項</span></div>`
+    const storeArg=esc(JSON.stringify(group.store==='未填店家'?'':group.store));
+    return `<div style="display:flex;align-items:center;gap:8px;margin:12px 0 6px;padding:6px 10px;border-radius:8px;font-size:.78rem;font-weight:800;background:${isDrink?'#eef2ff':'#fff7ed'};color:${isDrink?'#3730a3':'#9a3412'}"><span style="flex:1">${isDrink?'🧋 飲料':'🍱 便當・點心'} · ${esc(group.store)}<span style="font-weight:700;opacity:.75;margin-left:6px">${group.rows.length} 項</span></span><button type="button" onclick="addItem('${isDrink?'飲料':'便當'}',${storeArg})" style="border:1.5px solid currentColor;background:#fff;color:inherit;border-radius:999px;padding:2px 10px;font-size:.72rem;font-weight:800;cursor:pointer">＋ 在這家店新增</button></div>`
       +group.rows.join('');
   }).join('');
 }
@@ -3099,10 +3102,31 @@ function addSpecCat(itemIdx){
   }
 }
 
-function addItem(){
+// 手動新增品項。category／restaurant 可指定（從各店家分區的「＋ 新增」按鈕帶入）
+function addItem(category,restaurant){
   syncPendingItemsFromForm();
-  S.pendingItems.push({id:'new-'+Date.now(),menu_id:S.adminEid||'',restaurant:'',emoji:'',name:'',description:'',price:0,specs:[],sort_order:S.pendingItems.length,ai_parsed:false,category:'其他'});
+  const ev=S.menuDraft||S.events.find(e=>e.id===S.adminEid);
+  const saved=S.items[S.adminEid]||[];
+  const last=[...(S.pendingItems||[])].reverse().find(item=>item.restaurant)||[...saved].reverse().find(item=>item.restaurant);
+  const item={
+    id:'new-'+Date.now(),
+    menu_id:S.adminEid||'',
+    restaurant:restaurant??(last?.restaurant||ev?.store_name||''),
+    emoji:'',name:'',description:'',price:0,specs:[],
+    sort_order:S.pendingItems.length,
+    ai_parsed:false,
+    category:category||last?.category||'便當',
+    _manual:true,
+  };
+  S.pendingItems.push(item);
   render();
+  const index=S.pendingItems.length-1;
+  setTimeout(()=>{
+    const input=document.getElementById('mn-'+index);
+    if(!input) return;
+    input.scrollIntoView({behavior:'smooth',block:'center'});
+    input.focus();
+  },60);
 }
 function removeItem(i){
   syncPendingItemsFromForm();
@@ -3203,8 +3227,17 @@ async function saveMenu(){
     const counts=(S.parseComparison||[]).reduce((sum,g)=>({added:sum.added+g.added.length,removed:sum.removed+g.removed.length,changed:sum.changed+g.changed.length}),{added:0,removed:0,changed:0});
     const keptMissing=(S.pendingItems||[]).filter(item=>item._historyMissing&&item._parseRunId===S.parseRunId).length;
     if(!confirm(`已確認完成一鍵解析與歷史比對。\n新增 ${counts.added} 項、疑似漏解析 ${counts.removed} 項（目前保留 ${keptMissing} 項）、價格或規格變更 ${counts.changed} 項。\n\n將以新解析內容為主更新歷史菜單，確定儲存？`)) return;
-  }else if(S.pendingItems.some(item=>!item._savedId)){
-    if(!confirm('本次品項來自歷史菜單或手動新增，尚未執行一鍵解析。\n確定仍要儲存？')) return;
+  }else if(S.pendingItems.some(item=>!item._savedId&&!item._manual)){
+    if(!confirm('本次品項來自歷史菜單，尚未執行一鍵解析。\n確定仍要儲存？')) return;
+  }
+  // 品項名稱不能空白（手動新增後忘了填）
+  syncPendingItemsFromForm();
+  const blankIndex=(S.pendingItems||[]).findIndex(item=>!String(item.name||'').trim());
+  if(blankIndex>=0){
+    toast('有品項還沒填名稱，請填寫或按「刪」移除','warn');
+    const input=document.getElementById('mn-'+blankIndex);
+    if(input){input.scrollIntoView({behavior:'smooth',block:'center'});input.focus();}
+    return;
   }
   // 「儲存場次」會保留目前畫面上的場次設定；若有新菜單品項則一併儲存。
   // 不變更 is_closed，因此不會把場次移到後台或從前台隱藏。
