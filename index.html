@@ -2518,10 +2518,10 @@ function renderEventMgmt(ev){
           ${it._savedId?`<div style="font-size:.66rem;font-weight:800;color:var(--gr);margin-bottom:4px">✅ 已儲存品項${getSavedItemOrderCount(it._savedId)?`・已有 ${getSavedItemOrderCount(it._savedId)} 筆點餐`:''}</div>`:`<div style="font-size:.66rem;font-weight:800;color:var(--in);margin-bottom:4px">🆕 ${it._manual?'手動新增品項':'新增品項'}</div>`}
           ${it._historyMissing?'<div style="font-size:.7rem;font-weight:800;color:#92400e;background:#fef3c7;border-radius:7px;padding:6px 8px;margin-bottom:7px">⚠️ 歷史菜單有此品項，但本次未解析到。請確認是否為解析遺漏；要保留可直接儲存，不需要請按「不保留」。</div>':''}
           <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-            <select class="mg-inp" id="mc-${i}" onchange="updatePendingItem(${i},'category',this.value)" style="width:78px">
+            <select class="mg-inp" id="mc-${i}" onchange="updatePendingItem(${i},'category',this.value);moveNewItemToGroup(${i})" style="width:78px">
               ${['便當','點心','飲料','其他'].map(c=>`<option value="${c}"${(it.category||'其他')===c?' selected':''}>${c}</option>`).join('')}
             </select>
-            <input class="mg-inp mi-rest" value="${esc(it.restaurant)}" id="mr-${i}" placeholder="店家" oninput="updatePendingItem(${i},'restaurant',this.value)" style="width:110px">
+            <input class="mg-inp mi-rest" value="${esc(it.restaurant)}" id="mr-${i}" placeholder="店家" oninput="updatePendingItem(${i},'restaurant',this.value)" onchange="moveNewItemToGroup(${i})" style="width:110px">
             <input class="mg-inp" value="${esc(it.name)}" id="mn-${i}" placeholder="品項名稱" oninput="updatePendingItem(${i},'name',this.value)" style="flex:1;min-width:90px">
             <input class="mg-inp mi-price" type="number" value="${it.price}" id="mp-${i}" placeholder="價格" oninput="updatePendingItem(${i},'price',this.value)" style="width:62px">
             <button class="btn btn-rd btn-sm" onclick="removeItem(${i})">${it._historyMissing?'不保留':'刪'}</button>
@@ -2545,27 +2545,24 @@ function renderEventMgmt(ev){
 // 只改變顯示順序，各品項仍用原本的索引編輯。
 function renderPendingItemGroups(items,renderRow){
   const groups=new Map();
-  // 手動新增、還沒儲存的品項放在最上面一區，方便填寫
-  const newRows=[];
   (items||[]).forEach((item,index)=>{
-    if(item._manual&&!item._savedId) newRows.push(renderRow(item,index));
-  });
-  const newSection=newRows.length
-    ?`<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:14px 0 8px;padding:9px 12px;border-radius:10px;font-size:1.02rem;font-weight:900;background:#dbeafe;color:#1e40af;border:2px solid #60a5fa"><span style="flex:1;min-width:180px">🆕 新增的品項<span style="margin-left:8px">${newRows.length} 項</span></span><span style="font-size:.74rem;font-weight:800">儲存後會排到所屬店家的最下方</span></div>`+newRows.join('')
-    :'';
-  (items||[]).forEach((item,index)=>{
-    if(item._manual&&!item._savedId) return;
     const type=item.category==='飲料'?'飲料':'便當';
     const store=String(item.restaurant||'').trim()||'未填店家';
     const key=type+'__'+normalizeCompareText(store);
-    if(!groups.has(key)) groups.set(key,{type,store,rows:[]});
-    groups.get(key).rows.push(renderRow(item,index));
+    if(!groups.has(key)) groups.set(key,{type,store,newRows:[],rows:[]});
+    // 手動新增、還沒儲存的品項放在「所屬店家」分區的最上面：
+    // 新增飲料就在飲料最上方，新增便當就在便當最上方，不會互相影響
+    const isNew=item._manual&&!item._savedId;
+    groups.get(key)[isNew?'newRows':'rows'].push(renderRow(item,index));
   });
   const ordered=[...groups.values()].sort((a,b)=>(a.type===b.type?0:(a.type==='便當'?-1:1)));
-  return newSection+ordered.map(group=>{
+  return ordered.map(group=>{
     const isDrink=group.type==='飲料';
     const storeArg=esc(JSON.stringify(group.store==='未填店家'?'':group.store));
-    return `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:14px 0 8px;padding:9px 12px;border-radius:10px;font-size:1.02rem;font-weight:900;background:${isDrink?'#eef2ff':'#fff7ed'};color:${isDrink?'#3730a3':'#9a3412'}"><span style="flex:1;min-width:180px">${isDrink?'🧋 飲料':'🍱 便當・點心'} · ${esc(group.store)}<span style="font-weight:900;margin-left:8px">${group.rows.length} 項</span></span><button type="button" onclick="addItem('${isDrink?'飲料':'便當'}',${storeArg})" style="border:2px solid currentColor;background:#fff;color:inherit;border-radius:999px;padding:4px 12px;font-size:.84rem;font-weight:900;cursor:pointer">＋ 在這家店新增</button></div>`
+    const total=group.newRows.length+group.rows.length;
+    const newNote=group.newRows.length?`<span style="font-size:.74rem;font-weight:800;color:#1e40af;background:#dbeafe;border:1.5px solid #60a5fa;border-radius:999px;padding:2px 9px;margin-left:8px">🆕 新增 ${group.newRows.length} 項</span>`:'';
+    return `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:14px 0 8px;padding:9px 12px;border-radius:10px;font-size:1.02rem;font-weight:900;background:${isDrink?'#eef2ff':'#fff7ed'};color:${isDrink?'#3730a3':'#9a3412'}"><span style="flex:1;min-width:180px">${isDrink?'🧋 飲料':'🍱 便當・點心'} · ${esc(group.store)}<span style="font-weight:900;margin-left:8px">${total} 項</span>${newNote}</span><button type="button" onclick="addItem('${isDrink?'飲料':'便當'}',${storeArg})" style="border:2px solid currentColor;background:#fff;color:inherit;border-radius:999px;padding:4px 12px;font-size:.84rem;font-weight:900;cursor:pointer">＋ 在這家店新增</button></div>`
+      +group.newRows.join('')
       +group.rows.join('');
   }).join('');
 }
@@ -3068,6 +3065,19 @@ function updatePendingItem(index, field, value){
   const item=S.pendingItems[index];
   if(!item) return;
   item[field]=field==='price'?(value===''?0:(Number(value)||0)):value;
+}
+
+// 新增的品項改了分類或店家後，移到對應分區的最上方，游標留在原本的品項
+function moveNewItemToGroup(index){
+  const item=S.pendingItems[index];
+  if(!item||!item._manual||item._savedId) return;
+  syncPendingItemsFromForm();
+  render();
+  setTimeout(()=>{
+    const input=document.getElementById('mn-'+index);
+    if(!input) return;
+    input.scrollIntoView({behavior:'smooth',block:'center'});
+  },40);
 }
 
 function syncPendingItemsFromForm(){
