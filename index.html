@@ -2514,8 +2514,8 @@ function renderEventMgmt(ev){
               <button onclick="removeSpecCat(${i},${si})" style="font-size:.7rem;padding:2px 6px;border:none;background:var(--rdl);color:var(--rd);border-radius:5px;cursor:pointer">✕</button>
             </div>`).join('')
           : '';
-        return `<div class="mgmt-item-row" style="flex-wrap:wrap;flex-direction:column;align-items:stretch;padding:9px 8px;${it._historyMissing?'border-color:#f59e0b;background:#fffbeb':(it._manual&&!it._savedId?'border:2px solid #60a5fa;background:#eff6ff':'')}">
-          ${it._savedId?`<div style="font-size:.66rem;font-weight:800;color:var(--gr);margin-bottom:4px">✅ 已儲存品項${getSavedItemOrderCount(it._savedId)?`・已有 ${getSavedItemOrderCount(it._savedId)} 筆點餐`:''}</div>`:`<div style="font-size:.66rem;font-weight:800;color:var(--in);margin-bottom:4px">🆕 ${it._manual?'手動新增品項':'新增品項'}</div>`}
+        return `<div class="mgmt-item-row" style="flex-wrap:wrap;flex-direction:column;align-items:stretch;padding:9px 8px;${it._historyMissing?'border-color:#f59e0b;background:#fffbeb':(it._manual&&!it._savedId?(it.category==='飲料'?'border:2px solid #818cf8;background:#eef2ff':'border:2px solid #fb923c;background:#fff7ed'):'')}">
+          ${it._savedId?`<div style="font-size:.66rem;font-weight:800;color:var(--gr);margin-bottom:4px">✅ 已儲存品項${getSavedItemOrderCount(it._savedId)?`・已有 ${getSavedItemOrderCount(it._savedId)} 筆點餐`:''}</div>`:`<div style="font-size:.66rem;font-weight:800;color:${it._manual?(it.category==='飲料'?'#3730a3':'#9a3412'):'var(--in)'};margin-bottom:4px">🆕 ${it._manual?'手動新增品項':'新增品項'}</div>`}
           ${it._historyMissing?'<div style="font-size:.7rem;font-weight:800;color:#92400e;background:#fef3c7;border-radius:7px;padding:6px 8px;margin-bottom:7px">⚠️ 歷史菜單有此品項，但本次未解析到。請確認是否為解析遺漏；要保留可直接儲存，不需要請按「不保留」。</div>':''}
           <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
             <select class="mg-inp" id="mc-${i}" onchange="updatePendingItem(${i},'category',this.value);moveNewItemToGroup(${i})" style="width:78px">
@@ -2560,7 +2560,7 @@ function renderPendingItemGroups(items,renderRow){
     const isDrink=group.type==='飲料';
     const storeArg=esc(JSON.stringify(group.store==='未填店家'?'':group.store));
     const total=group.newRows.length+group.rows.length;
-    const newNote=group.newRows.length?`<span style="font-size:.74rem;font-weight:800;color:#1e40af;background:#dbeafe;border:1.5px solid #60a5fa;border-radius:999px;padding:2px 9px;margin-left:8px">🆕 新增 ${group.newRows.length} 項</span>`:'';
+    const newNote=group.newRows.length?`<span style="font-size:.74rem;font-weight:800;color:#fff;background:${isDrink?'#6366f1':'#ea580c'};border-radius:999px;padding:2px 9px;margin-left:8px">🆕 新增 ${group.newRows.length} 項</span>`:'';
     return `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:14px 0 8px;padding:9px 12px;border-radius:10px;font-size:1.02rem;font-weight:900;background:${isDrink?'#eef2ff':'#fff7ed'};color:${isDrink?'#3730a3':'#9a3412'}"><span style="flex:1;min-width:180px">${isDrink?'🧋 飲料':'🍱 便當・點心'} · ${esc(group.store)}<span style="font-weight:900;margin-left:8px">${total} 項</span>${newNote}</span><button type="button" onclick="addItem('${isDrink?'飲料':'便當'}',${storeArg})" style="border:2px solid currentColor;background:#fff;color:inherit;border-radius:999px;padding:4px 12px;font-size:.84rem;font-weight:900;cursor:pointer">＋ 在這家店新增</button></div>`
       +group.newRows.join('')
       +group.rows.join('');
