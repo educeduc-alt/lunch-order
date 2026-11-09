@@ -443,8 +443,8 @@ body:has(#subBar:not([style*="display: none"])) .developer-card{bottom:82px}
 <div class="tab-bar">
   <div class="tab-bar-inner">
     <button class="tab-btn" id="tab-home" onclick="goTab('home')" style="display:none">場次列表</button>
-    <button class="tab-btn" id="tab-menu" onclick="goTab('menu')">菜單與點餐</button>
-    <button class="tab-btn" id="tab-admin" onclick="goTab('admin')">後台</button>
+    <button class="tab-btn" id="tab-menu" onclick="goTab('menu')">新增及編輯餐點場次</button>
+    <button class="tab-btn" id="tab-admin" onclick="goTab('admin')">訂餐及統計</button>
   </div>
 </div>
 
@@ -2293,7 +2293,7 @@ function renderAdmin(){
   }
   if(isEventClosed(ev)){
     html+=`<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;background:#eef2ff;border:1.5px solid #a5b4fc;border-radius:var(--rmd);padding:10px 12px;margin-bottom:13px;color:#3730a3">
-      <div><strong style="display:block;font-size:.84rem">📦 已封存場次</strong><span style="font-size:.72rem">目前已從前台與「菜單與點餐」隱藏，點餐紀錄仍完整保留。</span></div>
+      <div><strong style="display:block;font-size:.84rem">📦 已封存場次</strong><span style="font-size:.72rem">目前已從前台與「新增及編輯餐點場次」隱藏，點餐紀錄仍完整保留。</span></div>
       <button class="btn btn-save-event btn-sm" onclick="restoreEvent('${ev.id}')">↩ 恢復場次</button>
     </div>`;
   }
@@ -2348,7 +2348,7 @@ function renderAdmin(){
 /* 場次 & 菜單管理 */
 
 function renderMenuTab(){
-  // 「菜單與點餐」只顯示尚未封存的場次；封存場次集中在後台的「歷史場次」。
+  // 「新增及編輯餐點場次」只顯示尚未封存的場次；封存場次集中在後台的「歷史場次」。
   const activeEvents=S.events.filter(e=>!isEventClosed(e));
   if(S.adminEid&&!activeEvents.some(e=>e.id===S.adminEid)) S.adminEid=null;
   const ev=S.menuDraft||activeEvents.find(e=>e.id===S.adminEid);
@@ -2812,7 +2812,7 @@ async function toggleClose(eid){
 }
 async function restoreEvent(eid){
   const ev=S.events.find(e=>e.id===eid); if(!ev) return;
-  if(!confirm(`確定恢復「${ev.title}」？\n恢復後會重新出現在「菜單與點餐」及前台點餐場次。`)) return;
+  if(!confirm(`確定恢復「${ev.title}」？\n恢復後會重新出現在「新增及編輯餐點場次」及前台點餐場次。`)) return;
   if(DEMO){
     ev.is_closed=false;
     S.adminEid=eid;
@@ -2829,7 +2829,7 @@ async function restoreEvent(eid){
   S.adminView='current';
   S.adminTeacherFilter='all';
   goTab('menu');
-  toast('✅ 場次已恢復至「菜單與點餐」及前台','ok');
+  toast('✅ 場次已恢復至「新增及編輯餐點場次」及前台','ok');
 }
 function getDeleteConfirmText(ev){
   return String(ev?.title||'').trim()||'刪除場次';
@@ -3235,7 +3235,7 @@ async function archiveEvent(eid){
   const ev=S.events.find(event=>event.id===eid);
   if(!ev){toast('找不到要封存的場次','err');return;}
   if(ev.is_closed){toast('此場次已封存','warn');return;}
-  if(!confirm(`確定封存「${ev.title}」？\n封存後會從「目前場次」消失，並移到後台的「歷史場次」；點餐紀錄與 CSV 資料都會保留。`)) return;
+  if(!confirm(`確定封存「${ev.title}」？\n封存後會從「目前場次」消失，並移到「訂餐及統計」的「歷史場次」；點餐紀錄與 CSV 資料都會保留。`)) return;
   if(DEMO){
     ev.is_closed=true;
     S.adminEid=S.events.find(event=>!isEventClosed(event))?.id||null;
