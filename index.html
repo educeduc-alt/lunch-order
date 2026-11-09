@@ -2493,7 +2493,6 @@ function renderEventMgmt(ev){
          +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;cursor:pointer" onclick="toggleSavedItems()" title="'+(editing?'收合':'展開後可直接修改、新增')+'">'
          +'<span style="flex:1;min-width:160px;font-weight:800">✅ 已儲存 '+saved.length+' 個品項（'+cats.join('、')+'）'
          +(editing?'<span style="font-size:.72rem;color:var(--in);margin-left:6px">✏️ 改完請按「💾 儲存場次」</span>':'<span style="font-size:.72rem;color:var(--slm);margin-left:6px">點這裡展開，直接修改或新增</span>')+'</span>'
-         +'<button class="btn btn-out btn-sm" onclick="event.stopPropagation();addSavedItemExpanded()">＋ 新增品項</button>'
          +'<button class="btn btn-sm '+(editing?'btn-out':'btn-or')+'" onclick="event.stopPropagation();toggleSavedItems()">'+(editing?'▲ 收合':'▼ 展開')+'</button>'
          +'<button onclick="event.stopPropagation();if(confirm(\'確定清空此場次所有品項？\'))clearItems()" style="font-size:.7rem;color:var(--rd);background:none;border:none;cursor:pointer">清空</button>'
          +'</div></div>';
@@ -2557,7 +2556,7 @@ function renderPendingItemGroups(items,renderRow){
   return ordered.map(group=>{
     const isDrink=group.type==='飲料';
     const storeArg=esc(JSON.stringify(group.store==='未填店家'?'':group.store));
-    return `<div style="display:flex;align-items:center;gap:8px;margin:12px 0 6px;padding:6px 10px;border-radius:8px;font-size:.78rem;font-weight:800;background:${isDrink?'#eef2ff':'#fff7ed'};color:${isDrink?'#3730a3':'#9a3412'}"><span style="flex:1">${isDrink?'🧋 飲料':'🍱 便當・點心'} · ${esc(group.store)}<span style="font-weight:700;opacity:.75;margin-left:6px">${group.rows.length} 項</span></span><button type="button" onclick="addItem('${isDrink?'飲料':'便當'}',${storeArg})" style="border:1.5px solid currentColor;background:#fff;color:inherit;border-radius:999px;padding:2px 10px;font-size:.72rem;font-weight:800;cursor:pointer">＋ 在這家店新增</button></div>`
+    return `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:14px 0 8px;padding:9px 12px;border-radius:10px;font-size:1.02rem;font-weight:900;background:${isDrink?'#eef2ff':'#fff7ed'};color:${isDrink?'#3730a3':'#9a3412'}"><span style="flex:1;min-width:180px">${isDrink?'🧋 飲料':'🍱 便當・點心'} · ${esc(group.store)}<span style="font-weight:900;margin-left:8px">${group.rows.length} 項</span></span><button type="button" onclick="addItem('${isDrink?'飲料':'便當'}',${storeArg})" style="border:2px solid currentColor;background:#fff;color:inherit;border-radius:999px;padding:4px 12px;font-size:.84rem;font-weight:900;cursor:pointer">＋ 在這家店新增</button></div>`
       +group.rows.join('');
   }).join('');
 }
