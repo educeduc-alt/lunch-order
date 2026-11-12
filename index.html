@@ -3765,7 +3765,7 @@ function renderMenuCard(item,cat,opt={}){
   const groupQty=opt.groupQty??totalQty;
   const hasSpec=item.specs&&item.specs.length>0;
   const needsDetailSheet=hasSpec||needsSugarIce(item);
-  const subsidyLimit=(cat==='便當'||cat==='點心')?120:(cat==='飲料'?40:0);
+  const subsidyLimit=getSubsidyLimit(item);
   const overage=subsidyLimit&&item.price>subsidyLimit?item.price-subsidyLimit:0;
   return `<div class="m-card${groupQty>0?' sel':''}"${opt.search?` data-search="${esc(opt.search)}"`:''}>
           <div class="m-name">${esc(opt.title||item.name)}</div>
@@ -4165,19 +4165,29 @@ function closeCombo(){
   S.comboStep=null; S.comboMain=null; S.comboSides=[]; S.comboDrinks=[];
 }
 
-function getSubsidyLimit(item){
-  return item?.category==='便當'||item?.category==='點心'?120:(item?.category==='飲料'?40:0);
+// 補助規則（同一家店累計）：
+//   一般店家：「便當＋點心」合併 120 元、飲料另外 40 元
+//   合併補助店家（例如麥當勞）：便當＋點心＋飲料全部合併，上限 160 元
+const COMBINED_SUBSIDY_STORES=[{pattern:/麥當勞|mcdonald/i,limit:160}];
+const SUBSIDY_CATEGORIES=['便當','點心','飲料'];
+function getCombinedSubsidyStore(restaurant){
+  return COMBINED_SUBSIDY_STORES.find(rule=>rule.pattern.test(String(restaurant||'')))||null;
 }
-// 補助是「便當＋點心」合併算一份 120 元、飲料另外 40 元（同一家店累計）。
-// 以前便當和點心各算 120，點心的錢沒有被算進缺額。
-function getSubsidyGroup(category){
-  if(category==='便當'||category==='點心') return '便當＋點心';
-  if(category==='飲料') return '飲料';
-  return '';
+function getSubsidyLimit(item){
+  const category=item?.category;
+  if(!SUBSIDY_CATEGORIES.includes(category)) return 0;
+  const combined=getCombinedSubsidyStore(item?.restaurant);
+  if(combined) return combined.limit;
+  return category==='飲料'?40:120;
+}
+function getSubsidyGroup(category,restaurant){
+  if(!SUBSIDY_CATEGORIES.includes(category)) return '';
+  if(getCombinedSubsidyStore(restaurant)) return '便當＋點心＋飲料';
+  return category==='飲料'?'飲料':'便當＋點心';
 }
 
 function getStoreCategoryKey(item){
-  return `${getSubsidyGroup(item?.category)||item?.category||''}__${item?.restaurant||'未設定店家'}`;
+  return `${getSubsidyGroup(item?.category,item?.restaurant)||item?.category||''}__${item?.restaurant||'未設定店家'}`;
 }
 
 function getCartStoreCategoryTotal(item){
@@ -4195,7 +4205,7 @@ function getStoreTotalNotice(item, addedTotal){
   const before=getCartStoreCategoryTotal(item);
   const total=before+(Number(addedTotal)||0);
   if(total<=limit) return null;
-  return {kind:'store-total',category:getSubsidyGroup(item.category)||item.category,store:item.restaurant||'未設定店家',before,addedTotal:Number(addedTotal)||0,total,limit,overage:total-limit};
+  return {kind:'store-total',category:getSubsidyGroup(item.category,item.restaurant)||item.category,store:item.restaurant||'未設定店家',before,addedTotal:Number(addedTotal)||0,total,limit,overage:total-limit};
 }
 
 function showOverageNotice(lines){
@@ -4205,7 +4215,7 @@ function showOverageNotice(lines){
     box.innerHTML=`<div class="modal-box" style="max-width:380px;text-align:left;border-top:6px solid var(--am)">
       <div style="text-align:center;font-size:2.35rem;margin-bottom:7px">💡</div>
       <div class="modal-title" style="text-align:center;color:#92400e">本場次活動餐費補助與補額提醒</div>
-      <p class="modal-sub" style="text-align:center;line-height:1.6">同一家便當店、點心店各自合計補助上限 $120；同一家飲料店合計補助上限 $40。</p>
+      <p class="modal-sub" style="text-align:center;line-height:1.6">同一家店的便當＋點心合計補助上限 $120、飲料 $40；麥當勞為便當＋點心＋飲料合計 $160。</p>
       <div style="background:#fffbeb;border:1.5px solid #fbbf24;border-radius:var(--rmd);padding:10px 12px;margin-bottom:14px">
         ${lines.map(x=>`<div style="font-size:.8rem;color:#78350f;padding:5px 0;border-bottom:1px dashed #fde68a"><strong>${x.category==='飲料'?'🧋':(x.category==='點心'?'🍰':'🍱')} ${esc(x.store)}</strong><br>本次同店${x.category}累計 $${x.total}－補助上限 $${x.limit}＝<strong style="color:var(--rd)">${x.category==='點心'?'超額自付':'需補額'} $${x.overage}</strong></div>`).join('')}
       </div>
@@ -6671,9 +6681,8 @@ function getOrderCategoryAmounts(order,menuItems){
   (order?.order_items||[]).forEach(orderItem=>{
     const source=itemMap[orderItem.item_id]||items.find(item=>item.name===orderItem.item_name)||{};
     const amount=(Number(orderItem.unit_price)||0)*(Number(orderItem.quantity)||0);
-    const group=getSubsidyGroup(source.category);
-    if(group==='飲料') result.drink+=amount;
-    else if(group) result.meal+=amount;
+    if(source.category==='飲料') result.drink+=amount;
+    else if(source.category==='便當'||source.category==='點心') result.meal+=amount;
     else result.other+=amount;
   });
   return result;
@@ -6685,10 +6694,10 @@ function getOrderShortfallSummary(order,menuItems,ev){
   (order?.order_items||[]).forEach(orderItem=>{
     const source=itemMap[orderItem.item_id]||items.find(item=>item.name===orderItem.item_name)||{};
     const category=source.category||'其他';
-    const limit=getSubsidyLimit({category});
-    if(!limit) return;
     const restaurant=source.restaurant||ev?.store_name||'未設定店家';
-    const group=getSubsidyGroup(category)||category;
+    const limit=getSubsidyLimit({category,restaurant});
+    if(!limit) return;
+    const group=getSubsidyGroup(category,restaurant)||category;
     const key=group+'__'+restaurant;
     if(!groups[key]) groups[key]={category:group,restaurant,limit,total:0};
     groups[key].total+=(Number(orderItem.unit_price)||0)*(Number(orderItem.quantity)||0);
