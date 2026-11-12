@@ -2900,7 +2900,7 @@ function renderMenuCard(item,cat,opt={}){
   const totalQty=getCartQty(item.id);
   const groupQty=opt.groupQty??totalQty;
   const hasSpec=item.specs&&item.specs.length>0;
-  const needsDetailSheet=hasSpec||cat==='飲料';
+  const needsDetailSheet=hasSpec||needsSugarIce(item);
   const subsidyLimit=(cat==='便當'||cat==='點心')?120:(cat==='飲料'?40:0);
   const overage=subsidyLimit&&item.price>subsidyLimit?item.price-subsidyLimit:0;
   return `<div class="m-card${groupQty>0?' sel':''}"${opt.search?` data-search="${esc(opt.search)}"`:''}>
@@ -2909,7 +2909,7 @@ function renderMenuCard(item,cat,opt={}){
           ${item.description?`<div class="m-desc">${esc(item.description)}</div>`:''}
           ${item.price>0?`<div class="m-price">$${item.price}</div>`:'<div class="m-price" style="color:var(--sll)">詢價</div>'}
           ${overage?`<div class="overage-tag">⚠️ ${cat==='點心'?'超額自付':'需補額'} $${overage}</div>`:''}
-          ${needsDetailSheet?`<div class="m-spec">${cat==='飲料'?(isBentoStoreDrink(item)?'可選不選擇糖冰':'需填甜度冰塊'):'點擊選規格'} ›</div>`:''}
+          ${needsDetailSheet?`<div class="m-spec">${needsSugarIce(item)?(isBentoStoreDrink(item)?'可選不選擇糖冰':'需填甜度冰塊'):'點擊選規格'} ›</div>`:''}
           <div class="qty-row" onclick="event.stopPropagation()">
             <button class="qb" onclick="event.stopPropagation();adjCart('${item.id}',-1)">−</button>
             <span class="qn">${totalQty}</span>
@@ -3102,7 +3102,7 @@ function renderComboSheet(){
           style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border:1.5px solid ${sel?'var(--or)':'var(--bo)'};border-radius:var(--rmd);background:${sel?'var(--orl)':'var(--ca)'};cursor:pointer">
           <div><span style="font-weight:600;font-size:.88rem">${esc(item.name)}</span>
             ${item.price>0?`<span style="color:var(--or);font-weight:700;font-size:.82rem;margin-left:6px">$${item.price}</span>`:''}
-            <span style="font-size:.65rem;color:${isBentoStoreDrink(item)?'var(--in)':'var(--rd)'};margin-left:4px">${isBentoStoreDrink(item)?'可選不選擇糖冰':'甜度冰塊必填'}</span>
+            ${needsSugarIce(item)?`<span style="font-size:.65rem;color:${isBentoStoreDrink(item)?'var(--in)':'var(--rd)'};margin-left:4px">${isBentoStoreDrink(item)?'可選不選擇糖冰':'甜度冰塊必填'}</span>`:''}
             ${sel?.note?`<div style="font-size:.68rem;color:var(--ord);margin:3px 0 0 30px">${esc(sel.note)}</div>`:''}
           </div>
           <div style="width:22px;height:22px;border-radius:50%;border:2px solid ${sel?'var(--or)':'var(--bo)'};background:${sel?'var(--or)':'transparent'};display:flex;align-items:center;justify-content:center;font-size:.75rem;color:#fff;flex-shrink:0">${sel?'✓':''}</div>
@@ -3185,7 +3185,7 @@ function showComboSpecPicker(type, item, arr){
       h+=`</div></div>`;
       if(multi) h+=`<div style="font-size:.66rem;color:var(--sll);margin:-8px 0 12px">可複選，再點一次可取消</div>`;
     });
-    if(item.category==='飲料'){
+    if(needsSugarIce(item)){
       const canSkipSugarIce=isBentoStoreDrink(item);
       h+=`<div style="margin-bottom:12px"><div style="font-size:.68rem;font-weight:800;color:var(--rd);margin-bottom:6px">甜度冰塊（請填寫或選擇）</div>
         ${canSkipSugarIce?`<button type="button" class="spec-opt" data-no-sugar-ice onclick="window.comboSpecNote='不選擇糖冰';this.parentElement.querySelector('textarea').value='不選擇糖冰';this.classList.add('on')" style="margin-bottom:6px">不選擇糖冰</button>`:''}
@@ -3238,7 +3238,7 @@ function showComboSpecPicker(type, item, arr){
   };
   window.confirmComboSpec=function(){
     const comboNote=String(window.comboSpecNote||'').trim();
-    if(item.category==='飲料'&&!comboNote){
+    if(needsSugarIce(item)&&!comboNote){
       toast(isBentoStoreDrink(item)?'請填寫飲料甜度冰塊，或選擇「不選擇糖冰」':'請填寫飲料甜度冰塊，不能只輸入空格','warn');
       document.querySelector('#comboOverlay .note-inp')?.focus();
       return;
@@ -3364,7 +3364,7 @@ async function quickAdd(id){
   const existQty=existKeys.reduce((s,k)=>s+(S.cart[k]?.qty||0),0);
   if(existQty>=5){toast('同一品項最多5份','warn');return;}
   const item=(S.items[S.activeEventId]||[]).find(i=>i.id===id);
-  if(item?.category==='飲料'){openSpec(id);return;}
+  if(needsSugarIce(item)){openSpec(id);return;}
   const notices=[getStoreTotalNotice(item,item?.price)].filter(Boolean);
   if(notices.length && !(await showOverageNotice(notices))) return;
   const key=id+'__';
@@ -3451,6 +3451,11 @@ function createInitialSpecSelection(item){
   });
   return selection;
 }
+// 不需要填甜度冰塊的店家（例如麥當勞的飲料沒有糖冰可選）
+const NO_SUGAR_ICE_STORES=/麥當勞|mcdonald/i;
+function needsSugarIce(item){
+  return item?.category==='飲料'&&!NO_SUGAR_ICE_STORES.test(String(item?.restaurant||''));
+}
 function isBentoStoreDrink(item){
   if(item?.category!=='飲料') return false;
   const store=normalizeCompareText(item.restaurant);
@@ -3503,7 +3508,7 @@ function calcSpecPrice(item, specSel){
 
 function renderSheet(){
   const item=S.specItem;
-  const isDrink=item?.category==='飲料';
+  const isDrink=needsSugarIce(item); // 需要填甜度冰塊的飲料（麥當勞等不需要）
   const canSkipSugarIce=isBentoStoreDrink(item);
   const curPrice=calcSpecPrice(item, S.specSel);
   const unpricedAddons=getUnpricedAddons(S.specSel);
@@ -3540,7 +3545,7 @@ function renderSheet(){
 async function confirmSpec(){
   const item=S.specItem;
   const trimmedNote=String(S.specNote||'').trim();
-  if(item?.category==='飲料'&&!trimmedNote){
+  if(needsSugarIce(item)&&!trimmedNote){
     toast(isBentoStoreDrink(item)?'請填寫飲料甜度冰塊，或選擇「不選擇糖冰」':'請填寫飲料甜度冰塊，不能只輸入空格','warn');
     const noteInput=document.getElementById('specNoteInput');
     if(noteInput){noteInput.style.borderColor='var(--rd)';noteInput.focus();}
@@ -3612,17 +3617,22 @@ function isDrinkOrderItem(item,menuId=S.adminEid){
     ||(S.items[menuId]||[]).find(m=>m.name===item.item_name);
   return menuItem?.category==='飲料';
 }
+function orderItemNeedsSugarIce(item,menuId=S.adminEid){
+  const menuItem=(S.items[menuId]||[]).find(m=>m.id===item.item_id)
+    ||(S.items[menuId]||[]).find(m=>m.name===item.item_name);
+  return needsSugarIce(menuItem);
+}
 function summarizeOrderItems(items){
   return groupOrderItems(items).map(item=>{
     const note=String(item.note||'').trim();
-    const noteText=note?`［${isDrinkOrderItem(item)?'糖冰':'備註'}：${note}］`:'';
+    const noteText=note?`［${orderItemNeedsSugarIce(item)?'糖冰':'備註'}：${note}］`:'';
     return `${item.item_name}${item.specs_str?' ('+item.specs_str+')':''}${noteText}×${item.quantity}`;
   }).join('、');
 }
 // 後台點餐紀錄表格：每個品項一行，飲料的甜度冰塊用藍色標籤標出
 function renderOrderItemsCell(items){
   return groupOrderItems(items).map(item=>{
-    const isDrink=isDrinkOrderItem(item);
+    const isDrink=orderItemNeedsSugarIce(item);
     const note=String(item.note||'').trim();
     const noteHtml=note
       ?`<span class="oi-note${isDrink?' is-drink':''}">${isDrink?'🧊 ':'📝 '}${esc(note)}</span>`
@@ -3755,7 +3765,8 @@ async function submitOrder(){
   const incompleteDrinkKey=cartKeys.find(k=>{
     const ci=S.cart[k];
     const source=menuItems.find(item=>item.id===ci?.itemId);
-    return (ci?.category||source?.category)==='飲料'&&!String(ci?.note||'').trim();
+    const restaurant=ci?.restaurant||source?.restaurant||'';
+    return needsSugarIce({category:ci?.category||source?.category,restaurant})&&!String(ci?.note||'').trim();
   });
   if(incompleteDrinkKey){
     toast(`請填寫「${S.cart[incompleteDrinkKey]?.name||'飲料'}」的甜度冰塊`,'warn');
@@ -4150,7 +4161,7 @@ function renderEventMgmt(ev){
             <button class="btn btn-rd btn-sm" onclick="removeItem(${i})">${it._historyMissing?'不保留':'刪'}</button>
           </div>
           <div style="display:flex;gap:5px;align-items:center;padding:3px 0">
-            <input class="mg-inp" value="${esc(it.description||'')}" id="md-${i}" placeholder="甜度冰塊（如：微糖微冰）" oninput="updatePendingItem(${i},'description',this.value)" style="flex:1;font-size:.75rem;padding:4px 7px">
+            <input class="mg-inp" value="${esc(it.description||'')}" id="md-${i}" placeholder="${needsSugarIce(it)?'甜度冰塊（如：微糖微冰）':'說明（選填）'}" oninput="updatePendingItem(${i},'description',this.value)" style="flex:1;font-size:.75rem;padding:4px 7px">
           </div>
           ${specsHtml}
           <div style="padding-top:4px">
