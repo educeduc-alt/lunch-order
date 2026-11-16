@@ -4684,6 +4684,7 @@ function renderEventMgmt(ev){
             <input class="mg-inp mi-price" type="number" value="${it.price}" id="mp-${i}" placeholder="價格" oninput="updatePendingItem(${i},'price',this.value)" style="width:62px">
             <button class="btn btn-rd btn-sm" onclick="removeItem(${i})">${it._historyMissing?'不保留':'刪'}</button>
           </div>
+          ${getSplitNameParts(it.name).length>1?`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:4px 0;padding:6px 9px;border-radius:8px;background:#fffbeb;border:1.5px solid #f59e0b;font-size:.74rem;font-weight:800;color:#92400e"><span style="flex:1;min-width:180px">⚠️ 品名有「/」，點餐時分不出是哪一個</span><button type="button" class="btn btn-sm" style="background:#f59e0b;color:#fff;border:none" onclick="splitPendingItem(${i})">拆成 ${getSplitNameParts(it.name).map(esc).join('、')}</button></div>`:''}
           <div style="display:flex;gap:5px;align-items:center;padding:3px 0">
             <input class="mg-inp" value="${esc(it.description||'')}" id="md-${i}" placeholder="${needsSugarIce(it)?'甜度冰塊（如：微糖微冰）':'說明（選填）'}" oninput="updatePendingItem(${i},'description',this.value)" style="flex:1;font-size:.75rem;padding:4px 7px">
           </div>
@@ -5223,6 +5224,33 @@ function updatePendingItem(index, field, value){
   const item=S.pendingItems[index];
   if(!item) return;
   item[field]=field==='price'?(value===''?0:(Number(value)||0)):value;
+}
+
+// 品名用「/」列出多種可選（例如「滑蛋 / 溏心蛋」）時，拆成各自獨立的品項。
+// 每一段都要有中文字才拆，避免把「1/2」「A/B」這類寫法拆開。
+function getSplitNameParts(name){
+  const parts=String(name||'').split(/\s*[\/／]\s*/).map(part=>part.trim()).filter(Boolean);
+  if(parts.length<2||parts.length>6) return [];
+  return parts.every(part=>/[\u3400-\u9fff]/.test(part))?parts:[];
+}
+function splitPendingItem(index){
+  syncPendingItemsFromForm();
+  const item=S.pendingItems[index];
+  const parts=getSplitNameParts(item?.name);
+  if(!item||parts.length<2) return;
+  // 第一段沿用原本的品項（已儲存的品項會直接更新），其餘新增成獨立品項，價格、店家、分類、規格都相同
+  item.name=parts[0];
+  const copies=parts.slice(1).map((name,k)=>({
+    ...item,
+    id:'new-'+Date.now()+'-'+k,
+    name,
+    specs:JSON.parse(JSON.stringify(item.specs||[])),
+    _savedId:undefined,
+    _manual:true,
+  }));
+  S.pendingItems.splice(index+1,0,...copies);
+  render();
+  toast(`已拆成 ${parts.join('、')}，確認後請按「💾 儲存場次」`,'ok');
 }
 
 // 新增的品項改了分類或店家後，移到對應分區的最上方，游標留在原本的品項
@@ -5954,6 +5982,7 @@ const MENU_PARSE_PROMPT=`你是菜單資料輸入員。請把圖片中的菜單�
 1. 品名與規格選項要逐字照抄菜單上的中文，不可改寫、簡化、換成同音字或近似字。看不清楚的字，請參考放大圖再確認；仍無法確定就不要輸出該品項，絕對不要猜。
 2. 每個品項只輸出一次。放大圖與整張圖、以及放大圖彼此之間有重疊，同一個品項不可重複輸出。
 3. 中英文並列時只保留中文品名，省略英文翻譯；但中文品名裡本來就有的英文縮寫或數字要保留，例如「BBQ雞翅」「QQ伯爵奶茶」「柚香007」「紅玉冰磚Double厚鮮奶茶」。只有英文、沒有中文的品項不要輸出。
+3-1. 品名或選項用「/」「／」列出幾種可以擇一的東西（例如「滑蛋 / 溏心蛋 $25」），要拆成各自獨立的品項或選項，價格相同，不可合在一起。
 4. 品名旁邊的小字註記（例如「最低微冰」「固定糖量」「綠茶/紅茶」「含脆梅粒」）放進 description，不要放進 name。
 5. 價格看不清楚填 0。忽略優惠活動、營業時間、地址、電話、咖啡因說明、甜度冰塊表等不是品項的文字。
 
