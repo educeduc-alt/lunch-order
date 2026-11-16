@@ -3758,8 +3758,6 @@ function showComboSpecPicker(type, item, arr){
       document.querySelector('#comboOverlay .note-inp')?.focus();
       return;
     }
-    const unpricedAddons=getUnpricedAddons(window.comboSpecSel);
-    if(unpricedAddons.length){toast('所選加料尚未設定價格，請先聯絡承辦人','warn');return;}
     const specsStr=formatSpecSelections(window.comboSpecSel);
     const finalPrice=calcSpecPrice(item,window.comboSpecSel);
     arr.push({item:{...item,price:finalPrice}, specsStr, note:comboNote});
@@ -3999,7 +3997,10 @@ function getUnpricedAddons(specSel){
 }
 
 function formatSpecSelections(specSel){
-  return Object.values(specSel||{}).flatMap(value=>Array.isArray(value)?value:[value]).filter(Boolean).join('/');
+  return Object.entries(specSel||{}).flatMap(([cat,value])=>(Array.isArray(value)?value:[value]).filter(Boolean).map(opt=>
+    // 沒標價的加料在點餐紀錄標示「待補價」，承辦人一看就知道要補收
+    isAddonSpec(cat)&&!isEmptyAddonOption(opt)&&!parseOptPrice(opt)?`${opt}（待補價）`:opt
+  )).join('/');
 }
 
 function toggleSpecOption(cat,opt){
@@ -4051,7 +4052,7 @@ function renderSheet(){
     if(multi) html+=`<div style="font-size:.66rem;color:var(--sll);margin:-8px 0 12px">可複選，再點一次可取消</div>`;
   });
   if(unpricedAddons.length){
-    html+=`<div style="margin:-2px 0 12px;padding:8px 10px;border-radius:8px;background:var(--rdl);color:var(--rd);font-size:.7rem;font-weight:700">⚠️ ${esc(unpricedAddons.map(([,opt])=>opt).join('、'))} 尚未設定加價，請承辦人補上價格。</div>`;
+    html+=`<div style="margin:-2px 0 12px;padding:8px 10px;border-radius:8px;background:#eff6ff;color:#1e40af;font-size:.7rem;font-weight:700">ℹ️ ${esc(unpricedAddons.map(([,opt])=>opt).join('、'))} 價格之後由承辦人補上，目前先不計價。</div>`;
   }
   html+=`<div class="spec-sec"><div class="spec-lbl">數量</div>
     <div class="sheet-qty">
@@ -4077,8 +4078,7 @@ async function confirmSpec(){
     return;
   }
   S.specNote=trimmedNote;
-  const unpricedAddons=getUnpricedAddons(S.specSel);
-  if(unpricedAddons.length){toast('所選加料尚未設定價格，請先聯絡承辦人','warn');return;}
+  // 沒標價的加料也可以選，先以 $0 計算，紀錄上標示「待補價」，之後由承辦人補收
   const specsStr=formatSpecSelections(S.specSel);
   const finalPrice=calcSpecPrice(item, S.specSel);  // 用規格動態價格
   // 套餐模式
@@ -6361,7 +6361,7 @@ async function aiParseImages(images,uploadType='main'){
     const cats=[...new Set(newItems.map(i=>i.category))].join('、');
     const dupNote=(dedupe.removed?`；已移除 ${dedupe.removed} 個重複品項`:'')
       +(teaBaseFixed?`；${teaBaseFixed} 杯飲料已加上「茶底」選項`:'')
-      +(addonMerge.unpriced.length?`；⚠️ 加料「${esc(addonMerge.unpriced.join('、'))}」菜單上沒有標價 <button type="button" class="btn btn-or btn-sm" style="margin:4px 0" onclick="setUnpricedAddonPrices()">統一設定加料價格</button>`:'')
+      +(addonMerge.unpriced.length?`；⚠️ 加料「${esc(addonMerge.unpriced.join('、'))}」菜單上沒有標價，學生仍可以選，點餐紀錄會標示「待補價」；知道價格的話可以按 <button type="button" class="btn btn-or btn-sm" style="margin:4px 0" onclick="setUnpricedAddonPrices()">統一設定加料價格</button>`:'')
       +(brokenTea?`；⚠️ 有 ${brokenTea} 個飲料名稱只有一個字（例如「綠」），請對照菜單修改`:'');
     const addonNote=addonMerge.merged.length?`；已將 ${addonMerge.merged.length} 種加料（${esc(addonMerge.merged.join('、'))}）併入 ${addonMerge.drinkCount} 杯飲料的「加料」選項`:'';
     const doneHtml=`<div style="font-size:.75rem;color:var(--gr);margin-top:7px">✅ 解析完成 ${newItems.length} 個品項（${cats}）${addonNote}${dupNote}，確認後按「💾 儲存場次」加入場次</div>`;
