@@ -2794,6 +2794,7 @@ function getPreferredEventId({activeOnly=false}={}){
 
 function resetMenuEditorState(){
   S.pendingItems=[];
+  S.parseStatusHtml={};
   S.editRemovedIds=[];
   S.loadedHistoryKeys=[];
   S.parseStatus='idle';
@@ -4615,7 +4616,7 @@ function renderEventMgmt(ev){
           <div class="parse-upload-label" id="labelMain">上傳主餐圖片</div>
           <div class="upload-sub">PDF/JPG/PNG</div>
         </div>
-        <div id="aiStatusMain"></div>
+        <div id="aiStatusMain">${(S.parseStatusHtml||{}).main||''}</div>
       </div>
 
       <!-- 飲料上傳 -->
@@ -4627,7 +4628,7 @@ function renderEventMgmt(ev){
           <div class="parse-upload-label" id="labelDrink">上傳飲料圖片</div>
           <div class="upload-sub">PDF/JPG/PNG</div>
         </div>
-        <div id="aiStatusDrink"></div>
+        <div id="aiStatusDrink">${(S.parseStatusHtml||{}).drink||''}</div>
       </div>
 
     </div>
@@ -4684,6 +4685,8 @@ function renderEventMgmt(ev){
             <input class="mg-inp mi-price" type="number" value="${it.price}" id="mp-${i}" placeholder="價格" oninput="updatePendingItem(${i},'price',this.value)" style="width:62px">
             <button class="btn btn-rd btn-sm" onclick="removeItem(${i})">${it._historyMissing?'不保留':'刪'}</button>
           </div>
+          ${getTeaBaseVariants(it.name)&&!hasTeaBaseSpec(it)?`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:4px 0;padding:6px 9px;border-radius:8px;background:#fffbeb;border:1.5px solid #f59e0b;font-size:.74rem;font-weight:800;color:#92400e"><span style="flex:1;min-width:180px">⚠️ 這杯可選不同茶底，點餐時分不出是哪一種</span><button type="button" class="btn btn-sm" style="background:#f59e0b;color:#fff;border:none" onclick="addTeaBaseSpecToPending(${i})">加上茶底選項（${getTeaBaseVariants(it.name).opts.join('／')}）</button></div>`:''}
+          ${isBrokenTeaFragment(it)?`<div style="margin:4px 0;padding:6px 9px;border-radius:8px;background:#fef2f2;border:1.5px solid #fca5a5;font-size:.74rem;font-weight:800;color:#b91c1c">⚠️ 品名只有「${esc(it.name)}」一個字，可能是「燕麥紅/綠/青」這類飲料被拆壞了。請對照菜單改名（例如「燕麥紅/綠/青」），或按「刪」移除。</div>`:''}
           ${getSplitNameParts(it.name).length>1?`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:4px 0;padding:6px 9px;border-radius:8px;background:#fffbeb;border:1.5px solid #f59e0b;font-size:.74rem;font-weight:800;color:#92400e"><span style="flex:1;min-width:180px">⚠️ 品名有「/」，點餐時分不出是哪一個</span><button type="button" class="btn btn-sm" style="background:#f59e0b;color:#fff;border:none" onclick="splitPendingItem(${i})">拆成 ${getSplitNameParts(it.name).map(esc).join('、')}</button></div>`:''}
           <div style="display:flex;gap:5px;align-items:center;padding:3px 0">
             <input class="mg-inp" value="${esc(it.description||'')}" id="md-${i}" placeholder="${needsSugarIce(it)?'甜度冰塊（如：微糖微冰）':'說明（選填）'}" oninput="updatePendingItem(${i},'description',this.value)" style="flex:1;font-size:.75rem;padding:4px 7px">
@@ -5059,6 +5062,7 @@ async function deleteEvent(eid,confirmationText){
 // 清除本次解析資料（不刪資料庫，只清暫存）
 function clearPending(){
   S.pendingItems=[];
+  S.parseStatusHtml={};
   S.editRemovedIds=[];
   S.loadedHistoryKeys=[];
   S.parseStatus=(window._pendingMainFile||window._pendingDrinkFile)?'ready':'idle';
@@ -5226,9 +5230,73 @@ function updatePendingItem(index, field, value){
   item[field]=field==='price'?(value===''?0:(Number(value)||0)):value;
 }
 
+// 飲料茶底寫法：「椰果紅/綠」「燕麥紅/綠/青」「梅子青/烏」→ 同一杯飲料，用「茶底」規格選
+const TEA_BASE_NAMES={'紅':'紅茶','綠':'綠茶','青':'青茶','烏':'烏龍茶'};
+function getTeaBaseVariants(name){
+  const parts=String(name||'').split(/\s*[\/／]\s*/).map(part=>part.trim()).filter(Boolean);
+  if(parts.length<2) return null;
+  const first=parts[0];
+  const firstTea=first.slice(-1);
+  if(first.length<2||!TEA_BASE_NAMES[firstTea]) return null;
+  if(!parts.slice(1).every(part=>part.length===1&&TEA_BASE_NAMES[part])) return null;
+  const opts=[...new Set([firstTea,...parts.slice(1)].map(ch=>TEA_BASE_NAMES[ch]))];
+  return {base:first.slice(0,-1),opts};
+}
+function hasTeaBaseSpec(item){
+  return (item?.specs||[]).some(spec=>/茶底/.test(String(spec.cat||'')));
+}
+function addTeaBaseSpec(item){
+  const variants=getTeaBaseVariants(item?.name);
+  if(!variants||hasTeaBaseSpec(item)) return false;
+  item.specs=[{cat:'茶底',opts:variants.opts},...(item.specs||[])];
+  return true;
+}
+// 只有一個字、而且是茶名（「綠」「青」…）的飲料，多半是解析時把「燕麥紅/綠/青」拆壞了
+function isBrokenTeaFragment(item){
+  return item?.category==='飲料'&&String(item?.name||'').trim().length===1&&!!TEA_BASE_NAMES[String(item.name).trim()];
+}
+// 解析出沒標價的加料（波霸、珍珠…）時，一次輸入價格，套用到所有飲料的「加料」選項
+function getUnpricedAddonNames(){
+  const names=new Set();
+  (S.pendingItems||[]).forEach(item=>(item.specs||[]).forEach(spec=>{
+    if(!isAddonSpec(spec.cat)) return;
+    (spec.opts||[]).forEach(opt=>{if(opt&&!isEmptyAddonOption(opt)&&!parseOptPrice(opt)) names.add(String(opt).trim());});
+  }));
+  return [...names];
+}
+function setUnpricedAddonPrices(){
+  syncPendingItemsFromForm();
+  const names=getUnpricedAddonNames();
+  if(!names.length){toast('目前沒有未標價的加料','ok');return;}
+  const prices={};
+  for(const name of names){
+    const input=prompt(`「${name}」要加價多少元？（只要輸入數字，例如 10）`,'10');
+    if(input===null) return;
+    const price=Number(String(input).replace(/[^\d.]/g,''));
+    if(!(price>0)){toast(`「${name}」的價格需要是大於 0 的數字`,'warn');return;}
+    prices[name]=price;
+  }
+  let changed=0;
+  (S.pendingItems||[]).forEach(item=>(item.specs||[]).forEach(spec=>{
+    if(!isAddonSpec(spec.cat)) return;
+    spec.opts=(spec.opts||[]).map(opt=>{
+      const key=String(opt).trim();
+      if(prices[key]){changed++;return `${key} +$${prices[key]}`;}
+      return opt;
+    });
+  }));
+  render();
+  toast(`已設定 ${Object.keys(prices).length} 種加料價格（共更新 ${changed} 個選項），確認後請按「💾 儲存場次」`,'ok');
+}
+function addTeaBaseSpecToPending(index){
+  syncPendingItemsFromForm();
+  if(addTeaBaseSpec(S.pendingItems[index])){render();toast('已加上「茶底」選項，確認後請按「💾 儲存場次」','ok');}
+}
+
 // 品名用「/」列出多種可選（例如「滑蛋 / 溏心蛋」）時，拆成各自獨立的品項。
 // 每一段都要有中文字才拆，避免把「1/2」「A/B」這類寫法拆開。
 function getSplitNameParts(name){
+  if(getTeaBaseVariants(name)) return [];
   const parts=String(name||'').split(/\s*[\/／]\s*/).map(part=>part.trim()).filter(Boolean);
   if(parts.length<2||parts.length>6) return [];
   return parts.every(part=>/[\u3400-\u9fff]/.test(part))?parts:[];
@@ -5560,7 +5628,7 @@ async function saveMenu(){
   // 只有展開、沒有改任何品項：處理刪除後直接收合
   if(!updateRows.length&&!newItems.length){
     if(!(await deleteRemovedSavedItems())) return;
-    S.pendingItems=[];
+    S.pendingItems=[];S.parseStatusHtml={};
     S.editRemovedIds=[];
     await loadEventDetail(eid);
     toast('✅ 場次已儲存','ok');
@@ -5575,7 +5643,7 @@ async function saveMenu(){
       if(e2){toast('品項儲存失敗：'+e2.message,'err');return;}
     }
     if(!(await deleteRemovedSavedItems())) return;
-    S.pendingItems=[];
+    S.pendingItems=[];S.parseStatusHtml={};
     await loadEventDetail(eid);
     const total=(S.items[eid]||[]).length;
     // 快取到 localStorage（便當和飲料分開）
@@ -5982,7 +6050,8 @@ const MENU_PARSE_PROMPT=`你是菜單資料輸入員。請把圖片中的菜單�
 1. 品名與規格選項要逐字照抄菜單上的中文，不可改寫、簡化、換成同音字或近似字。看不清楚的字，請參考放大圖再確認；仍無法確定就不要輸出該品項，絕對不要猜。
 2. 每個品項只輸出一次。放大圖與整張圖、以及放大圖彼此之間有重疊，同一個品項不可重複輸出。
 3. 中英文並列時只保留中文品名，省略英文翻譯；但中文品名裡本來就有的英文縮寫或數字要保留，例如「BBQ雞翅」「QQ伯爵奶茶」「柚香007」「紅玉冰磚Double厚鮮奶茶」。只有英文、沒有中文的品項不要輸出。
-3-1. 品名或選項用「/」「／」列出幾種可以擇一的東西（例如「滑蛋 / 溏心蛋 $25」），要拆成各自獨立的品項或選項，價格相同，不可合在一起。
+3-1. 飲料品名用「/」列出可選的茶底（例如「椰果紅/綠」「燕麥紅/綠/青」「梅子青/烏」「多多綠/紅」），代表同一杯飲料可選不同茶：只輸出一個品項，name 照菜單寫（例如「椰果紅/綠」），並加上規格 {"cat":"茶底","opts":["紅茶","綠茶"]}（紅＝紅茶、綠＝綠茶、青＝青茶、烏＝烏龍茶）。絕對不可以拆成只有一兩個字的品項（例如「綠」「青」「紅」）。
+3-2. 兩個完整、不同的品項共用同一個價格，用「/」隔開（例如「茉莉綠茶/阿薩姆紅茶」「滑蛋 / 溏心蛋」），要拆成各自獨立的品項，價格相同。
 4. 品名旁邊的小字註記（例如「最低微冰」「固定糖量」「綠茶/紅茶」「含脆梅粒」）放進 description，不要放進 name。
 5. 價格看不清楚填 0。忽略優惠活動、營業時間、地址、電話、咖啡因說明、甜度冰塊表等不是品項的文字。
 
@@ -5999,7 +6068,8 @@ const MENU_PARSE_PROMPT=`你是菜單資料輸入員。請把圖片中的菜單�
 13. 沒有對應規格就輸出 "specs":[]。
 
 【飲料加料】
-14. 飲料菜單的「加料區／配料區」每一種料（例如椰果、波霸、布丁、仙草、QQ、奶精改鮮奶）各輸出一個品項，"is_addon":true，category 填「飲料」，name 只寫料名，price 填加價金額。一般飲料的 is_addon 填 false。
+14. 菜單底部或角落只畫圖示、沒有標價的配料（例如波霸、珍珠、燕麥、椰果的小圖示），也算加料區，一樣要輸出，price 填 0。
+15. 飲料菜單的「加料區／配料區」每一種料（例如椰果、波霸、布丁、仙草、QQ、奶精改鮮奶）各輸出一個品項，"is_addon":true，category 填「飲料」，name 只寫料名，price 填加價金額。一般飲料的 is_addon 填 false。
 
 只回傳 JSON 陣列，不要有任何其他文字或 markdown。整張圖都無法辨識時回傳 []。`;
 function buildMenuParseContent(images){
@@ -6083,6 +6153,8 @@ function isDrinkAddonItem(item){
   if(item._isAddon) return true;
   const name=String(item.name||'').replace(/^加\s*/,'').trim();
   if(!name||name.length>6) return false;
+  // 「椰果紅/綠」「燕麥紅」這類是飲料（有茶底），不是加料
+  if(/[\/／]/.test(name)||/[紅綠青烏]$/.test(name)||getTeaBaseVariants(name)) return false;
   return DRINK_ADDON_WORDS.test(name)&&!DRINK_BASE_WORDS.test(name);
 }
 function mergeDrinkAddons(newItems,existingItems=[]){
@@ -6114,7 +6186,8 @@ function mergeDrinkAddons(newItems,existingItems=[]){
     removeIds.add(addon.id);
     if(!merged.includes(name)) merged.push(name);
   });
-  return {items:newItems.filter(it=>!removeIds.has(it.id)),merged,drinkCount:touched.size};
+  const unpriced=addons.filter(addon=>removeIds.has(addon.id)&&!(Number(addon.price)>0)).map(addon=>String(addon.name||'').replace(/^加\s*/,'').trim());
+  return {items:newItems.filter(it=>!removeIds.has(it.id)),merged,drinkCount:touched.size,unpriced:[...new Set(unpriced)]};
 }
 
 async function aiParseImages(images,uploadType='main'){
@@ -6270,6 +6343,10 @@ async function aiParseImages(images,uploadType='main'){
         _parseRunId:S.parseRunId,
         _uploadType:uploadType
       }));
+    // 「椰果紅/綠」這類茶底寫法：自動加上「茶底」規格
+    let teaBaseFixed=0;
+    newItems.forEach(item=>{if(item.category==='飲料'&&addTeaBaseSpec(item)) teaBaseFixed++;});
+    const brokenTea=newItems.filter(isBrokenTeaFragment).length;
     // 同一品項被重複解析（整張圖和放大圖重疊）時只保留一個
     const dedupe=dedupeParsedItems(newItems);
     newItems.splice(0,newItems.length,...dedupe.items);
@@ -6282,9 +6359,15 @@ async function aiParseImages(images,uploadType='main'){
     const capsDiv=document.getElementById('storeCapsules');
     if(capsDiv) capsDiv.innerHTML=renderStoreCapsules(document.getElementById('evStore')?.value||'');
     const cats=[...new Set(newItems.map(i=>i.category))].join('、');
-    const dupNote=dedupe.removed?`；已移除 ${dedupe.removed} 個重複品項`:'';
+    const dupNote=(dedupe.removed?`；已移除 ${dedupe.removed} 個重複品項`:'')
+      +(teaBaseFixed?`；${teaBaseFixed} 杯飲料已加上「茶底」選項`:'')
+      +(addonMerge.unpriced.length?`；⚠️ 加料「${esc(addonMerge.unpriced.join('、'))}」菜單上沒有標價 <button type="button" class="btn btn-or btn-sm" style="margin:4px 0" onclick="setUnpricedAddonPrices()">統一設定加料價格</button>`:'')
+      +(brokenTea?`；⚠️ 有 ${brokenTea} 個飲料名稱只有一個字（例如「綠」），請對照菜單修改`:'');
     const addonNote=addonMerge.merged.length?`；已將 ${addonMerge.merged.length} 種加料（${esc(addonMerge.merged.join('、'))}）併入 ${addonMerge.drinkCount} 杯飲料的「加料」選項`:'';
-    if(statusEl) statusEl.innerHTML=`<div style="font-size:.75rem;color:var(--gr);margin-top:7px">✅ 解析完成 ${newItems.length} 個品項（${cats}）${addonNote}${dupNote}，確認後按「💾 儲存場次」加入場次</div>`;
+    const doneHtml=`<div style="font-size:.75rem;color:var(--gr);margin-top:7px">✅ 解析完成 ${newItems.length} 個品項（${cats}）${addonNote}${dupNote}，確認後按「💾 儲存場次」加入場次</div>`;
+    // 解析完成訊息存起來，畫面重畫後仍會顯示
+    S.parseStatusHtml={...(S.parseStatusHtml||{}),[uploadType==='drink'?'drink':'main']:doneHtml};
+    if(statusEl) statusEl.innerHTML=doneHtml;
     render();
     window._lastParseCats=(window._lastParseCats?window._lastParseCats+'、':'')+cats;
     return {success:true,count:newItems.length,items:newItems};
