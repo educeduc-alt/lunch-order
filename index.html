@@ -4723,7 +4723,7 @@ function renderOrderPage(){
 
   html+=`<div class="id-card">
     <div class="fld"><label>姓名</label><div class="name-url-row"><input class="inp" id="uName" placeholder="王小明" value="${esc(S.myName)}" oninput="S.myName=this.value">${S.sharedEventMode?'':'<button type="button" class="btn btn-out copy-event-url" onclick="copyEventUrl()">🔗 複製場次網址</button>'}</div></div>
-    <div class="activity-meal-help"><span style="font-size:1.15rem">☀️</span><div><strong>活動餐點說明</strong><br>${ev.activity_note?esc(ev.activity_note):'承辦人尚未填寫本場次活動說明。'}<br>請確認餐點規格與數量後再送出。</div></div>
+    <div class="activity-meal-help"><span style="font-size:1.15rem">☀️</span><div><strong>活動餐點說明</strong><br>${ev.activity_note?esc(ev.activity_note):'承辦人尚未填寫本場次活動說明。'}<br>💰 本場次補助：${esc(getSubsidyNoticeText(ev))}<br>請確認餐點規格與數量後再送出。</div></div>
     ${renderEventMenuImages(ev)}
   </div>`;
 
@@ -5243,19 +5243,33 @@ function closeCombo(){
 }
 
 // 補助規則（同一家店累計）：
-//   一般店家：「便當＋點心」合併 120 元、飲料另外 40 元
-//   合併補助店家（例如麥當勞）：便當＋點心＋飲料全部合併，上限 160 元
-const COMBINED_SUBSIDY_STORES=[{pattern:/麥當勞|mcdonald/i,limit:160}];
+//   一般店家：「便當＋點心」合併、飲料另外算；預設 120 元／40 元，每個場次可在後台改金額
+//   合併補助店家（例如麥當勞）：便當＋點心＋飲料全部合併，上限＝兩個金額相加（預設 160 元）
+// 場次的補助金額存在 menus.img_url 的 JSON 裡（{"subsidy":{"meal":120,"drink":40}}），不用改資料庫欄位
+const DEFAULT_SUBSIDY={meal:120,drink:40};
+const COMBINED_SUBSIDY_STORES=[{pattern:/麥當勞|mcdonald/i}];
+function getEventSubsidy(ev){
+  const saved=parseEventMenuImages(ev?.img_url).subsidy||{};
+  const pick=(value,fallback)=>{const n=Math.round(Number(value));return Number.isFinite(n)&&n>0?n:fallback;};
+  return {meal:pick(saved.meal,DEFAULT_SUBSIDY.meal),drink:pick(saved.drink,DEFAULT_SUBSIDY.drink)};
+}
+function findSubsidyEvent(item,ev){
+  return ev||S.events.find(e=>e.id===(item?.menu_id||S.activeEventId))||S.events.find(e=>e.id===S.activeEventId)||null;
+}
+function getSubsidyNoticeText(ev){
+  const sub=getEventSubsidy(ev);
+  return `同一家店的便當＋點心合計補助上限 $${sub.meal}、飲料 $${sub.drink}；麥當勞為便當＋點心＋飲料合計 $${sub.meal+sub.drink}。`;
+}
 const SUBSIDY_CATEGORIES=['便當','點心','飲料'];
 function getCombinedSubsidyStore(restaurant){
   return COMBINED_SUBSIDY_STORES.find(rule=>rule.pattern.test(String(restaurant||'')))||null;
 }
-function getSubsidyLimit(item){
+function getSubsidyLimit(item,ev){
   const category=item?.category;
   if(!SUBSIDY_CATEGORIES.includes(category)) return 0;
-  const combined=getCombinedSubsidyStore(item?.restaurant);
-  if(combined) return combined.limit;
-  return category==='飲料'?40:120;
+  const sub=getEventSubsidy(findSubsidyEvent(item,ev));
+  if(getCombinedSubsidyStore(item?.restaurant)) return sub.meal+sub.drink;
+  return category==='飲料'?sub.drink:sub.meal;
 }
 function getSubsidyGroup(category,restaurant){
   if(!SUBSIDY_CATEGORIES.includes(category)) return '';
@@ -5292,7 +5306,7 @@ function showOverageNotice(lines){
     box.innerHTML=`<div class="modal-box" style="max-width:380px;text-align:left;border-top:6px solid var(--am)">
       <div style="text-align:center;font-size:2.35rem;margin-bottom:7px">💡</div>
       <div class="modal-title" style="text-align:center;color:#92400e">本場次活動餐費補助與補額提醒</div>
-      <p class="modal-sub" style="text-align:center;line-height:1.6">同一家店的便當＋點心合計補助上限 $120、飲料 $40；麥當勞為便當＋點心＋飲料合計 $160。</p>
+      <p class="modal-sub" style="text-align:center;line-height:1.6">${getSubsidyNoticeText(findSubsidyEvent())}</p>
       <div style="background:#fffbeb;border:1.5px solid #fbbf24;border-radius:var(--rmd);padding:10px 12px;margin-bottom:14px">
         ${lines.map(x=>`<div style="font-size:.8rem;color:#78350f;padding:5px 0;border-bottom:1px dashed #fde68a"><strong>${x.category==='飲料'?'🧋':(x.category==='點心'?'🍰':'🍱')} ${esc(x.store)}</strong><br>本次同店${x.category}累計 $${x.total}－補助上限 $${x.limit}＝<strong style="color:var(--rd)">${x.category==='點心'?'超額自付':'需補額'} $${x.overage}</strong></div>`).join('')}
       </div>
@@ -6069,6 +6083,15 @@ function renderEventMgmt(ev){
         <input class="mg-inp" id="evOrganizer" placeholder="其他姓名" value="${(['雨欣','微姍','梅青','曉臻','心榆','望謙'].includes(ev.organizer)?'':ev.organizer)||''}" oninput="updateEditingEventField('organizer',this.value)" style="width:90px">
       </div>
     </div>
+    ${(()=>{const sub=getEventSubsidy(ev);return `<div style="margin-bottom:10px">
+      <span class="mg-lbl" style="display:block;margin-bottom:6px">本場次補助金額（每人、同一家店）</span>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;font-size:.85rem;font-weight:700">
+        <label style="display:flex;align-items:center;gap:5px">🍱 便當＋點心 $<input class="mg-inp" type="number" min="1" step="1" inputmode="numeric" id="evSubsidyMeal" value="${sub.meal}" placeholder="${DEFAULT_SUBSIDY.meal}" style="width:84px"></label>
+        <label style="display:flex;align-items:center;gap:5px">🧋 飲料 $<input class="mg-inp" type="number" min="1" step="1" inputmode="numeric" id="evSubsidyDrink" value="${sub.drink}" placeholder="${DEFAULT_SUBSIDY.drink}" style="width:84px"></label>
+        <button type="button" class="btn btn-out btn-sm" onclick="document.getElementById('evSubsidyMeal').value=${DEFAULT_SUBSIDY.meal};document.getElementById('evSubsidyDrink').value=${DEFAULT_SUBSIDY.drink}">恢復 ${DEFAULT_SUBSIDY.meal}／${DEFAULT_SUBSIDY.drink}</button>
+      </div>
+      <div style="font-size:.66rem;color:var(--sll);margin-top:4px">預設 $${DEFAULT_SUBSIDY.meal}／$${DEFAULT_SUBSIDY.drink}；經費不同時直接改，按「💾 儲存場次」後生效。麥當勞是兩個金額相加。</div>
+    </div>`;})()}
 
 
     <!-- 圖片 + AI -->
@@ -7030,9 +7053,19 @@ async function saveMenu(){
   if(!date){toast('請選擇場次日期','err');return;}
   if(!deadline_date||!deadline){toast('請選擇點餐截止日期與時間','err');return;}
   if(!title){toast('請填場次標題','err');return;}
+  // 補助金額：空白或不合理就用預設 120／40
+  const subsidyInput=id=>{const n=Math.round(Number(document.getElementById(id)?.value));return Number.isFinite(n)&&n>0?n:null;};
+  const subsidy={meal:subsidyInput('evSubsidyMeal')??getEventSubsidy(evNow).meal,drink:subsidyInput('evSubsidyDrink')??getEventSubsidy(evNow).drink};
+  const imgData=parseEventMenuImages(evNow?.img_url||'');
+  if(subsidy.meal===DEFAULT_SUBSIDY.meal&&subsidy.drink===DEFAULT_SUBSIDY.drink) delete imgData.subsidy;
+  else imgData.subsidy=subsidy;
+  const img_url=Object.keys(imgData).length?JSON.stringify(imgData):'';
+  // 補助金額沒改就不動 img_url，避免動到菜單原圖
+  const subsidyChanged=JSON.stringify(getEventSubsidy({img_url}))!==JSON.stringify(getEventSubsidy(evNow));
+  const imgPatch=subsidyChanged?{img_url}:{};
   if(isNewDraft){
     const{data:newEvent,error:createError}=await sb.from('menus')
-      .insert({date,title,activity_note,organizer,store_name,deadline_date,deadline,is_closed:false})
+      .insert({date,title,activity_note,organizer,store_name,deadline_date,deadline,...imgPatch,is_closed:false})
       .select()
       .single();
     if(createError||!newEvent){toast('場次建立失敗：'+(createError?.message||'沒有回傳場次資料'),'err');return;}
@@ -7047,14 +7080,14 @@ async function saveMenu(){
     evNow=newEvent;
   }else{
     const{data:settingRows,error:settingError}=await sb.from('menus')
-      .update({date,title,activity_note,organizer,store_name,deadline_date,deadline})
+      .update({date,title,activity_note,organizer,store_name,deadline_date,deadline,...imgPatch})
       .eq('id',eid)
       .select('id');
     if(settingError||!settingRows?.length){
       toast('設定儲存失敗：'+(settingError?.message||'資料未更新'),'err');
       return;
     }
-    if(evNow) Object.assign(evNow,{date,title,activity_note,organizer,store_name,deadline_date,deadline});
+    if(evNow) Object.assign(evNow,{date,title,activity_note,organizer,store_name,deadline_date,deadline,...imgPatch});
   }
   try{
     const savedImageValue=await persistPendingMenuImages(eid,evNow?.img_url||'');
@@ -8031,7 +8064,7 @@ function getOrderShortfallSummary(order,menuItems,ev){
     const source=itemMap[orderItem.item_id]||items.find(item=>item.name===orderItem.item_name)||{};
     const category=source.category||'其他';
     const restaurant=source.restaurant||ev?.store_name||'未設定店家';
-    const limit=getSubsidyLimit({category,restaurant});
+    const limit=getSubsidyLimit({category,restaurant,menu_id:ev?.id},ev);
     if(!limit) return;
     const group=getSubsidyGroup(category,restaurant)||category;
     const key=group+'__'+restaurant;
