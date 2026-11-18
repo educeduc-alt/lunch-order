@@ -5365,6 +5365,7 @@ function parseOptPrice(optStr){
   return {amount:Number(m[2])||0,isDelta:m[1]==='+'||m[1]==='＋'||/加\s*\$/.test(text)};
 }
 function isAddonSpec(cat){
+  if(isComboPickCat(cat)) return false; // 「【A 套餐】小菜」是套餐內容，不是加料
   return /加料|加價|配料|配餐|升級/.test(String(cat||''));
 }
 function isOptionalSpec(spec,item){
@@ -5374,6 +5375,7 @@ function isOptionalSpec(spec,item){
   return !!opts.length&&opts.every(opt=>isEmptyAddonOption(opt)||parseOptPrice(opt)?.isDelta);
 }
 function isMultiAddonSpec(cat,item){
+  if(/加價升級/.test(String(cat||''))) return true; // 加蛋、加起司…可以同時加好幾樣
   return item?.category==='飲料'&&/加料|配料/.test(String(cat||''));
 }
 function isEmptyAddonOption(opt){
@@ -5381,6 +5383,7 @@ function isEmptyAddonOption(opt){
 }
 function getEmptySpecOption(spec){
   const text=String(spec?.cat||'')+' '+(spec?.opts||[]).join(' ');
+  if(/加價升級/.test(String(spec?.cat||''))) return '不加購';
   if(/加飯|飯量/.test(text)) return '不加飯';
   if(/焗烤/.test(text)) return '不焗烤';
   if(/加大|加量|份量/.test(text)) return '正常份量';
@@ -5392,9 +5395,38 @@ function getSpecOptions(spec,item){
   if(isOptionalSpec(spec,item)&&!opts.some(isEmptyAddonOption)) opts.unshift(getEmptySpecOption(spec));
   return opts;
 }
+/* ── 套餐內容：選了某個套餐才出現、而且必選的規格 ──
+   規格寫法：{cat:'【B 超值套餐】飲料', opts:[...], showIf:{cat:'套餐', prefix:'B 超值套餐'}} */
+function isComboPickCat(cat){
+  return /^【[^】]+】/.test(String(cat||''));
+}
+function isSpecVisible(spec,selection){
+  if(!spec?.showIf) return true;
+  const chosen=selection?.[spec.showIf.cat];
+  return typeof chosen==='string'&&chosen.trim().startsWith(String(spec.showIf.prefix||'').trim());
+}
+// 換了套餐之後，把沒顯示的套餐內容清掉，避免點餐紀錄出現沒選的套餐內容
+function syncConditionalSpecs(item,selection){
+  (item?.specs||[]).forEach(spec=>{
+    if(spec?.showIf&&!isSpecVisible(spec,selection)) delete selection[spec.cat];
+  });
+  // 依菜單上的規格順序排列，點餐紀錄才會是「套餐/套餐內容/加價升級」的順序
+  const order=(item?.specs||[]).map(spec=>spec.cat);
+  const entries=Object.entries(selection).sort(([a],[b])=>{
+    const ia=order.indexOf(a),ib=order.indexOf(b);
+    return (ia<0?999:ia)-(ib<0?999:ib);
+  });
+  Object.keys(selection).forEach(key=>delete selection[key]);
+  entries.forEach(([key,value])=>{selection[key]=value;});
+  return selection;
+}
+function getMissingConditionalSpecs(item,selection){
+  return (item?.specs||[]).filter(spec=>spec?.showIf&&isSpecVisible(spec,selection)&&!selection[spec.cat]).map(spec=>spec.cat);
+}
 function createInitialSpecSelection(item){
   const selection={};
   (item?.specs||[]).forEach(spec=>{
+    if(spec?.showIf) return; // 套餐內容要等選了套餐、由學生自己選
     const opts=getSpecOptions(spec,item);
     if(!opts.length) return;
     const empty=opts.find(isEmptyAddonOption);
@@ -5463,6 +5495,7 @@ function calcSpecPrice(item, specSel){
 
 function renderSheet(){
   const item=S.specItem;
+  syncConditionalSpecs(item,S.specSel);
   const isDrink=needsSugarIce(item); // 需要填甜度冰塊的飲料（麥當勞等不需要）
   const canSkipSugarIce=isBentoStoreDrink(item);
   const curPrice=calcSpecPrice(item, S.specSel);
@@ -5470,8 +5503,10 @@ function renderSheet(){
   document.getElementById('sheetTitle').innerHTML=`${esc(item.name)}${curPrice>0?` <span style="color:var(--or);font-size:.9rem">$${curPrice}</span>`:''}`;
   let html='';
   (item.specs||[]).forEach(sp=>{
+    if(!isSpecVisible(sp,S.specSel)) return;
     const multi=isMultiAddonSpec(sp.cat,item);
-    html+=`<div class="spec-sec"><div class="spec-lbl">${esc(sp.cat)}</div><div class="spec-opts">
+    const pickMissing=sp.showIf&&!S.specSel[sp.cat];
+    html+=`<div class="spec-sec"${sp.showIf?' style="background:#fff7ed;border-radius:10px;padding:8px 10px"':''}><div class="spec-lbl"${pickMissing?' style="color:var(--rd)"':''}>${esc(sp.cat)}${sp.showIf?'（套餐內容，請選一個）':''}</div><div class="spec-opts">
       ${getSpecOptions(sp,item).map(o=>{
         const on=multi?(S.specSel[sp.cat]||[]).includes(o):S.specSel[sp.cat]===o;
         const action=multi?`toggleSpecOption('${esc(sp.cat)}','${esc(o)}')`:`S.specSel['${esc(sp.cat)}']='${esc(o)}';renderSheet()`;
@@ -5499,6 +5534,12 @@ function renderSheet(){
 }
 async function confirmSpec(){
   const item=S.specItem;
+  syncConditionalSpecs(item,S.specSel);
+  const missingPicks=getMissingConditionalSpecs(item,S.specSel);
+  if(missingPicks.length){
+    toast(`請選擇套餐內容：${missingPicks.join('、')}`,'warn');
+    return;
+  }
   const trimmedNote=String(S.specNote||'').trim();
   if(needsSugarIce(item)&&!trimmedNote){
     toast(isBentoStoreDrink(item)?'請填寫飲料甜度冰塊，或選擇「不選擇糖冰」':'請填寫飲料甜度冰塊，不能只輸入空格','warn');
@@ -7497,10 +7538,17 @@ const MENU_PARSE_PROMPT=`你是菜單資料輸入員。請把圖片中的菜單�
 11. 必選的選項（例如主食三擇一、醬汁二擇一）不要加取消選項。
 12. 菜單用區塊標題區分醬汁或口味（例如茄汁紅醬、奶油白醬、咖哩醬、羅勒青醬、韓式泡菜）時，把口味寫在品名前面，格式為「口味－主菜」，例如「茄汁紅醬－鮮菇時蔬」。每個口味區塊的每一道主菜都要輸出，價格以該區塊標示為準。
 13. 沒有對應規格就輸出 "specs":[]。
+13-1. 主餐有「正常／加飯」兩欄但加飯沒有標價時，主餐加上 {"cat":"飯量","opts":["正常","加飯"]}。
+
+【主餐加價套餐與加價升級】
+16. 菜單上「主餐加價就能升級」的套餐（例如「Ⓐ呷菜套餐 +$25」「B 超值套餐 +$55：任選1道40元以內單點小品＋飲料」），每一種套餐輸出一個品項：category 填「其他」、"is_addon":true、name 寫「代號 套餐名」（例如「A 呷菜套餐」，Ⓐ寫成 A）、price 填加價金額、description 照抄套餐內容說明。
+16-1. 套餐裡要讓人挑選的東西放進這個套餐品項的 specs，每挑一樣就是一個規格，opts 逐一列出可以挑的品項名稱（品名要和菜單上單點的寫法一樣；「可樂/雪碧」要寫成「可樂」「雪碧」兩個選項）。例如「飯減量＋涼拌花椰菜或涼拌豆腐」→ {"cat":"小菜","opts":["涼拌花椰菜","涼拌豆腐"]}；「任選1道40元以內單點小品＋飲料」→ {"cat":"小品","opts":[菜單上所有 40 元以內的小菜、炸物]} 和 {"cat":"飲料","opts":[菜單上的飲料]}；「任選2道」就輸出兩個規格 {"cat":"小品（第1道）"}、{"cat":"小品（第2道）"}。小菜本身有必選口味（例如胡麻醬／椒麻醬）時，選項寫成「涼拌豆腐（胡麻醬）」「涼拌豆腐（椒麻醬）」。內容固定、不用挑的套餐 specs 填 []。
+16-2. 套餐本身不要當成主餐或小菜輸出；套餐裡提到的小菜、炸物、飲料，菜單上若另有單點價格，仍要照常各自輸出成單點品項。
+17. 主餐共用的「加價升級／加購」區（例如加蛋 $15、加起司、豬肉加量 $29），每一項輸出一個品項：category 填「便當」、"is_addon":true、name 只寫升級項目、price 填加價金額。
 
 【飲料加料】
 14. 菜單底部或角落只畫圖示、沒有標價的配料（例如波霸、珍珠、燕麥、椰果的小圖示），也算加料區，一樣要輸出，price 填 0。
-15. 飲料菜單的「加料區／配料區」每一種料（例如椰果、波霸、布丁、仙草、QQ、奶精改鮮奶）各輸出一個品項，"is_addon":true，category 填「飲料」，name 只寫料名，price 填加價金額。一般飲料的 is_addon 填 false。
+15. 飲料菜單的「加料區／配料區」每一種料（例如椰果、波霸、布丁、仙草、QQ、奶精改鮮奶）各輸出一個品項，"is_addon":true，category 填「飲料」，name 只寫料名，price 填加價金額。一般品項的 is_addon 填 false。
 
 只回傳 JSON 陣列，不要有任何其他文字或 markdown。整張圖都無法辨識時回傳 []。`;
 function buildMenuParseContent(images){
@@ -7619,6 +7667,95 @@ function mergeDrinkAddons(newItems,existingItems=[]){
   });
   const unpriced=addons.filter(addon=>removeIds.has(addon.id)&&!(Number(addon.price)>0)).map(addon=>String(addon.name||'').replace(/^加\s*/,'').trim());
   return {items:newItems.filter(it=>!removeIds.has(it.id)),merged,drinkCount:touched.size,unpriced:[...new Set(unpriced)]};
+}
+
+/* ── 主餐加價套餐：自動併入主餐規格 ──
+   AI 把「Ⓐ呷菜套餐 +$25」輸出成 category「其他」＋ is_addon 的品項，specs 是套餐裡要選的東西；
+   「加蛋 +$15」這類主餐共用的加價升級輸出成 category「便當」＋ is_addon 的品項。 */
+function normalizeComboName(name){
+  let text=String(name||'').trim()
+    .replace(/[\u24B6-\u24CF]/g,ch=>String.fromCharCode(ch.charCodeAt(0)-0x24B6+65)) // Ⓐ→A
+    .replace(/[\u24D0-\u24E9]/g,ch=>String.fromCharCode(ch.charCodeAt(0)-0x24D0+65)) // ⓐ→A
+    .replace(/[Ａ-Ｚａ-ｚ]/g,ch=>String.fromCharCode(ch.charCodeAt(0)-0xFEE0).toUpperCase())
+    .replace(/\s*[＋+]\s*\$?\s*\d+\s*元?$/,'');
+  const m=text.match(/^([A-Za-z])\s*[.、．:：-]?\s*(.+)$/);
+  if(m) text=m[1].toUpperCase()+' '+m[2].trim();
+  return text;
+}
+function isComboItem(item){
+  if(!item||item.category==='飲料'||!item._isAddon) return false;
+  return item.category==='其他'||/套餐|配餐|組合|套$/.test(String(item.name||''));
+}
+function isMainUpgradeItem(item){
+  return !!item&&item._isAddon&&item.category!=='飲料'&&!isComboItem(item);
+}
+function mergeMainCombos(newItems,existingItems=[]){
+  const combos=newItems.filter(isComboItem);
+  const upgrades=newItems.filter(isMainUpgradeItem);
+  const empty={items:newItems,combos:[],upgrades:[],mainCount:0,upgradeMainCount:0,orphan:false};
+  if(!combos.length&&!upgrades.length) return empty;
+  const store=it=>normalizeCompareText(it.restaurant||'');
+  const generic=it=>/本日菜單|未知店家/.test(it.restaurant||'');
+  const sameStore=(a,b)=>!store(a)||!store(b)||store(a)===store(b)||generic(a)||generic(b);
+  const isMain=it=>it.category==='便當'&&!it._isAddon;
+  const targetsFor=ref=>{
+    const local=newItems.filter(it=>isMain(it)&&sameStore(it,ref));
+    return local.length?local:existingItems.filter(it=>isMain(it)&&sameStore(it,ref));
+  };
+  const removeIds=new Set();
+  const touched=new Set(),upgradeTouched=new Set();
+  const comboNames=[],upgradeNames=[];
+  if(combos.length){
+    const targets=targetsFor(combos[0]);
+    if(targets.length){
+      const comboSpec={cat:'套餐',opts:['單點']};
+      const pickSpecs=[];
+      combos.forEach(combo=>{
+        const name=normalizeComboName(combo.name);
+        const price=Number(combo.price)||0;
+        const desc=String(combo.description||'').trim();
+        comboSpec.opts.push(`${name}${desc?`（${desc}）`:''}${price?` +$${price}`:''}`);
+        (combo.specs||[]).forEach(sp=>{
+          const opts=(sp.opts||[]).map(o=>String(o).trim()).filter(Boolean);
+          if(!opts.length) return;
+          pickSpecs.push({cat:`【${name}】${String(sp.cat||'套餐內容').trim()}`,opts,showIf:{cat:'套餐',prefix:name}});
+        });
+        comboNames.push(name);
+        removeIds.add(combo.id);
+      });
+      targets.forEach(main=>{
+        main.specs=Array.isArray(main.specs)?main.specs:[];
+        if(main.specs.some(sp=>sp.cat==='套餐')) return;
+        main.specs.push(JSON.parse(JSON.stringify(comboSpec)),...JSON.parse(JSON.stringify(pickSpecs)));
+        touched.add(main.id);
+      });
+    }
+  }
+  if(upgrades.length){
+    const targets=targetsFor(upgrades[0]);
+    if(targets.length){
+      const opts=upgrades.map(up=>{
+        const name=String(up.name||'').trim();
+        const price=Number(up.price)||0;
+        upgradeNames.push(name);
+        removeIds.add(up.id);
+        return price?`${name} +$${price}`:name;
+      });
+      targets.forEach(main=>{
+        main.specs=Array.isArray(main.specs)?main.specs:[];
+        let spec=main.specs.find(sp=>/加價升級/.test(String(sp.cat||'')));
+        if(!spec){spec={cat:'加價升級',opts:[]};main.specs.push(spec);}
+        opts.forEach(opt=>{if(!spec.opts.includes(opt)) spec.opts.push(opt);});
+        upgradeTouched.add(main.id);
+      });
+    }
+  }
+  return {
+    items:newItems.filter(it=>!removeIds.has(it.id)),
+    combos:comboNames,upgrades:upgradeNames,
+    mainCount:touched.size,upgradeMainCount:upgradeTouched.size,
+    orphan:combos.some(c=>!removeIds.has(c.id))
+  };
 }
 
 async function aiParseImages(images,uploadType='main'){
@@ -7784,6 +7921,9 @@ async function aiParseImages(images,uploadType='main'){
     // 加料區的項目（珍珠、椰果…）不當成獨立飲料，改併入每杯飲料的「加料」規格
     const addonMerge=mergeDrinkAddons(newItems,S.pendingItems);
     newItems.splice(0,newItems.length,...addonMerge.items);
+    // 加價套餐（A/B/C 套餐）與加價升級（加蛋、加起司…）併入每個主餐的選項
+    const comboMerge=mergeMainCombos(newItems,S.pendingItems);
+    newItems.splice(0,newItems.length,...comboMerge.items);
     // 累加：把本次解析結果加入 pendingItems（支援主餐+飲料分開上傳）
     S.pendingItems=[...S.pendingItems, ...newItems];
     // 解析完後更新膠囊顯示（讓「本次解析」區塊出現）
@@ -7794,7 +7934,10 @@ async function aiParseImages(images,uploadType='main'){
       +(teaBaseFixed?`；${teaBaseFixed} 杯飲料已加上「茶底」選項`:'')
       +(addonMerge.unpriced.length?`；⚠️ 加料「${esc(addonMerge.unpriced.join('、'))}」菜單上沒有標價，學生仍可以選，點餐紀錄會標示「待補價」；知道價格的話可以按 <button type="button" class="btn btn-or btn-sm" style="margin:4px 0" onclick="setUnpricedAddonPrices()">統一設定加料價格</button>`:'')
       +(brokenTea?`；⚠️ 有 ${brokenTea} 個飲料名稱只有一個字（例如「綠」），請對照菜單修改`:'');
-    const addonNote=addonMerge.merged.length?`；已將 ${addonMerge.merged.length} 種加料（${esc(addonMerge.merged.join('、'))}）併入 ${addonMerge.drinkCount} 杯飲料的「加料」選項`:'';
+    const addonNote=(addonMerge.merged.length?`；已將 ${addonMerge.merged.length} 種加料（${esc(addonMerge.merged.join('、'))}）併入 ${addonMerge.drinkCount} 杯飲料的「加料」選項`:'')
+      +(comboMerge.combos.length?`；已將 ${comboMerge.combos.length} 種套餐（${esc(comboMerge.combos.join('、'))}）加到 ${comboMerge.mainCount} 個主餐的「套餐」選項`:'')
+      +(comboMerge.upgrades.length?`；已將加價升級（${esc(comboMerge.upgrades.join('、'))}）加到 ${comboMerge.mainCount||comboMerge.upgradeMainCount} 個主餐`:'')
+      +(comboMerge.orphan?`；⚠️ 找不到主餐可以掛上套餐，套餐先列成品項，請手動調整`:'');
     const doneHtml=`<div style="font-size:.75rem;color:var(--gr);margin-top:7px">✅ 解析完成 ${newItems.length} 個品項（${cats}）${addonNote}${dupNote}，確認後按「💾 儲存場次」加入場次</div>`;
     // 解析完成訊息存起來，畫面重畫後仍會顯示
     S.parseStatusHtml={...(S.parseStatusHtml||{}),[uploadType==='drink'?'drink':'main']:doneHtml};
