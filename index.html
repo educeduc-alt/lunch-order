@@ -5273,7 +5273,7 @@ function findSubsidyEvent(item,ev){
 function getSubsidyNoticeText(ev){
   const sub=getEventSubsidy(ev);
   if(sub.mode==='combined') return `便當、點心、飲料全部合併計算，每人總額上限 $${sub.total}（不分店家）。`;
-  return `同一家店的便當＋點心合計補助上限 $${sub.meal}、飲料 $${sub.drink}；麥當勞為便當＋點心＋飲料合計 $${sub.meal+sub.drink}。`;
+  return `同一家店的便當＋點心合計補助上限 $${sub.meal}、飲料 $${sub.drink}。`;
 }
 const SUBSIDY_CATEGORIES=['便當','點心','飲料'];
 function getCombinedSubsidyStore(restaurant){
