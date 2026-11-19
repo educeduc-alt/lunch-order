@@ -107,6 +107,10 @@ body:has(#subBar:not([style*="display: none"])) .developer-card{bottom:82px}
 .copy-event-url{flex:0 0 auto;white-space:nowrap;padding:8px 12px;font-size:.78rem}
 .activity-meal-help{width:100%;display:flex;align-items:flex-start;gap:9px;background:#f8fafc;border:1px solid var(--bo);border-radius:var(--rmd);padding:10px 12px;color:var(--slm);font-size:.75rem;line-height:1.65}
 .activity-meal-help strong{color:#0e7490}
+.activity-note-text{white-space:pre-line;color:var(--slm);margin-top:2px}
+.activity-subsidy-help{width:100%;display:flex;align-items:flex-start;gap:9px;background:#fffbeb;border:1px solid #fde68a;border-radius:var(--rmd);padding:10px 12px;color:#78350f;font-size:.75rem;line-height:1.65;margin-top:8px}
+.activity-subsidy-help strong{color:#b45309}
+.activity-subsidy-tip{color:var(--sll);font-size:.68rem;margin-top:2px}
 .inp,.sel{width:100%;border:1.5px solid var(--bo);border-radius:var(--rsm);padding:8px 10px;font-size:.85rem;color:var(--sl);background:var(--ca);outline:none;transition:border-color .18s,box-shadow .18s}
 .inp:focus,.sel:focus{border-color:var(--or);box-shadow:0 0 0 3px rgba(249,115,22,.12)}
 
@@ -4723,7 +4727,8 @@ function renderOrderPage(){
 
   html+=`<div class="id-card">
     <div class="fld"><label>姓名</label><div class="name-url-row"><input class="inp" id="uName" placeholder="王小明" value="${esc(S.myName)}" oninput="S.myName=this.value">${S.sharedEventMode?'':'<button type="button" class="btn btn-out copy-event-url" onclick="copyEventUrl()">🔗 複製場次網址</button>'}</div></div>
-    <div class="activity-meal-help"><span style="font-size:1.15rem">☀️</span><div><strong>活動餐點說明</strong><br>${ev.activity_note?esc(ev.activity_note):'承辦人尚未填寫本場次活動說明。'}<br>💰 本場次補助：${esc(getSubsidyNoticeText(ev))}<br>請確認餐點規格與數量後再送出。</div></div>
+    ${String(ev.activity_note||'').trim()?`<div class="activity-meal-help"><span style="font-size:1.15rem">📢</span><div><strong>活動說明</strong><div class="activity-note-text">${esc(String(ev.activity_note).trim())}</div></div></div>`:''}
+    <div class="activity-subsidy-help"><span style="font-size:1.15rem">💰</span><div><strong>本場次補助</strong><div>${esc(getSubsidyNoticeText(ev))}</div><div class="activity-subsidy-tip">請確認餐點規格與數量後再送出。</div></div></div>
     ${renderEventMenuImages(ev)}
   </div>`;
 
