@@ -5986,7 +5986,6 @@ function renderAdmin(){
   </div>
   <div class="exp-row" style="margin-top:4px;display:flex;gap:8px;flex-wrap:wrap">
     <button class="exp-btn" onclick="exportExcel()">📥 匯出 Excel（A4 列印）</button>
-    <button class="exp-btn" onclick="exportCSV()" title="純文字格式，沒有框線與紙張設定">CSV</button>
     ${isEventClosed(ev)?'':`<button class="btn btn-save-event" onclick="archiveEvent('${ev.id}')">📦 場次封存</button>`}
   </div>`;
 
@@ -7035,7 +7034,7 @@ async function archiveEvent(eid){
   const ev=S.events.find(event=>event.id===eid);
   if(!ev){toast('找不到要封存的場次','err');return;}
   if(ev.is_closed){toast('此場次已封存','warn');return;}
-  if(!confirm(`確定封存「${ev.title}」？\n封存後會從「目前場次」消失，並移到「訂餐及統計」的「歷史場次」；點餐紀錄與 CSV 資料都會保留。`)) return;
+  if(!confirm(`確定封存「${ev.title}」？\n封存後會從「目前場次」消失，並移到「訂餐及統計」的「歷史場次」；點餐紀錄與 Excel 匯出資料都會保留。`)) return;
   if(DEMO){
     ev.is_closed=true;
     S.adminEid=S.events.find(event=>!isEventClosed(event))?.id||null;
@@ -8158,7 +8157,7 @@ function buildOrderExportData(){
   const itemMap=Object.fromEntries(menuItems.map(item=>[item.id,item]));
   const eventInfo=[ev?.title&&`場次：${ev.title}`,ev?.date&&`日期：${ev.date}`,ev?.organizer&&`承辦：${ev.organizer}`].filter(Boolean).join('｜');
   const printHeader=['分餐確認','點餐姓名','餐點內容','便當＋點心金額','飲料金額','合計','缺額','訂單備註'];
-  const grand={meal:0,drink:0,total:0,shortfall:0};
+  const grand={meal:0,drink:0,total:0,shortfall:0,portions:0,mealPortions:0,drinkPortions:0};
   const printRows=sortedOrders.map(order=>{
     const shortfall=getOrderShortfallSummary(order,menuItems,ev);
     const meals=summarizeOrderItems(order.order_items||[]).replace(/、/g,'\n');
@@ -8167,7 +8166,13 @@ function buildOrderExportData(){
     grand.total+=Number(order.total)||0;grand.shortfall+=shortfall.total;
     return['☐',order.user_name||'',meals,amounts.meal,amounts.drink,Number(order.total)||0,shortfall.csvText,order.note||''];
   });
-  const printTotalRow=['','總計（'+sortedOrders.length+' 筆）','',grand.meal,grand.drink,grand.total,grand.shortfall?'缺額合計 $'+grand.shortfall:'',''];
+  sortedOrders.forEach(order=>(order.order_items||[]).forEach(oi=>{
+    const qty=Number(oi.quantity)||0;
+    const source=itemMap[oi.item_id]||menuItems.find(item=>item.name===oi.item_name)||{};
+    grand.portions+=qty;
+    if(source.category==='飲料') grand.drinkPortions+=qty; else grand.mealPortions+=qty;
+  }));
+  const printTotalRow=['','總計（'+sortedOrders.length+' 人，共 '+grand.portions+' 份）','',grand.meal,grand.drink,grand.total,grand.shortfall?'缺額合計 $'+grand.shortfall:'',''];
   const detailHeader=['分餐確認','場次資訊','點餐姓名','店家','品項','規格','糖度冰塊／品項備註','數量','單價','小計','缺額','訂單備註'];
   const detailRows=[];
   const summary={};
@@ -8183,7 +8188,8 @@ function buildOrderExportData(){
       const subtotal=qty*unitPrice;
       detailRows.push(['☐',eventInfo,o.user_name||'',restaurant,oi.item_name,oi.specs_str||'',oi.note||'',qty,unitPrice,subtotal,itemIndex===0?shortfall.csvText:'',o.note||'']);
       const key=[restaurant,workType,category,oi.item_name,oi.specs_str||'',oi.note||'',unitPrice].join('__');
-      if(!summary[key]) summary[key]={diners:new Map(),restaurant,workType,category,name:oi.item_name,specs:oi.specs_str||'',itemNote:oi.note||''};
+      if(!summary[key]) summary[key]={diners:new Map(),qty:0,restaurant,workType,category,name:oi.item_name,specs:oi.specs_str||'',itemNote:oi.note||''};
+      summary[key].qty+=qty;
       if(o.user_name){
         const dinerKey=(o.class_name||'')+'\u0000'+o.user_name;
         summary[key].diners.set(dinerKey,o.user_name);
@@ -8196,7 +8202,8 @@ function buildOrderExportData(){
     .sort((a,b)=>a.workType.localeCompare(b.workType,'zh-TW')||a.restaurant.localeCompare(b.restaurant,'zh-TW')||a.category.localeCompare(b.category,'zh-TW')||a.name.localeCompare(b.name,'zh-TW'))
     .forEach(x=>{
       const names=sortBySimilarPersonName([...x.diners.values()],name=>name);
-      const row=[formatMealSummary(x.name,x.specs,x.itemNote),names.length,names.join('、')];
+      // [餐點, 點餐人數, 點餐姓名, 份數]
+      const row=[formatMealSummary(x.name,x.specs,x.itemNote),names.length,names.join('、'),x.qty];
       (x.workType==='飲料'?drinkSummaryRows:mealSummaryRows).push(row);
     });
   return{ev,eventInfo,printHeader,printRows,printTotalRow,grand,detailHeader,detailRows,summaryHeader:['檢核','餐點','點餐人數','點餐姓名'],mealSummaryRows,drinkSummaryRows};
@@ -8216,18 +8223,19 @@ function exportCSV(){
     ['飲料總額',data.grand.drink],
     ['全部合計',data.grand.total],
     ['缺額合計',data.grand.shortfall],
-    [],['便當餐點彙整'],data.summaryHeader,...data.mealSummaryRows.map(row=>['☐',...row]),
-    [],['飲料餐點彙整'],data.summaryHeader,...data.drinkSummaryRows.map(row=>['☐',...row])
+    ['總份數',data.grand.portions],
+    [],['便當餐點彙整'],[...data.summaryHeader,'份數'],...data.mealSummaryRows.map(row=>['☐',...row]),
+    [],['飲料餐點彙整'],[...data.summaryHeader,'份數'],...data.drinkSummaryRows.map(row=>['☐',...row])
   ];
   dlCSV(rows,`點餐紀錄_直式列印_${ev?.title||''}`);
 }
 function renderAdminOrderSummary(data){
   const group=(title,rows)=>`<section class="order-summary-group">
     <div class="order-summary-title">${esc(title)}</div>
-    ${rows.length?`<div class="order-summary-list">${rows.map(([meal,count,names])=>{const checkKey='summary__'+title+'__'+meal+'__'+names;const checked=isChecklistChecked(checkKey);return `<div class="order-summary-item ${checked?'is-checked':''}">
+    ${rows.length?`<div class="order-summary-list">${rows.map(([meal,count,names,qty])=>{const checkKey='summary__'+title+'__'+meal+'__'+names;const checked=isChecklistChecked(checkKey);return `<div class="order-summary-item ${checked?'is-checked':''}">
       <div class="order-summary-check"><input type="checkbox" class="check-input" aria-label="確認 ${esc(meal)}" data-check-key="${esc(checkKey)}" onchange="toggleChecklist(this)"${checked?' checked':''}></div>
       <div class="order-summary-meal">${esc(meal)}</div>
-      <span class="order-summary-count">${count} 人</span>
+      <span class="order-summary-count">${count} 人${qty&&qty!==count?`・${qty} 份`:''}</span>
       <div class="order-summary-names">${esc(names)}</div>
     </div>`;}).join('')}</div>`:'<div class="order-summary-empty">尚無資料</div>'}
   </section>`;
@@ -8271,7 +8279,7 @@ async function exportExcel(){
   if(!data.printRows.length){toast('沒有資料','warn');return;}
   let ExcelJS;
   try{ExcelJS=await loadExcelJS();}
-  catch(error){toast('Excel 元件載入失敗，改用 CSV 匯出','err');exportCSV();return;}
+  catch(error){toast('Excel 元件載入失敗，請檢查網路後再按一次','err');return;}
   const ev=data.ev;
   const FONT='Microsoft JhengHei';
   const BLACK={argb:'FF000000'};
@@ -8359,6 +8367,15 @@ async function exportExcel(){
   ws.pageSetup.printTitlesRow=`${headerRow}:${headerRow}`;
   r++;
 
+  // 份數總計
+  section('份數總計');
+  const portionStart=r;
+  writeRow(['項目','份數'],[3,2],{bold:true,fill:'FFE5E7EB',aligns:['center','center']});
+  [['點餐人數',`${data.printRows.length} 人`],['便當＋點心份數',`${data.grand.mealPortions} 份`],['飲料份數',`${data.grand.drinkPortions} 份`],['總份數',`${data.grand.portions} 份`]]
+    .forEach((row,i)=>writeRow(row,[3,2],{bold:i===3,aligns:['left','right']}));
+  frame(portionStart,r-1,1,5);
+  r++;
+
   // 金額總計
   section('金額總計');
   const moneyStart=r;
@@ -8378,8 +8395,11 @@ async function exportExcel(){
       ws.mergeCells(r,1,r,N);ws.getCell(r,1).value='尚無資料';style(ws.getCell(r,1));r+=2;return;
     }
     const start=r;
-    writeRow(['檢核','餐點','人數','點餐姓名'],[1,2,1,4],{bold:true,fill:'FFE5E7EB',aligns:['center','center','center','center']});
-    rows.forEach(([meal,count,names])=>writeRow(['☐',meal,count,names],[1,2,1,4],{aligns:['center','left','center','left']}));
+    const spans=[1,2,1,1,3];
+    writeRow(['檢核','餐點','份數','人數','點餐姓名'],spans,{bold:true,fill:'FFE5E7EB',aligns:['center','center','center','center','center']});
+    rows.forEach(([meal,count,names,qty])=>writeRow(['☐',meal,qty??count,count,names],spans,{aligns:['center','left','center','center','left']}));
+    const totalQty=rows.reduce((sum,row)=>sum+(Number(row[3]??row[1])||0),0);
+    writeRow(['','合計',`${totalQty} 份`,'',''],spans,{bold:true,fill:'FFF3F4F6',aligns:['center','right','center','center','left']});
     frame(start,r-1);
     r++;
   };
