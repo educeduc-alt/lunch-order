@@ -8176,6 +8176,7 @@ function buildOrderExportData(){
   const detailHeader=['分餐確認','場次資訊','點餐姓名','店家','品項','規格','糖度冰塊／品項備註','數量','單價','小計','缺額','訂單備註'];
   const detailRows=[];
   const summary={};
+  const typePeople={便當:new Set(),飲料:new Set()}; // 各類點餐的不重複人數
   sortedOrders.forEach(o=>{
     const shortfall=getOrderShortfallSummary(o,menuItems,ev);
     (o.order_items||[]).forEach((oi,itemIndex)=>{
@@ -8193,6 +8194,7 @@ function buildOrderExportData(){
       if(o.user_name){
         const dinerKey=(o.class_name||'')+'\u0000'+o.user_name;
         summary[key].diners.set(dinerKey,o.user_name);
+        typePeople[workType].add(dinerKey);
       }
     });
   });
@@ -8206,6 +8208,9 @@ function buildOrderExportData(){
       const row=[formatMealSummary(x.name,x.specs,x.itemNote),names.length,names.join('、'),x.qty];
       (x.workType==='飲料'?drinkSummaryRows:mealSummaryRows).push(row);
     });
+  grand.people=sortedOrders.length;
+  grand.mealPeople=typePeople['便當'].size;
+  grand.drinkPeople=typePeople['飲料'].size;
   return{ev,eventInfo,printHeader,printRows,printTotalRow,grand,detailHeader,detailRows,summaryHeader:['檢核','餐點','點餐人數','點餐姓名'],mealSummaryRows,drinkSummaryRows};
 }
 function exportCSV(){
@@ -8230,19 +8235,19 @@ function exportCSV(){
   dlCSV(rows,`點餐紀錄_直式列印_${ev?.title||''}`);
 }
 function renderAdminOrderSummary(data){
-  const group=(title,rows)=>`<section class="order-summary-group">
-    <div class="order-summary-title">${esc(title)}</div>
+  const group=(title,rows,people)=>`<section class="order-summary-group">
+    <div class="order-summary-title" style="display:flex;justify-content:space-between;gap:8px">${esc(title)}<span>共 ${people} 人・${rows.reduce((sum,row)=>sum+(Number(row[3]??row[1])||0),0)} 份</span></div>
     ${rows.length?`<div class="order-summary-list">${rows.map(([meal,count,names,qty])=>{const checkKey='summary__'+title+'__'+meal+'__'+names;const checked=isChecklistChecked(checkKey);return `<div class="order-summary-item ${checked?'is-checked':''}">
       <div class="order-summary-check"><input type="checkbox" class="check-input" aria-label="確認 ${esc(meal)}" data-check-key="${esc(checkKey)}" onchange="toggleChecklist(this)"${checked?' checked':''}></div>
       <div class="order-summary-meal">${esc(meal)}</div>
-      <span class="order-summary-count">${count} 人${qty&&qty!==count?`・${qty} 份`:''}</span>
+      <span class="order-summary-count">${count} 人・${qty??count} 份</span>
       <div class="order-summary-names">${esc(names)}</div>
     </div>`;}).join('')}</div>`:'<div class="order-summary-empty">尚無資料</div>'}
   </section>`;
   return `<div class="panel"><div class="panel-head"><div class="panel-title">餐點飲料彙整</div><span style="font-size:.68rem;color:var(--sll)">團體餐點確認</span></div>
     <div class="panel-body"><div class="order-summary-grid">
-      ${group('餐點彙整',data.mealSummaryRows)}
-      ${group('飲料彙整',data.drinkSummaryRows)}
+      ${group('餐點彙整',data.mealSummaryRows,data.grand.mealPeople)}
+      ${group('飲料彙整',data.drinkSummaryRows,data.grand.drinkPeople)}
     </div></div>
   </div>`;
 }
@@ -8368,11 +8373,13 @@ async function exportExcel(){
   r++;
 
   // 份數總計
-  section('份數總計');
+  section('人數與份數統計');
   const portionStart=r;
-  writeRow(['項目','份數'],[3,2],{bold:true,fill:'FFE5E7EB',aligns:['center','center']});
-  [['點餐人數',`${data.printRows.length} 人`],['便當＋點心份數',`${data.grand.mealPortions} 份`],['飲料份數',`${data.grand.drinkPortions} 份`],['總份數',`${data.grand.portions} 份`]]
-    .forEach((row,i)=>writeRow(row,[3,2],{bold:i===3,aligns:['left','right']}));
+  writeRow(['項目','人數','份數'],[3,1,1],{bold:true,fill:'FFE5E7EB',aligns:['center','center','center']});
+  [['🍱 便當＋點心',`${data.grand.mealPeople} 人`,`${data.grand.mealPortions} 份`],
+   ['🧋 飲料',`${data.grand.drinkPeople} 人`,`${data.grand.drinkPortions} 份`],
+   ['全部合計（點餐人數／總份數）',`${data.grand.people} 人`,`${data.grand.portions} 份`]]
+    .forEach((row,i)=>writeRow(row,[3,1,1],{bold:i===2,aligns:['left','right','right']}));
   frame(portionStart,r-1,1,5);
   r++;
 
@@ -8389,7 +8396,7 @@ async function exportExcel(){
   ws=newSheet('餐點彙整');
   r=1;
   writeTitle('餐點彙整');
-  const summaryTable=(title,rows)=>{
+  const summaryTable=(title,rows,people)=>{
     section(title);
     if(!rows.length){
       ws.mergeCells(r,1,r,N);ws.getCell(r,1).value='尚無資料';style(ws.getCell(r,1));r+=2;return;
@@ -8399,12 +8406,12 @@ async function exportExcel(){
     writeRow(['檢核','餐點','份數','人數','點餐姓名'],spans,{bold:true,fill:'FFE5E7EB',aligns:['center','center','center','center','center']});
     rows.forEach(([meal,count,names,qty])=>writeRow(['☐',meal,qty??count,count,names],spans,{aligns:['center','left','center','center','left']}));
     const totalQty=rows.reduce((sum,row)=>sum+(Number(row[3]??row[1])||0),0);
-    writeRow(['','合計',`${totalQty} 份`,'',''],spans,{bold:true,fill:'FFF3F4F6',aligns:['center','right','center','center','left']});
+    writeRow(['','合計',`${totalQty} 份`,`${people} 人`,''],spans,{bold:true,fill:'FFF3F4F6',aligns:['center','right','center','center','left']});
     frame(start,r-1);
     r++;
   };
-  summaryTable('便當餐點彙整',data.mealSummaryRows);
-  summaryTable('飲料餐點彙整',data.drinkSummaryRows);
+  summaryTable('便當餐點彙整',data.mealSummaryRows,data.grand.mealPeople);
+  summaryTable('飲料餐點彙整',data.drinkSummaryRows,data.grand.drinkPeople);
 
   const buffer=await wb.xlsx.writeBuffer();
   const a=document.createElement('a');
