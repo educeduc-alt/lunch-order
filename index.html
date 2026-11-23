@@ -6504,8 +6504,31 @@ function closeCombo(){
 // 場次的補助金額存在 menus.img_url 的 JSON 裡（{"subsidy":{"mode":"separate","meal":120,"drink":40,"total":160}}），不用改資料庫欄位
 const DEFAULT_SUBSIDY={mode:'separate',meal:120,drink:40,total:160};
 const COMBINED_SUBSIDY_STORES=[{pattern:/麥當勞|mcdonald/i}];
+/* 從活動說明看出補助金額，讓「活動說明」和補額提醒用同一個金額：
+   「本場次補助160元(便當+點心+飲料+其他)」→ 合併 160
+   「餐點120元，飲料40元」「晚餐(含點心)補助120元、飲料補助40元」→ 分開 120／40
+   看不出來就回傳 null（用後台設定或預設） */
+function detectSubsidyFromNote(note){
+  const text=String(note||'')
+    .replace(/[０-９]/g,ch=>String.fromCharCode(ch.charCodeAt(0)-0xFEE0))
+    .replace(/＋/g,'+').replace(/\s+/g,'');
+  if(!text) return null;
+  const amount=v=>{const n=Number(v);return n>=10&&n<=2000?n:null;};
+  // 合併：金額後面（或前面）列出便當／餐點＋飲料，或寫明合計、總額、全部
+  const combined=text.match(/(?:補助|上限|共|合計|總額)[^0-9。\n]{0,6}(\d{2,4})元?[(（]?[^。\n]{0,4}(?:便當|餐點|餐|主餐)[^。\n]{0,8}(?:\+|、|和|及|與|含)[^。\n]{0,8}飲料/)
+    ||text.match(/(?:便當|餐點|餐)[^。\n0-9]{0,8}(?:\+|、|和|及|與|含)[^。\n0-9]{0,8}飲料[^。\n0-9]{0,10}(?:合計|總額|共|補助|上限)[^。\n0-9]{0,4}(\d{2,4})/)
+    ||text.match(/(?:合計|總額|全部|一共)[^。\n0-9]{0,8}(?:補助|上限)?[^。\n0-9]{0,4}(\d{2,4})/);
+  if(combined&&amount(combined[1])) return {mode:'combined',meal:DEFAULT_SUBSIDY.meal,drink:DEFAULT_SUBSIDY.drink,total:amount(combined[1])};
+  const meal=text.match(/(?:便當|餐點|主餐|午餐|晚餐|早餐|餐補助|餐費|餐)(?!點擇)[^0-9，,。；;、\n]{0,12}?(\d{2,4})/);
+  const drink=text.match(/飲料[^0-9，,。；;\n]{0,10}?(\d{2,4})/);
+  if(meal&&drink&&amount(meal[1])&&amount(drink[1])&&meal.index<drink.index)
+    return {mode:'separate',meal:amount(meal[1]),drink:amount(drink[1]),total:amount(meal[1])+amount(drink[1])};
+  return null;
+}
 function getEventSubsidy(ev){
-  const saved=parseEventMenuImages(ev?.img_url).subsidy||{};
+  const rawSaved=parseEventMenuImages(ev?.img_url).subsidy;
+  // 後台沒有另外存補助設定時，照活動說明寫的金額；說明也看不出來才用預設
+  const saved=rawSaved||detectSubsidyFromNote(ev?.activity_note)||{};
   const pick=(value,fallback)=>{const n=Math.round(Number(value));return Number.isFinite(n)&&n>0?n:fallback;};
   return {
     mode:saved.mode==='combined'?'combined':'separate',
@@ -7413,6 +7436,7 @@ function renderEventMgmt(ev){
         <button type="button" class="btn btn-out btn-sm" onclick="document.getElementById('evSubsidyTotal').value=${DEFAULT_SUBSIDY.total};updateSubsidyDraft()">恢復 ${DEFAULT_SUBSIDY.total}</button>
       </div>
       <div style="font-size:.66rem;color:var(--sll);margin-top:4px">分開計算：預設 $${DEFAULT_SUBSIDY.meal}／$${DEFAULT_SUBSIDY.drink}，同一家店各自累計，麥當勞是兩個金額相加。合併計算：便當、點心、飲料不分店家全部加起來，預設總額 $${DEFAULT_SUBSIDY.total}。改完按「💾 儲存場次」後生效。</div>
+      <div id="evSubsidyHint" style="font-size:.72rem;font-weight:800;color:var(--gr);margin-top:4px">${!parseEventMenuImages(ev.img_url).subsidy&&detectSubsidyFromNote(ev.activity_note)?'✅ 目前依活動說明的金額設定，學生看到的補額提醒會用這個金額':''}</div>
     </div>`;})()}
 
 
@@ -7809,6 +7833,24 @@ function hasUnsavedSubsidyDraft(){
 function updateEditingEventField(field,value){
   const ev=S.menuDraft||S.events.find(e=>e.id===S.adminEid);
   if(ev) ev[field]=value;
+  if(field==='activity_note') syncSubsidyFromNote(value);
+}
+// 活動說明改了金額，下面的補助設定跟著改（還是可以手動再調）
+function syncSubsidyFromNote(note){
+  const detected=detectSubsidyFromNote(note);
+  const hint=document.getElementById('evSubsidyHint');
+  if(!detected){
+    if(hint) hint.textContent=String(note||'').match(/\d{2,4}\s*元/)?'⚠️ 活動說明裡的金額看不出是「分開」還是「合併」，請在上面選。':'';
+    return;
+  }
+  setSubsidyMode(detected.mode);
+  const setVal=(id,v)=>{const el=document.getElementById(id);if(el) el.value=v;};
+  if(detected.mode==='combined') setVal('evSubsidyTotal',detected.total);
+  else{setVal('evSubsidyMeal',detected.meal);setVal('evSubsidyDrink',detected.drink);}
+  updateSubsidyDraft();
+  if(hint) hint.textContent=detected.mode==='combined'
+    ?`✅ 已依活動說明設定：合併計算，總額 $${detected.total}`
+    :`✅ 已依活動說明設定：便當＋點心 $${detected.meal}、飲料 $${detected.drink}`;
 }
 
 function pickOrganizer(btn, name){
