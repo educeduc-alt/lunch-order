@@ -28,7 +28,6 @@ input,select,textarea{font-family:inherit}
 .topbar-inner{max-width:940px;margin:0 auto;padding:0 16px;height:54px;display:flex;align-items:center;justify-content:space-between}
 .brand{display:flex;align-items:center;gap:9px;font-family:'Nunito',sans-serif;font-weight:900;font-size:1.1rem;color:var(--or)}
 .brand-icon{width:32px;height:32px;border-radius:10px;background:var(--or);display:flex;align-items:center;justify-content:center;font-size:1rem;box-shadow:0 2px 8px rgba(249,115,22,.35)}
-.brand-sub{font-size:.68rem;color:var(--sll);font-weight:600;letter-spacing:.3px}
 
 /* ── TABS ── */
 .tab-bar{background:var(--ca);border-bottom:1px solid var(--bo)}
@@ -51,13 +50,6 @@ body:has(#subBar:not([style*="display: none"])) .developer-card{bottom:82px}
 /* ── SESSION LIST (首頁) ── */
 .page-title{font-family:'Nunito',sans-serif;font-weight:900;font-size:1.35rem;letter-spacing:-.02em;margin-bottom:4px}
 .page-sub{font-size:.8rem;color:var(--sll);margin-bottom:18px}
-.meal-policy{background:linear-gradient(135deg,#fffbeb,#fff7ed);border:2px solid #fbbf24;border-radius:var(--rlg);padding:14px 16px;margin-bottom:16px;box-shadow:0 4px 16px rgba(217,119,6,.12)}
-.meal-policy-title{display:flex;align-items:center;gap:7px;font-size:.92rem;font-weight:900;color:#92400e;margin-bottom:8px}
-.meal-policy-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-.meal-policy-item{background:rgba(255,255,255,.82);border:1px solid #fde68a;border-radius:var(--rmd);padding:9px 11px;color:#78350f;font-size:.78rem;line-height:1.55}
-.meal-policy-item strong{display:block;font-size:.88rem;color:#b45309;margin-bottom:1px}
-.meal-policy-foot{font-size:.72rem;color:#92400e;font-weight:700;margin-top:8px}
-@media(max-width:440px){.meal-policy-grid{grid-template-columns:1fr}}
 
 .event-list{display:flex;flex-direction:column;gap:10px}
 .event-card{background:var(--ca);border:1px solid var(--bo);border-radius:var(--rlg);overflow:hidden;cursor:pointer;box-shadow:0 2px 10px rgba(15,23,42,.045);transition:border-color .18s,box-shadow .18s}
@@ -65,23 +57,11 @@ body:has(#subBar:not([style*="display: none"])) .developer-card{bottom:82px}
 .event-card.closed-card{opacity:.72;cursor:pointer}
 .ec-top{padding:14px 16px;border-bottom:1px solid var(--bos);display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
 .ec-left{flex:1}
-.ec-badges{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:7px}
-.badge{display:inline-flex;align-items:center;gap:3px;font-size:.68rem;font-weight:700;padding:2px 8px;border-radius:20px}
-.badge-open{background:var(--grl);color:var(--gr)}
-.badge-closed{background:var(--rdl);color:var(--rd)}
 .ec-title{font-weight:700;font-size:.95rem;margin-bottom:3px;color:var(--or)}
 .ec-organizer{font-size:.72rem;color:var(--sll);display:flex;align-items:center;gap:4px}
 .ec-right{align-self:stretch;text-align:right;flex-shrink:0;display:flex;align-items:flex-end;justify-content:flex-end}
 .ec-date{font-size:.72rem;font-weight:800;color:var(--sl);white-space:nowrap}
 .ec-deadline{font-size:.72rem;color:var(--rd);font-weight:700;white-space:nowrap}
-.ec-deadline-label{font-size:.65rem;color:var(--sll);margin-bottom:1px}
-.ec-bot{padding:10px 16px;background:var(--ca);border-top:1px solid var(--bos);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px}
-.ec-store{font-size:.75rem;color:var(--slm);display:flex;align-items:center;gap:4px}
-.ec-count{font-size:.75rem;font-weight:700;padding:3px 10px;border-radius:20px}
-.ec-count.ok{background:var(--grl);color:var(--gr)}
-.ec-count.warn{background:var(--aml);color:var(--am)}
-.ec-count.none{background:var(--bos);color:var(--sll)}
-.ec-arrow{color:var(--or);font-weight:700;font-size:1rem}
 .empty-events{text-align:center;padding:50px 16px;color:var(--sll)}
 .empty-events .ei{font-size:3rem;display:block;margin-bottom:10px}
 .empty-events p{font-size:.85rem;font-weight:600}
@@ -92,11 +72,6 @@ body:has(#subBar:not([style*="display: none"])) .developer-card{bottom:82px}
 .back-btn:hover{background:var(--orll);color:var(--ord);border-color:var(--or)}
 .event-info-banner{flex:1;background:var(--orl);border:1.5px solid var(--orll);border-radius:var(--rmd);padding:8px 12px;font-size:.78rem;color:var(--ord)}
 .event-info-banner strong{font-size:.85rem;display:block;margin-bottom:1px}
-.event-activity-note{margin-top:5px;padding:6px 8px;border-radius:7px;background:rgba(255,255,255,.72);color:#7c2d12;font-size:.74rem;line-height:1.55;white-space:pre-line}
-.event-order-help{margin-top:6px;padding-top:6px;border-top:1px dashed #fdba74;color:#9a3412;font-size:.72rem;line-height:1.55;font-weight:600}
-
-/* ── NOTICE ── */
-.notice{background:var(--inl);border:1.5px solid #c7d2fe;border-radius:var(--rmd);padding:10px 13px;font-size:.78rem;color:#3730a3;line-height:1.6;margin-bottom:14px;display:flex;gap:8px}
 
 /* ── ID CARD ── */
 .id-card{background:var(--ca);border:1px solid var(--bo);border-radius:var(--rlg);padding:15px 16px;margin-bottom:16px;box-shadow:none;display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
@@ -110,15 +85,11 @@ body:has(#subBar:not([style*="display: none"])) .developer-card{bottom:82px}
 .activity-note-text{white-space:pre-line;color:var(--slm);margin-top:2px}
 .order-note-box{background:#fff;border:1.5px solid var(--bo);border-radius:var(--rmd);padding:12px 14px;margin:12px 0 4px}
 .order-note-lbl{display:block;font-size:.82rem;font-weight:800;margin-bottom:6px;color:var(--sl)}
-.activity-subsidy-help{width:100%;display:flex;align-items:flex-start;gap:9px;background:#fffbeb;border:1px solid #fde68a;border-radius:var(--rmd);padding:10px 12px;color:#78350f;font-size:.75rem;line-height:1.65;margin-top:8px}
-.activity-subsidy-help strong{color:#b45309}
-.activity-subsidy-tip{color:var(--sll);font-size:.68rem;margin-top:2px}
 .inp,.sel{width:100%;border:1.5px solid var(--bo);border-radius:var(--rsm);padding:8px 10px;font-size:.85rem;color:var(--sl);background:var(--ca);outline:none;transition:border-color .18s,box-shadow .18s}
 .inp:focus,.sel:focus{border-color:var(--or);box-shadow:0 0 0 3px rgba(249,115,22,.12)}
 
 /* ── MENU ── */
 .rest-block{margin-bottom:20px}
-.rest-name{font-size:.78rem;font-weight:700;color:var(--slm);background:var(--bos);border-radius:var(--rsm);padding:5px 10px;display:inline-flex;align-items:center;gap:5px;margin-bottom:9px}
 .cat-toggle{width:100%;min-height:46px;padding:9px 11px 9px 14px;border:1px solid var(--bo);border-left:4px solid var(--or);border-radius:var(--rmd);background:var(--ca);display:flex;align-items:center;justify-content:space-between;gap:10px;text-align:left;box-shadow:none;transition:border-color .18s,box-shadow .18s}
 .cat-toggle:hover{border-color:#fdba74;box-shadow:0 4px 14px rgba(15,23,42,.06)}
 .cat-toggle:focus-visible{outline:3px solid rgba(249,115,22,.28);outline-offset:2px}
@@ -196,23 +167,6 @@ body:has(#subBar:not([style*="display: none"])) .developer-card{bottom:82px}
 .sub-btn:hover{background:var(--ord);transform:translateY(-1px)}
 .sub-btn:disabled{background:var(--sll);box-shadow:none;cursor:not-allowed;transform:none}
 
-/* ── RECORDS ── */
-.rec-card{background:var(--ca);border:1px solid var(--bo);border-radius:var(--rlg);padding:13px 15px;margin-bottom:10px;box-shadow:var(--shsm);position:relative}
-.rec-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:7px;padding-right:26px;gap:8px}
-.rec-title{font-weight:700;font-size:.88rem}
-.rec-organizer{font-size:.7rem;color:var(--sll);margin-top:1px}
-.rec-badge{font-size:.66rem;font-weight:700;padding:2px 9px;border-radius:20px;white-space:nowrap;background:var(--aml);color:var(--am)}
-.rec-lines{font-size:.8rem;color:var(--slm);line-height:1.75;margin-bottom:7px}
-.rec-foot{display:flex;justify-content:space-between;align-items:center;padding-top:8px;border-top:1px solid var(--bos);font-size:.85rem;font-weight:700}
-.rec-price{color:var(--or);font-family:'Nunito',sans-serif}
-.rec-del{position:absolute;top:11px;right:11px;color:var(--sll);padding:3px;border-radius:4px;font-size:.85rem}
-.rec-del:hover{color:var(--rd);background:var(--rdl)}
-.del-cfm{position:absolute;top:8px;right:8px;background:var(--ca);border:1.5px solid var(--bo);border-radius:var(--rsm);padding:8px 10px;box-shadow:var(--shmd);z-index:10;min-width:158px}
-.del-cfm p{font-size:.7rem;color:var(--rd);font-weight:700;margin-bottom:6px}
-.del-cfm-btns{display:flex;gap:5px}
-.dcb-k{font-size:.7rem;padding:3px 9px;border-radius:6px;border:1.5px solid var(--bo);background:var(--bos);color:var(--slm)}
-.dcb-d{font-size:.7rem;padding:3px 9px;border-radius:6px;background:var(--rd);color:#fff}
-
 /* ── ADMIN ── */
 .panel{background:var(--ca);border:1px solid var(--bo);border-radius:var(--rlg);margin-bottom:13px;overflow:hidden;box-shadow:var(--shsm)}
 .panel-head{padding:11px 15px;border-bottom:1px solid var(--bos);display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
@@ -223,14 +177,6 @@ body:has(#subBar:not([style*="display: none"])) .developer-card{bottom:82px}
 .stat-box{background:var(--ca);border:1px solid var(--bo);border-radius:var(--rmd);padding:13px;text-align:center;box-shadow:var(--shsm)}
 .stat-n{font-family:'Nunito',sans-serif;font-weight:900;font-size:1.55rem;line-height:1;margin-bottom:2px}
 .stat-l{font-size:.68rem;color:var(--sll);font-weight:600}
-.k-row{display:flex;justify-content:space-between;align-items:center;padding:10px 15px;border-bottom:1px solid var(--bos)}
-.k-row:last-child{border:none}
-.k-item{font-weight:700;font-size:.88rem}
-.k-spec{font-size:.7rem;color:var(--sll);margin-top:1px}
-.k-qty{font-family:'Nunito',sans-serif;font-weight:900;font-size:1.35rem;color:var(--or)}
-.k-sub{font-size:.7rem;color:var(--sll)}
-.bar-wrap{height:4px;background:var(--bos);border-radius:2px;overflow:hidden;margin-top:4px}
-.bar-fill{height:100%;border-radius:2px;background:var(--or)}
 .exp-row{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:13px}
 .exp-btn{padding:7px 14px;border-radius:var(--rsm);border:1.5px solid var(--bo);background:var(--ca);font-size:.75rem;font-weight:700;color:var(--slm);display:flex;align-items:center;gap:4px;transition:all .18s;box-shadow:var(--shsm)}
 .exp-btn:hover{border-color:var(--sl);color:var(--sl)}
@@ -242,10 +188,6 @@ body:has(#subBar:not([style*="display: none"])) .developer-card{bottom:82px}
 .check-input{width:20px;height:20px;accent-color:var(--gr);cursor:pointer;vertical-align:middle}
 .atbl tr.is-checked td,.order-summary-item.is-checked{background:#f0fdf4}
 .atbl tr.is-checked td:not(:last-child){color:#64748b}
-
-/* 場次管理卡片 */
-.ev-mgmt-card{background:var(--bos);border:1.5px solid var(--bo);border-radius:var(--rmd);padding:14px;margin-bottom:10px;position:relative}
-.ev-mgmt-title{font-weight:700;font-size:.88rem;margin-bottom:10px;display:flex;align-items:center;gap:7px}
 .ev-mgmt-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
 @media(max-width:480px){.ev-mgmt-grid{grid-template-columns:1fr}}
 .mg-inp{border:1.5px solid var(--bo);border-radius:6px;padding:6px 9px;font-size:.82rem;outline:none;background:var(--ca);transition:border-color .18s;width:100%}
@@ -264,9 +206,7 @@ body:has(#subBar:not([style*="display: none"])) .developer-card{bottom:82px}
 .oi-note.is-missing{background:#fef2f2;color:#dc2626}
 .mg-lbl{font-size:.68rem;font-weight:700;color:var(--sll);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:3px}
 .mgmt-item-row{display:flex;gap:6px;align-items:center;flex-wrap:wrap;background:var(--ca);border-radius:6px;padding:7px 8px;margin-bottom:5px}
-.mi-em{width:46px;text-align:center}
 .mi-rest{width:120px}
-.mi-name{flex:1;min-width:90px}
 .mi-price{width:64px}
 
 /* ── BTNS ── */
@@ -309,14 +249,10 @@ body:has(#subBar:not([style*="display: none"])) .developer-card{bottom:82px}
 .toast.ok{background:var(--gr)}.toast.err{background:var(--rd)}.toast.warn{background:var(--am)}
 @keyframes tin{from{transform:translateX(110%);opacity:0}to{transform:translateX(0);opacity:1}}
 @keyframes tout{to{transform:translateX(110%);opacity:0}}
-
-/* ── MISC ── */
-.divider{border:none;border-top:1px solid var(--bo);margin:12px 0}
 .fbe{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:7px}
 .empty{text-align:center;padding:38px 12px;color:var(--sll)}
 .empty .ei{font-size:2.8rem;display:block;margin-bottom:9px}
 .empty p{font-size:.82rem;font-weight:600}
-.tag{display:inline-block;font-size:.68rem;font-weight:700;padding:2px 8px;border-radius:20px}
 .upload-zone{border:2px dashed var(--bo);border-radius:var(--rlg);padding:18px;text-align:center;cursor:pointer;background:var(--ca);transition:all .2s;position:relative;overflow:hidden}
 .upload-zone:hover{border-color:var(--in);background:var(--inl)}
 .upload-sub{font-size:.72rem;color:var(--sll);margin-top:4px}
@@ -426,14 +362,6 @@ body:has(#subBar:not([style*="display: none"])) .developer-card{bottom:82px}
     <div class="sheet-title" id="sheetTitle"></div>
     <div id="sheetBody"></div>
     <button class="btn btn-or btn-full" style="margin-top:12px" onclick="confirmSpec()">加入清單</button>
-  </div>
-</div>
-
-<!-- Combo Sheet -->
-<div class="overlay" id="comboOverlay" style="display:none" onclick="if(event.target===this)closeCombo()">
-  <div class="sheet" style="max-height:85vh">
-    <div class="sheet-handle"></div>
-    <div id="comboSheetContent"></div>
   </div>
 </div>
 
@@ -5208,13 +5136,6 @@ let S = {
   menuSearchQ:'',    // 菜單搜尋關鍵字
   collapsedCats:{},   // 收縮的分類 {cat: true/false}
   flavorPick:{},      // 同主菜多口味卡片目前選的口味 {groupKey: itemId}
-  // 套餐組合 sheet
-  comboStep:null,     // null | 'side' | 'drink'
-  comboMain:null,     // 選定的主餐 item
-  comboSides:[],      // 已選配餐 [{item,specs}]
-  comboDrinks:[],     // 已選飲料 [{item,specs}]
-  comboSpecItem:null, // 在套餐 sheet 裡選規格的品項
-  comboSpecSel:{},
   cart:{},
   specItem:null, specSel:{}, specQty:1, specNote:'',
   myName:'', myClass:'',
@@ -5629,9 +5550,6 @@ function isEventExpired(ev,now=Date.now()){
 function isOrderingClosed(ev){
   return isEventClosed(ev)||isEventExpired(ev);
 }
-function fmtDeadline(ev){
-  return{text:'開放中',cls:'badge-open'};
-}
 function fmtEventDate(dateStr){
   if(!dateStr) return '';
   const [y,m,d]=String(dateStr).split('-').map(Number);
@@ -5649,13 +5567,6 @@ function getDeadlineInputValue(ev){
   const date=ev?.deadline_date||ev?.date||'';
   const time=String(ev?.deadline||'23:59').slice(0,5);
   return date?`${date}T${time}`:'';
-}
-function updateDeadlineDateTime(value){
-  const ev=S.menuDraft||S.events.find(event=>event.id===S.adminEid);
-  if(!ev||!value) return;
-  const [date,time]=String(value).split('T');
-  ev.deadline_date=date||ev.date||'';
-  ev.deadline=time||'23:59';
 }
 
 /* ── 截止時間選擇器：日期＋「時」「分」下拉選單 ──
@@ -5932,7 +5843,6 @@ function renderOrderPage(){
   if(S.sharedEventMode) html+=closedNotice+submittedNotice;
 
 
-
   // 菜單品項 — 按分類顯示
   const CAT_ORDER=['便當','點心','飲料','其他'];
   const CAT_ICON={'便當':'🍱','飲料':'🧋','點心':'🍰','其他':'🍽️'};
@@ -6134,368 +6044,7 @@ function renderFlavorGroupCard(group,cat){
 }
 
 /* ── CART OPS ── */
-function filterMenu(val){
-  S.menuSearchQ=val||'';
-  const q=(val||'').trim().toLowerCase();
-  // 直接操控 DOM，不重繪頁面，不打斷輸入法
-  document.querySelectorAll('.m-card').forEach(card=>{
-    const name=(card.querySelector('.m-name')?.textContent||'').toLowerCase();
-    const desc=(card.querySelector('.m-desc')?.textContent||'').toLowerCase();
-    const extra=(card.dataset.search||'').toLowerCase();
-    card.style.display=(!q||name.includes(q)||desc.includes(q)||extra.includes(q))?'':'none';
-  });
-  // 隱藏空分類
-  document.querySelectorAll('.rest-block').forEach(block=>{
-    const visible=[...block.querySelectorAll('.m-card')].some(c=>c.style.display!=='none');
-    block.style.display=visible?'':'none';
-  });
-  // 空結果提示
-  let noResult=document.getElementById('searchEmpty');
-  const anyVisible=[...document.querySelectorAll('.m-card')].some(c=>c.style.display!=='none');
-  if(q && !anyVisible){
-    if(!noResult){
-      noResult=document.createElement('div');
-      noResult.id='searchEmpty';
-      noResult.className='empty';
-      noResult.innerHTML='<span class="ei">🔍</span><p>找不到「'+(S.menuSearchQ||q)+'」相關餐點</p>';
-      const menuArea=document.querySelector('.rest-block')?.parentNode||document.getElementById('main');
-      if(menuArea) menuArea.appendChild(noResult);
-    }
-  } else {
-    noResult?.remove();
-  }
-}
 
-
-/* ══════════════════════════════════
-   套餐組合流程
-══════════════════════════════════ */
-function startCombo(id){
-  const ev=S.events.find(e=>e.id===S.activeEventId);
-  if(isOrderingClosed(ev)){toast('此場次已截止','err');return;}
-  const item=(S.items[S.activeEventId]||[]).find(i=>i.id===id);
-  if(!item) return;
-  // 有規格的主餐先選規格，選完再進套餐流程
-  if(item.specs&&item.specs.length>0){
-    S.specItem=item; S.specSel={}; S.specQty=1; S.specNote=''; resetSugarIceSelection();
-    S.specSel=createInitialSpecSelection(item);
-    S.specItem._comboMode=true;  // 標記為套餐模式
-    renderSheet();
-    document.getElementById('specOverlay').style.display='flex';
-    // 修改確認按鈕文字
-    const btn=document.getElementById('specOverlay').querySelector('.btn-or');
-    if(btn) btn.textContent='確認主餐，繼續選配餐 →';
-    return;
-  }
-  // 無規格直接開套餐流程，從主餐頁開始
-  S.comboMain=null;
-  S.comboSides=[]; S.comboDrinks=[];
-  S.comboStep='main';
-  // 預設選中這個品項
-  S.comboMain={item, specsStr:'', qty:1, note:''};
-  renderComboSheet();
-  document.getElementById('comboOverlay').style.display='flex';
-}
-
-function renderComboSheet(){
-  const el=document.getElementById('comboSheetContent');
-  if(!el) return;
-  const items=S.items[S.activeEventId]||[];
-  const mainItems=items.filter(i=>i.category==='便當');
-  const sideItems=items.filter(i=>i.category==='點心');
-  const drinkItems=items.filter(i=>i.category==='飲料');
-  // 判斷是否為速食（有配餐品項）→ 三頁；否則兩頁
-  const isFastFood=sideItems.length>0;
-
-  // 步驟指示器
-  const steps=isFastFood?['主餐','配餐','飲料']:['主餐','飲料'];
-  const stepIdx=isFastFood
-    ?{main:0,side:1,drink:2}[S.comboStep]||0
-    :{main:0,drink:1}[S.comboStep]||0;
-
-  let html=`<div style="display:flex;align-items:center;gap:0;margin-bottom:14px">`;
-  steps.forEach((s,i)=>{
-    const active=i===stepIdx, done=i<stepIdx;
-    const bg=active?'var(--or)':(done?'var(--gr)':'var(--bo)');
-    const fg=(active||done)?'#fff':'var(--sll)';
-    const lbl=active?'var(--or)':(done?'var(--gr)':'var(--sll)');
-    const fw=active?700:400;
-    html+='<div style="flex:1;text-align:center">'
-      +'<div style="width:28px;height:28px;border-radius:50%;margin:0 auto 3px;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;background:'+bg+';color:'+fg+'">'+(done?'✓':(i+1))+'</div>'
-      +'<div style="font-size:.68rem;font-weight:'+fw+';color:'+lbl+'">'+s+'</div>'
-      +'</div>';
-    if(i<steps.length-1) html+=`<div style="flex:0 0 20px;height:2px;background:${done?'var(--gr)':'var(--bo)'};margin-bottom:14px"></div>`;
-  });
-  html+=`</div>`;
-
-  if(S.comboStep==='main'){
-    html+=`<div class="sheet-title">🍔 選主餐</div>`;
-    if(!mainItems.length){
-      html+=`<div style="font-size:.8rem;color:var(--sll);text-align:center;padding:16px">此場次無主餐品項</div>`;
-    } else {
-      html+=`<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">`;
-      mainItems.forEach(item=>{
-        const sel=S.comboMain&&S.comboMain.item.id===item.id;
-        html+=`<div onclick="selectComboMain('${item.id}')"
-          style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border:2px solid ${sel?'var(--or)':'var(--bo)'};border-radius:var(--rmd);background:${sel?'var(--orl)':'var(--ca)'};cursor:pointer">
-          <div style="flex:1">
-            <span style="font-weight:600;font-size:.9rem">${esc(item.name)}</span>
-            ${item.description?`<div style="font-size:.72rem;color:var(--sll);margin-top:2px">${esc(item.description)}</div>`:''}
-          </div>
-          <div style="text-align:right;flex-shrink:0;margin-left:8px">
-            ${item.price>0?`<div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:.95rem;color:var(--or)">$${item.price}</div>`:''}
-            <div style="width:22px;height:22px;border-radius:50%;border:2px solid ${sel?'var(--or)':'var(--bo)'};background:${sel?'var(--or)':'transparent'};display:flex;align-items:center;justify-content:center;font-size:.75rem;color:#fff;margin-top:3px;margin-left:auto">${sel?'✓':''}</div>
-          </div>
-        </div>`;
-      });
-      html+=`</div>`;
-    }
-    html+=`<button class="btn btn-or btn-full" ${!S.comboMain?'disabled':''}
-      onclick="S.comboStep=(S.items[S.activeEventId]||[]).filter(i=>i.category==='點心').length?'side':'drink';renderComboSheet()"
-      style="${!S.comboMain?'opacity:.5':''}"
-    >${isFastFood?'下一步：選配餐 →':'下一步：選飲料 →'}</button>
-    <button class="btn btn-out btn-full" style="margin-top:7px" onclick="closeCombo()">取消</button>`;
-
-  } else if(S.comboStep==='side'){
-    html+=`<div class="sheet-title">🍟 加配餐？<span style="font-size:.75rem;color:var(--sll);font-weight:400;margin-left:6px">可多選，或直接跳過</span></div>`;
-    // 主餐摘要
-    if(S.comboMain) html+=`<div style="background:var(--orl);border-radius:var(--rsm);padding:7px 11px;margin-bottom:11px;font-size:.8rem;color:var(--ord)">✅ 主餐：${esc(S.comboMain.item.name)}</div>`;
-    if(!sideItems.length){
-      html+=`<div style="font-size:.8rem;color:var(--sll);text-align:center;padding:16px">此場次無配餐品項</div>`;
-    } else {
-      html+=`<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px">`;
-      sideItems.forEach(item=>{
-        const sel=S.comboSides.find(s=>s.item.id===item.id);
-        html+=`<div onclick="toggleComboItem('side','${item.id}')"
-          style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border:1.5px solid ${sel?'var(--or)':'var(--bo)'};border-radius:var(--rmd);background:${sel?'var(--orl)':'var(--ca)'};cursor:pointer">
-          <div><span style="font-weight:600;font-size:.88rem">${esc(item.name)}</span>
-            ${item.price>0?`<span style="color:var(--or);font-weight:700;font-size:.82rem;margin-left:6px">$${item.price}</span>`:''}
-          </div>
-          <div style="width:22px;height:22px;border-radius:50%;border:2px solid ${sel?'var(--or)':'var(--bo)'};background:${sel?'var(--or)':'transparent'};display:flex;align-items:center;justify-content:center;font-size:.75rem;color:#fff;flex-shrink:0">${sel?'✓':''}</div>
-        </div>`;
-      });
-      html+=`</div>`;
-    }
-    if(S.comboSides.length) html+=`<div style="font-size:.75rem;color:var(--gr);margin-bottom:9px">已選：${S.comboSides.map(s=>s.item.name).join('、')}</div>`;
-    html+=`<div style="display:flex;gap:7px">
-      <button class="btn btn-out" onclick="S.comboStep='main';renderComboSheet()">← 返回</button>
-      <button class="btn btn-or btn-full" onclick="S.comboStep='drink';renderComboSheet()">下一步：選飲料 →</button>
-    </div>`;
-
-  } else if(S.comboStep==='drink'){
-    html+=`<div class="sheet-title">🧋 加飲料？<span style="font-size:.75rem;color:var(--sll);font-weight:400;margin-left:6px">可多選，或直接完成</span></div>`;
-    // 摘要
-    const sideNames=S.comboSides.map(s=>s.item.name).join('、');
-    html+=`<div style="background:var(--orl);border-radius:var(--rsm);padding:7px 11px;margin-bottom:11px;font-size:.78rem;color:var(--ord);line-height:1.7">`;
-    if(S.comboMain) html+=`✅ ${esc(S.comboMain.item.name)}<br>`;
-    if(sideNames) html+=`🍟 ${sideNames}<br>`;
-    html+=`</div>`;
-    if(!drinkItems.length){
-      html+=`<div style="font-size:.8rem;color:var(--sll);text-align:center;padding:16px">此場次無飲料品項</div>`;
-    } else {
-      html+=`<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px">`;
-      drinkItems.forEach(item=>{
-        const sel=S.comboDrinks.find(d=>d.item.id===item.id);
-        html+=`<div onclick="toggleComboItem('drink','${item.id}')"
-          style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border:1.5px solid ${sel?'var(--or)':'var(--bo)'};border-radius:var(--rmd);background:${sel?'var(--orl)':'var(--ca)'};cursor:pointer">
-          <div><span style="font-weight:600;font-size:.88rem">${esc(item.name)}</span>
-            ${item.price>0?`<span style="color:var(--or);font-weight:700;font-size:.82rem;margin-left:6px">$${item.price}</span>`:''}
-            ${needsSugarIce(item)?`<span style="font-size:.65rem;color:${isBentoStoreDrink(item)?'var(--in)':'var(--rd)'};margin-left:4px">${isBentoStoreDrink(item)?'可選不選擇糖冰':'甜度冰塊必選'}</span>`:''}
-            ${sel?.note?`<div style="font-size:.68rem;color:var(--ord);margin:3px 0 0 30px">${esc(sel.note)}</div>`:''}
-          </div>
-          <div style="width:22px;height:22px;border-radius:50%;border:2px solid ${sel?'var(--or)':'var(--bo)'};background:${sel?'var(--or)':'transparent'};display:flex;align-items:center;justify-content:center;font-size:.75rem;color:#fff;flex-shrink:0">${sel?'✓':''}</div>
-        </div>`;
-      });
-      html+=`</div>`;
-    }
-    // 小計
-    const total=(S.comboMain?S.comboMain.item.price||0:0)+
-      S.comboSides.reduce((s,x)=>s+(x.item.price||0),0)+
-      S.comboDrinks.reduce((s,x)=>s+(x.item.price||0),0);
-    if(total>0) html+=`<div style="text-align:right;font-family:'Nunito',sans-serif;font-weight:800;font-size:.95rem;color:var(--or);margin-bottom:9px">小計 $${total}</div>`;
-    html+=`<div style="display:flex;gap:7px">
-      <button class="btn btn-out" onclick="S.comboStep=(S.items[S.activeEventId]||[]).filter(i=>i.category==='點心').length?'side':'main';renderComboSheet()">← 返回</button>
-      <button class="btn btn-or btn-full" onclick="confirmCombo()">✅ 加入清單</button>
-    </div>`;
-  }
-
-  el.innerHTML=html;
-}
-
-function selectComboMain(id){
-  const items=S.items[S.activeEventId]||[];
-  const item=items.find(i=>i.id===id);
-  if(!item) return;
-  if(item.specs&&item.specs.length){
-    // 有規格彈出選規格，之後再設定 comboMain
-    S.specItem=item; S.specSel={}; S.specQty=1; S.specNote=''; resetSugarIceSelection();
-    S.specSel=createInitialSpecSelection(item);
-    S.specItem._comboMode=true;
-    renderSheet();
-    document.getElementById('comboOverlay').style.display='none';
-    document.getElementById('specOverlay').style.display='flex';
-    const btn=document.getElementById('specOverlay').querySelector('.btn-or');
-    if(btn) btn.textContent='確認，繼續選配餐 →';
-    return;
-  }
-  S.comboMain={item, specsStr:'', qty:1, note:''};
-  renderComboSheet();
-}
-
-function toggleComboItem(type, id){
-  const items=S.items[S.activeEventId]||[];
-  const item=items.find(i=>i.id===id);
-  if(!item) return;
-  const arr=type==='side'?S.comboSides:S.comboDrinks;
-  const idx=arr.findIndex(x=>x.item.id===id);
-  if(idx>=0){
-    // 已選 → 取消
-    arr.splice(idx,1);
-    renderComboSheet();
-  } else {
-    // 有規格 → 彈出規格 mini-picker
-    if((item.specs&&item.specs.length)||item.category==='飲料'){
-      showComboSpecPicker(type, item, arr);
-    } else {
-      arr.push({item, specsStr:''});
-      renderComboSheet();
-    }
-  }
-}
-
-function showComboSpecPicker(type, item, arr){
-  // 在 comboSheetContent 裡疊加一個規格選擇層
-  const specSel=createInitialSpecSelection(item);
-  window.comboSpecSel=specSel;
-  window.comboSpecNote='';
-
-  function buildPickerHTML(){
-    let h=`<div style="position:absolute;inset:0;background:rgba(255,255,255,.97);border-radius:var(--rxl);padding:18px;z-index:10;display:flex;flex-direction:column">
-      <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:1rem;border-left:4px solid var(--or);padding-left:9px;margin-bottom:14px">${esc(item.name)}${item.price>0?' <span style=\"color:var(--or)\">$'+item.price+'</span>':''}</div>`;
-    (item.specs||[]).forEach(sp=>{
-      const multi=isMultiAddonSpec(sp.cat,item);
-      h+=`<div style="margin-bottom:12px"><div style="font-size:.68rem;font-weight:700;color:var(--sll);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">${esc(sp.cat)}</div>
-        <div style="display:flex;flex-wrap:wrap;gap:5px">`;
-      getSpecOptions(sp,item).forEach(o=>{
-        const on=multi?(specSel[sp.cat]||[]).includes(o):specSel[sp.cat]===o;
-        h+=`<button class="spec-opt${on?' on':''}" data-combo-cat="${esc(sp.cat)}" data-combo-opt="${esc(o)}" aria-pressed="${on}" onclick="selectComboSpecOption(this,${multi})">${esc(o)}</button>`;
-      });
-      h+=`</div></div>`;
-      if(multi) h+=`<div style="font-size:.66rem;color:var(--sll);margin:-8px 0 12px">可複選，再點一次可取消</div>`;
-    });
-    if(needsSugarIce(item)){
-      const canSkipSugarIce=isBentoStoreDrink(item);
-      h+=`<div style="margin-bottom:12px"><div style="font-size:.68rem;font-weight:800;color:var(--rd);margin-bottom:6px">甜度冰塊（請填寫或選擇）</div>
-        ${canSkipSugarIce?`<button type="button" class="spec-opt" data-no-sugar-ice onclick="window.comboSpecNote='不選擇糖冰';this.parentElement.querySelector('textarea').value='不選擇糖冰';this.classList.add('on')" style="margin-bottom:6px">不選擇糖冰</button>`:''}
-        <textarea class="note-inp" rows="2" aria-required="true" placeholder="例如：微糖微冰" oninput="window.comboSpecNote=this.value;this.parentElement.querySelector('[data-no-sugar-ice]')?.classList.toggle('on',this.value.trim()==='不選擇糖冰')" style="border-color:#f59e0b"></textarea></div>`;
-    }
-    h+=`<div id="comboSpecPreview">${renderComboSpecPreview()}</div>
-      <div style="display:flex;gap:7px;margin-top:auto;padding-top:12px">
-        <button class="btn btn-out" onclick="this.closest('[style*=absolute]').remove()">取消</button>
-        <button class="btn btn-or btn-full" onclick="confirmComboSpec()">確認加入</button>
-      </div>
-    </div>`;
-    return h;
-  }
-
-  // 把規格選擇疊在 sheet 上面
-  const sheet=document.querySelector('#comboOverlay .sheet');
-  if(!sheet) return;
-  sheet.style.position='relative';
-  const picker=document.createElement('div');
-  picker.innerHTML=buildPickerHTML();
-  sheet.appendChild(picker.firstChild);
-
-  // 全域暫存
-  window.selectComboSpecOption=function(btn,multi){
-    const cat=btn.dataset.comboCat;
-    const opt=btn.dataset.comboOpt;
-    if(multi){
-      let selected=Array.isArray(window.comboSpecSel[cat])?[...window.comboSpecSel[cat]]:[];
-      if(isEmptyAddonOption(opt)){
-        selected=selected.includes(opt)?[]:[opt];
-      }else{
-        selected=selected.filter(value=>!isEmptyAddonOption(value));
-        const index=selected.indexOf(opt);
-        if(index>=0) selected.splice(index,1); else selected.push(opt);
-      }
-      window.comboSpecSel[cat]=selected;
-      btn.classList.toggle('on',selected.includes(opt));
-      btn.setAttribute('aria-pressed',String(selected.includes(opt)));
-    }else{
-      window.comboSpecSel[cat]=opt;
-      document.querySelectorAll('#comboOverlay [data-combo-cat]').forEach(el=>{
-        if(el.dataset.comboCat!==cat) return;
-        const on=el.dataset.comboOpt===opt;
-        el.classList.toggle('on',on);
-        el.setAttribute('aria-pressed',String(on));
-      });
-    }
-    const preview=document.getElementById('comboSpecPreview');
-    if(preview) preview.innerHTML=renderComboSpecPreview();
-  };
-  window.confirmComboSpec=function(){
-    const comboNote=String(window.comboSpecNote||'').trim();
-    if(needsSugarIce(item)&&!comboNote){
-      toast(isBentoStoreDrink(item)?'請填寫飲料甜度冰塊，或選擇「不選擇糖冰」':'請填寫飲料甜度冰塊，不能只輸入空格','warn');
-      document.querySelector('#comboOverlay .note-inp')?.focus();
-      return;
-    }
-    const specsStr=formatSpecSelections(window.comboSpecSel);
-    const finalPrice=calcSpecPrice(item,window.comboSpecSel);
-    arr.push({item:{...item,price:finalPrice}, specsStr, note:comboNote});
-    const el=document.querySelector('#comboOverlay .sheet [style*="absolute"]');
-    if(el) el.remove();
-    renderComboSheet();
-  };
-  window.renderComboSpecPreview=renderComboSpecPreview;
-  function renderComboSpecPreview(){
-    const selections=formatSpecSelections(window.comboSpecSel||specSel)||'尚未選擇加料';
-    const price=calcSpecPrice(item,window.comboSpecSel||specSel);
-    return '<div style="font-size:.75rem;color:var(--gr);margin-top:4px">已選：'+esc(selections)+' · $'+price+'</div>';
-  };
-}
-
-async function confirmCombo(){
-  const ev=S.events.find(e=>e.id===S.activeEventId);
-  if(isOrderingClosed(ev)){toast('此場次已截止','err');return;}
-  if(!S.comboMain){toast('請先選擇主餐','warn');return;}
-  const comboItems=[S.comboMain.item,...S.comboSides.map(x=>x.item),...S.comboDrinks.map(x=>x.item)];
-  const comboGroups={};
-  comboItems.forEach(item=>{
-    if(!getSubsidyLimit(item)) return;
-    const key=getStoreCategoryKey(item);
-    if(!comboGroups[key]) comboGroups[key]={item,addedTotal:0};
-    comboGroups[key].addedTotal+=Number(item.price)||0;
-  });
-  const overageLines=Object.values(comboGroups).map(g=>getStoreTotalNotice(g.item,g.addedTotal)).filter(Boolean);
-  if(overageLines.length && !(await showOverageNotice(overageLines))) return;
-  // 加入主餐
-  const mainKey=S.comboMain.item.id+'__'+S.comboMain.specsStr+'__'+Date.now();
-  S.cart[mainKey]={itemId:S.comboMain.item.id,name:S.comboMain.item.name,emoji:S.comboMain.item.emoji,
-    category:S.comboMain.item.category,qty:S.comboMain.qty,price:S.comboMain.item.price,specsStr:S.comboMain.specsStr,note:S.comboMain.note||''};
-  // 加入配餐
-  S.comboSides.forEach((s,i)=>{
-    const k=s.item.id+'__'+s.specsStr+'__'+(Date.now()+i+1);
-    S.cart[k]={itemId:s.item.id,name:s.item.name,emoji:s.item.emoji,category:s.item.category,qty:1,price:s.item.price,specsStr:s.specsStr,note:s.note||''};
-  });
-  // 加入飲料
-  S.comboDrinks.forEach((d,i)=>{
-    const k=d.item.id+'__'+d.specsStr+'__'+(Date.now()+i+100);
-    S.cart[k]={itemId:d.item.id,name:d.item.name,emoji:d.item.emoji,category:d.item.category,qty:1,price:d.item.price,specsStr:d.specsStr,note:d.note||''};
-  });
-  closeCombo();
-  const total=(S.comboMain.item.price||0)+
-    S.comboSides.reduce((s,x)=>s+(x.item.price||0),0)+
-    S.comboDrinks.reduce((s,x)=>s+(x.item.price||0),0);
-  toast(`已加入 ${1+S.comboSides.length+S.comboDrinks.length} 項${total>0?' ($'+total+')':''}` ,'ok');
-  render();
-}
-
-function closeCombo(){
-  document.getElementById('comboOverlay').style.display='none';
-  S.comboStep=null; S.comboMain=null; S.comboSides=[]; S.comboDrinks=[];
-}
 
 // 補助規則（同一家店累計）：
 //   一般店家：「便當＋點心」合併、飲料另外算；預設 120 元／40 元，每個場次可在後台改金額
@@ -6903,17 +6452,6 @@ async function confirmSpec(){
   // 沒標價的加料也可以選，先以 $0 計算，紀錄上標示「待補價」，之後由承辦人補收
   const specsStr=formatSpecSelections(S.specSel);
   const finalPrice=calcSpecPrice(item, S.specSel);  // 用規格動態價格
-  // 套餐模式
-  if(item._comboMode){
-    item._comboMode=false;
-    closeSpec();
-    S.comboMain={item:{...item,price:finalPrice}, specsStr, qty:S.specQty, note:S.specNote};
-    S.comboSides=[]; S.comboDrinks=[];
-    S.comboStep='side';
-    renderComboSheet();
-    document.getElementById('comboOverlay').style.display='flex';
-    return;
-  }
   const notices=[getStoreTotalNotice(item,finalPrice*S.specQty)].filter(Boolean);
   if(notices.length && !(await showOverageNotice(notices))) return;
   const key=item.id+'__'+specsStr+'__'+Date.now();
@@ -6957,12 +6495,6 @@ function groupOrderItems(items){
     grouped.get(key).quantity+=Number(item.quantity)||0;
   });
   return [...grouped.values()];
-}
-// 從菜單找回品項分類，用來判斷是不是飲料（甜度冰塊存在品項備註 note 裡）
-function isDrinkOrderItem(item,menuId=S.adminEid){
-  const menuItem=(S.items[menuId]||[]).find(m=>m.id===item.item_id)
-    ||(S.items[menuId]||[]).find(m=>m.name===item.item_name);
-  return menuItem?.category==='飲料';
 }
 function orderItemNeedsSugarIce(item,menuId=S.adminEid){
   const menuItem=(S.items[menuId]||[]).find(m=>m.id===item.item_id)
@@ -7146,59 +6678,6 @@ async function submitOrder(){
 }
 
 /* ═══ RECORDS ═══ */
-function renderRec(){
-  let html=`<div class="id-card" style="margin-bottom:14px">
-    <div class="fld"><label>查詢姓名</label><input class="inp" id="qName" placeholder="輸入姓名" value="${esc(S.myName)}"></div>
-    <div class="fld"><label>班級</label>
-      <select class="sel" id="qClass"><option value="">所有班級</option>
-        ${CLASSES.map(c=>`<option value="${c}"${S.myClass===c?' selected':''}>${c}</option>`).join('')}
-      </select>
-    </div>
-    <button class="btn btn-or" onclick="doQuery()">查詢</button>
-  </div>`;
-  if(S.myRecs===null) return html+'<div class="empty"><span class="ei">🔍</span><p>輸入姓名查詢點餐紀錄</p></div>';
-  if(!S.myRecs.length) return html+'<div class="empty"><span class="ei">📭</span><p>查無紀錄</p></div>';
-  S.myRecs.forEach(({ev,o})=>{
-    const isC=S.delId===o.id;
-    html+=`<div class="rec-card">
-      ${isC?`<div class="del-cfm"><p>確定要取消此筆？</p><div class="del-cfm-btns"><button class="dcb-k" onclick="S.delId=null;render()">保留</button><button class="dcb-d" onclick="doDelete('${o.id}','${ev.id}')">確認取消</button></div></div>`
-           :`<button class="rec-del" onclick="S.delId='${o.id}';render()">✕</button>`}
-      <div class="rec-top">
-        <div>
-          <div class="rec-title">${esc(ev.title)}</div>
-          <div class="rec-organizer">${ev.organizer?`負責老師：${esc(ev.organizer)}　`:''}${esc(o.class_name)} · ${fmtTime(o.created_at)}</div>
-        </div>
-        <span class="rec-badge">已登記</span>
-      </div>
-      <div class="rec-lines">${(o.order_items||[]).map(oi=>`${esc(oi.item_name)}${oi.specs_str?` (${esc(oi.specs_str)})`:''} × ${oi.quantity}${oi.note?` — ${esc(oi.note)}`:''}`).join('<br>')}</div>
-      ${o.note?`<div style="font-size:.72rem;color:var(--sll);margin-bottom:6px">備註：${esc(o.note)}</div>`:''}
-      <div class="rec-foot"><span>合計</span><span class="rec-price">${o.total>0?'$'+o.total:'（詢價）'}</span></div>
-    </div>`;
-  });
-  return html;
-}
-function doQuery(){
-  const name=document.getElementById('qName')?.value.trim()||'';
-  const cls=document.getElementById('qClass')?.value||'';
-  S.myName=name; S.myClass=cls;
-  const results=[];
-  S.events.forEach(ev=>{
-    const ords=S.orders[ev.id]||[];
-    ords.forEach(o=>{
-      if(name&&!o.user_name.includes(name)) return;
-      if(cls&&o.class_name!==cls) return;
-      results.push({ev,o});
-    });
-  });
-  S.myRecs=results; render();
-}
-async function doDelete(id,menuId){
-  const{error}=await dbDeleteOrder(id,menuId);
-  if(error){toast('刪除失敗','err');return;}
-  S.delId=null;
-  S.myRecs=(S.myRecs||[]).filter(r=>r.o.id!==id);
-  toast('已取消點餐紀錄','ok'); render();
-}
 
 /* ═══ ADMIN ═══ */
 function setAdminView(view){
@@ -7866,19 +7345,7 @@ function pickOrganizer(btn, name){
     b.className='btn btn-sm '+(b.textContent.trim()===name?'btn-or':'btn-out');
   });
 }
-function setOrganizer(eid,name){
-  const ev=S.events.find(e=>e.id===eid);
-  if(ev) ev.organizer=name;
-  render();
-}
 
-async function toggleClose(eid){
-  const ev=S.events.find(e=>e.id===eid); if(!ev) return;
-  const next=!ev.is_closed;
-  if(DEMO){ev.is_closed=next;toast(next?'已關閉':'已開放',next?'warn':'ok');render();return;}
-  await sb.from('menus').update({is_closed:next}).eq('id',eid);
-  ev.is_closed=next; toast(next?'場次已關閉':'場次已開放',next?'warn':'ok'); render();
-}
 async function restoreEvent(eid){
   const ev=S.events.find(e=>e.id===eid); if(!ev) return;
   if(!confirm(`確定恢復「${ev.title}」？\n恢復後會重新出現在「新增及編輯餐點場次」及前台點餐場次。`)) return;
@@ -8128,11 +7595,6 @@ async function requestHistoryAddition(entry,closeCache){
   render();
 }
 
-function setDrinkDesc(i, val){
-  const inp=document.getElementById('md-'+i);
-  if(inp) inp.value=val;
-  updatePendingItem(i,'description',val);
-}
 
 function updatePendingItem(index, field, value){
   const item=S.pendingItems[index];
@@ -8477,11 +7939,15 @@ async function saveMenu(){
   const currentSubsidy=getEventSubsidy(evNow);
   const subsidy=readSubsidyForm(currentSubsidy)||evNow?._subsidyDraft||currentSubsidy;
   const imgData=parseEventMenuImages(evNow?.img_url||'');
-  if(JSON.stringify(subsidy)===JSON.stringify(DEFAULT_SUBSIDY)) delete imgData.subsidy;
+  // 跟「沒存設定時會用的金額」（活動說明判斷出來的，或預設 120／40）一樣就不另外存；
+  // 不一樣（例如活動說明寫 160 但承辦人手動選了分開 120／40）就存起來，以承辦人選的為準
+  const fallbackSubsidy={...DEFAULT_SUBSIDY,...(detectSubsidyFromNote(activity_note)||{})};
+  const sameAs=(a,b)=>a.mode===b.mode&&(a.mode==='combined'?a.total===b.total:a.meal===b.meal&&a.drink===b.drink);
+  if(sameAs(subsidy,fallbackSubsidy)) delete imgData.subsidy;
   else imgData.subsidy=subsidy;
   const img_url=Object.keys(imgData).length?JSON.stringify(imgData):'';
   // 補助金額沒改就不動 img_url，避免動到菜單原圖
-  const subsidyChanged=JSON.stringify(getEventSubsidy({img_url}))!==JSON.stringify(getEventSubsidy(evNow));
+  const subsidyChanged=JSON.stringify(imgData.subsidy||null)!==JSON.stringify(parseEventMenuImages(evNow?.img_url||'').subsidy||null);
   const imgPatch=subsidyChanged?{img_url}:{};
   if(isNewDraft){
     const{data:newEvent,error:createError}=await sb.from('menus')
@@ -8962,12 +8428,6 @@ async function pdfToMenuImages(file){
   return images;
 }
 
-async function aiParse(file,uploadType='main'){
-  return await aiParseImages(buildMenuImageSet(await loadImageFromFile(file)),uploadType);
-}
-async function aiParseBase64(base64,mime,uploadType='main'){
-  return await aiParseImages([{data:base64,role:'整張菜單',mime}],uploadType);
-}
 
 /* ── 給 AI 的解析說明 ── */
 const MENU_PARSE_PROMPT=`你是菜單資料輸入員。請把圖片中的菜單「逐字照抄」成 JSON 陣列，每個元素格式：
@@ -9470,40 +8930,8 @@ async function aiParseImages(images,uploadType='main'){
     return {success:false,error:err.message};
   }
 }
-function toBase64(file){
-  return new Promise((resolve,reject)=>{
-    const img=new Image();
-    const url=URL.createObjectURL(file);
-    img.onload=()=>{
-      URL.revokeObjectURL(url);
-      const canvas=document.createElement('canvas');
-      const MAX=850;
-      let w=img.width,h=img.height;
-      if(w>MAX||h>MAX){
-        if(w>h){h=Math.round(h*MAX/w);w=MAX;}
-        else{w=Math.round(w*MAX/h);h=MAX;}
-      }
-      canvas.width=w;canvas.height=h;
-      canvas.getContext('2d').drawImage(img,0,0,w,h);
-      const dataUrl=canvas.toDataURL('image/jpeg',0.7);
-      resolve(dataUrl.split(',')[1]);
-    };
-    img.onerror=reject;
-    img.src=url;
-  });
-}
 
 /* ── EXPORT ── */
-function copyKitchen(){
-  const kitch={};const ords=S.orders[S.adminEid]||[];
-  ords.forEach(o=>(o.order_items||[]).forEach(oi=>{const k=oi.item_name+(oi.specs_str?'('+oi.specs_str+')':'');kitch[k]=(kitch[k]||0)+oi.quantity;}));
-  let txt='【廚房備餐清單】\n\n';
-  const ev=S.events.find(e=>e.id===S.adminEid);
-  if(ev) txt+=`場次：${ev.title}　負責老師：${ev.organizer||'—'}\n\n`;
-  Object.entries(kitch).forEach(([n,q])=>txt+=`${n} × ${q}\n`);
-  txt+=`\n合計：${Object.values(kitch).reduce((s,q)=>s+q,0)} 份`;
-  copyText(txt);
-}
 function formatMealSummary(name,specs,itemNote){
   let label=String(name||'');
   if(specs) label+=`（${specs}）`;
@@ -9651,27 +9079,6 @@ function buildOrderExportData(){
   grand.mealPeople=typePeople['便當'].size;
   grand.drinkPeople=typePeople['飲料'].size;
   return{ev,eventInfo,printHeader,printRows,printTotalRow,grand,detailHeader,detailRows,summaryHeader:['檢核','餐點','點餐人數','點餐姓名'],mealSummaryRows,drinkSummaryRows};
-}
-function exportCSV(){
-  const data=buildOrderExportData();
-  if(!data.printRows.length){toast('沒有資料','warn');return;}
-  const ev=data.ev;
-  const rows=[
-    ['點餐紀錄（直式列印版）'],
-    ['場次',ev?.title||''],
-    ['日期',ev?.date?fmtEventDate(ev.date):''],
-    ['管理老師',ev?.organizer||''],
-    [],data.printHeader,...data.printRows,data.printTotalRow,
-    [],['金額總計'],
-    ['便當＋點心總額',data.grand.meal],
-    ['飲料總額',data.grand.drink],
-    ['全部合計',data.grand.total],
-    ['缺額合計',data.grand.shortfall],
-    ['總份數',data.grand.portions],
-    [],['便當餐點彙整'],[...data.summaryHeader,'份數'],...data.mealSummaryRows.map(row=>['☐',...row]),
-    [],['飲料餐點彙整'],[...data.summaryHeader,'份數'],...data.drinkSummaryRows.map(row=>['☐',...row])
-  ];
-  dlCSV(rows,`點餐紀錄_直式列印_${ev?.title||''}`);
 }
 function renderAdminOrderSummary(data){
   const group=(title,rows,people)=>`<section class="order-summary-group">
@@ -9861,12 +9268,6 @@ async function exportExcel(){
   a.click();
   setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1000);
   toast('Excel 已匯出（A4 直式，可直接列印）','ok');
-}
-function dlCSV(rows,name){
-  if(rows.length<=1){toast('沒有資料','warn');return;}
-  const csv=rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
-  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'}));
-  a.download=`${name}_${new Date().toLocaleDateString('zh-TW').replace(/\//g,'-')}.csv`;a.click();toast('CSV 已匯出','ok');
 }
 function copyText(txt){try{const ta=document.createElement('textarea');ta.value=txt;ta.style.cssText='position:fixed;opacity:0';document.body.appendChild(ta);ta.focus();ta.select();document.execCommand('copy');document.body.removeChild(ta);toast('已複製','ok');}catch(e){toast('複製失敗','err');}}
 
