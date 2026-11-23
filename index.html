@@ -5226,6 +5226,9 @@ let S = {
   delId:null,
 };
 
+// 場次列表只撈這些欄位（不含 img_url 菜單原圖），開網頁比較快；要放在 BOOT 前面
+const EVENT_LIST_COLUMNS='id,title,date,deadline,deadline_date,is_closed,organizer,store_name,created_at,activity_note,archived_at';
+const _eventImageLoading=new Map();
 /* ═══ BOOT ═══ */
 (async()=>{
   const requestedEventId=getEventIdFromUrl();
@@ -5242,6 +5245,7 @@ let S = {
   if(requestedEventId&&S.events.some(ev=>ev.id===requestedEventId)){
     S.activeEventId=requestedEventId;
     S.tab='home';
+    try{await loadEventImages([requestedEventId]);}catch(e){console.warn(e);}
   }else{
     S.sharedEventMode=false;
     S.tab='menu';
@@ -5275,9 +5279,15 @@ let S = {
 async function loadEvents(){
   if(DEMO){ S.events=demoEvents(); S.items={'e1':demoItems('e1'),'e2':demoItems2('e2')}; S.orders={'e1':demoOrders('e1'),'e2':[]}; return; }
   // 撈全部場次，不限日期（刪除才消失）
-  const {data:evs,error:eventsError} = await sb.from('menus').select('*').order('date',{ascending:false}).order('created_at',{ascending:false});
+  // 不撈 img_url：裡面存的是菜單原圖（每個場次幾百 KB），全部一起撈會讓開網頁變很慢。
+  // 原圖和補助設定要用到時才用 loadEventImages() 單獨載入。
+  const {data:evs,error:eventsError} = await sb.from('menus').select(EVENT_LIST_COLUMNS).order('date',{ascending:false}).order('created_at',{ascending:false});
   if(eventsError) throw new Error('場次資料載入失敗：'+eventsError.message);
-  S.events = evs||[];
+  const previous=new Map((S.events||[]).map(ev=>[ev.id,ev]));
+  S.events = (evs||[]).map(ev=>{
+    const old=previous.get(ev.id);
+    return old?._imgLoaded?{...ev,img_url:old.img_url,_imgLoaded:true}:ev;
+  });
   // 批次載入所有場次的品項和訂單
   await Promise.all(S.events.map(async ev=>{
     const [{data:its,error:itemsError},{data:ords,error:ordersError}] = await Promise.all([
@@ -5290,6 +5300,48 @@ async function loadEvents(){
     S.orders[ev.id] = ords||[];
   }));
 }
+// 載入指定場次的 img_url（菜單原圖＋補助設定）；載過的不重載
+async function loadEventImages(ids){
+  if(DEMO) return;
+  const need=[...new Set(ids||[])].filter(id=>{
+    const ev=S.events.find(e=>e.id===id);
+    return ev&&!ev._imgLoaded;
+  });
+  const waiting=need.filter(id=>_eventImageLoading.has(id)).map(id=>_eventImageLoading.get(id));
+  const fresh=need.filter(id=>!_eventImageLoading.has(id));
+  if(fresh.length){
+    const job=(async()=>{
+      const{data,error}=await sb.from('menus').select('id,img_url').in('id',fresh);
+      if(error){console.warn('菜單原圖載入失敗',error);}
+      const byId=new Map((data||[]).map(row=>[row.id,row.img_url]));
+      fresh.forEach(id=>{
+        const ev=S.events.find(e=>e.id===id);
+        if(!ev) return;
+        if(byId.has(id)){ev.img_url=byId.get(id)||'';ev._imgLoaded=true;}
+        else if(!error){ev.img_url='';ev._imgLoaded=true;}
+      });
+    })();
+    fresh.forEach(id=>_eventImageLoading.set(id,job));
+    try{await job;}finally{fresh.forEach(id=>_eventImageLoading.delete(id));}
+  }
+  if(waiting.length) await Promise.all(waiting);
+}
+// 畫面上正在看的場次如果還沒載入原圖，就在背景載入後重畫
+function ensureVisibleEventImages(){
+  if(DEMO) return;
+  const ids=[S.tab==='home'?S.activeEventId:S.adminEid].filter(id=>{
+    const ev=id&&S.events.find(e=>e.id===id);
+    return ev&&!ev._imgLoaded&&!_eventImageLoading.has(id);
+  });
+  if(ids.length) loadEventImages(ids).then(()=>render());
+}
+// 只重新載入某個場次的點餐紀錄（即時更新用，不重撈整個網站的資料）
+async function reloadEventOrders(eid){
+  if(DEMO||!eid) return;
+  const{data:ords,error}=await sb.from('orders').select('*, order_items(*)').eq('menu_id',eid).order('created_at',{ascending:false});
+  if(!error) S.orders[eid]=ords||[];
+}
+
 async function loadEventDetail(eid){
   if(DEMO) return;
   const [{data:its},{data:ords}] = await Promise.all([
@@ -5302,8 +5354,23 @@ async function loadEventDetail(eid){
 }
 function subscribeRT(){
   if(DEMO) return;
+  // 有人送出／修改／刪除點餐時，只重新載入受影響場次的點餐紀錄（以前會重撈全部場次，很慢）
+  let pending=new Set(),timer=null;
   sb.channel('rt').on('postgres_changes',{event:'*',schema:'public',table:'orders'},
-    async()=>{ await loadEvents(); render(); }).subscribe();
+    payload=>{
+      const eid=payload?.new?.menu_id||payload?.old?.menu_id;
+      if(eid) pending.add(eid);
+      else [S.activeEventId,S.adminEid].filter(Boolean).forEach(id=>pending.add(id));
+      clearTimeout(timer);
+      timer=setTimeout(async()=>{
+        const ids=[...pending];pending=new Set();
+        await Promise.all(ids.map(reloadEventOrders));
+        // 正在輸入時不重畫，避免打字到一半被打斷
+        const active=document.activeElement;
+        if(active&&/^(INPUT|TEXTAREA|SELECT)$/.test(active.tagName)&&S.tab==='home') return;
+        render();
+      },600);
+    }).subscribe();
 }
 async function dbInsertOrder(order, items){
   if(DEMO){
@@ -5530,6 +5597,7 @@ function render(){
   } else {
     mc.innerHTML=renderAdmin(); sb2.style.display='none';
   }
+  ensureVisibleEventImages();
 }
 
 /* ── HOME: 場次列表 ── */
@@ -7625,7 +7693,11 @@ function getHistoryMenuImage(entry){
   return images[imageType]||'';
 }
 
-function showMenuCache(){
+async function showMenuCache(){
+  if(!DEMO&&S.events.some(ev=>!ev._imgLoaded)){
+    toast('載入歷史菜單圖片中…','ok');
+    await loadEventImages(S.events.map(ev=>ev.id));
+  }
   const cached=getHistoryMenuEntries(true);
   if(!cached.length){toast('尚無歷史菜單紀錄','warn');return;}
   window._historyCacheEntries=cached;
@@ -8355,6 +8427,11 @@ async function saveMenu(){
   if(!deadline_date||!deadline){toast('請選擇點餐截止日期與時間','err');return;}
   if(!title){toast('請填場次標題','err');return;}
   // 補助金額：空白或不合理就用預設 120／40
+  // 改補助或存菜單原圖前，一定要先拿到資料庫裡原本的 img_url，不然會把原圖蓋掉
+  if(evNow&&!isNewDraft&&!evNow._imgLoaded&&!DEMO){
+    await loadEventImages([evNow.id]);
+    if(!evNow._imgLoaded){toast('菜單原圖資料載入失敗，請稍後再按一次儲存','err');return;}
+  }
   const currentSubsidy=getEventSubsidy(evNow);
   const subsidy=readSubsidyForm(currentSubsidy)||evNow?._subsidyDraft||currentSubsidy;
   const imgData=parseEventMenuImages(evNow?.img_url||'');
@@ -8373,6 +8450,7 @@ async function saveMenu(){
     eid=newEvent.id;
     S.adminEid=eid;
     S.menuDraft=null;
+    newEvent._imgLoaded=true;
     S.events.unshift(newEvent);
     S.items[eid]=[];
     S.orders[eid]=[];
@@ -9599,6 +9677,7 @@ function estimateExcelLines(text,widthChars){
   },0);
 }
 async function exportExcel(){
+  try{await loadEventImages([S.adminEid]);}catch(e){} // 補助設定存在 img_url，算缺額前要先載入
   const data=buildOrderExportData();
   if(!data.printRows.length){toast('沒有資料','warn');return;}
   let ExcelJS;
