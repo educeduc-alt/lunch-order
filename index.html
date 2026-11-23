@@ -108,6 +108,8 @@ body:has(#subBar:not([style*="display: none"])) .developer-card{bottom:82px}
 .activity-meal-help{width:100%;display:flex;align-items:flex-start;gap:9px;background:#f8fafc;border:1px solid var(--bo);border-radius:var(--rmd);padding:10px 12px;color:var(--slm);font-size:.75rem;line-height:1.65}
 .activity-meal-help strong{color:#0e7490}
 .activity-note-text{white-space:pre-line;color:var(--slm);margin-top:2px}
+.order-note-box{background:#fff;border:1.5px solid var(--bo);border-radius:var(--rmd);padding:12px 14px;margin:12px 0 4px}
+.order-note-lbl{display:block;font-size:.82rem;font-weight:800;margin-bottom:6px;color:var(--sl)}
 .activity-subsidy-help{width:100%;display:flex;align-items:flex-start;gap:9px;background:#fffbeb;border:1px solid #fde68a;border-radius:var(--rmd);padding:10px 12px;color:#78350f;font-size:.75rem;line-height:1.65;margin-top:8px}
 .activity-subsidy-help strong{color:#b45309}
 .activity-subsidy-tip{color:var(--sll);font-size:.68rem;margin-top:2px}
@@ -2649,6 +2651,26 @@ const PRESET_MENUS = [
        "中杯 $30",
        "大杯 $35"
       ]
+     },
+     {
+      "cat": "甜度",
+      "opts": [
+       "無糖",
+       "微糖",
+       "半糖",
+       "少糖",
+       "全糖"
+      ]
+     },
+     {
+      "cat": "冰塊",
+      "opts": [
+       "正常冰",
+       "少冰",
+       "微冰",
+       "去冰",
+       "溫熱飲"
+      ]
      }
     ]
    },
@@ -2664,6 +2686,26 @@ const PRESET_MENUS = [
       "opts": [
        "中杯 $30",
        "大杯 $35"
+      ]
+     },
+     {
+      "cat": "甜度",
+      "opts": [
+       "無糖",
+       "微糖",
+       "半糖",
+       "少糖",
+       "全糖"
+      ]
+     },
+     {
+      "cat": "冰塊",
+      "opts": [
+       "正常冰",
+       "少冰",
+       "微冰",
+       "去冰",
+       "溫熱飲"
       ]
      }
     ]
@@ -2681,6 +2723,26 @@ const PRESET_MENUS = [
        "中杯 $30",
        "大杯 $35"
       ]
+     },
+     {
+      "cat": "甜度",
+      "opts": [
+       "無糖",
+       "微糖",
+       "半糖",
+       "少糖",
+       "全糖"
+      ]
+     },
+     {
+      "cat": "冰塊",
+      "opts": [
+       "正常冰",
+       "少冰",
+       "微冰",
+       "去冰",
+       "溫熱飲"
+      ]
      }
     ]
    },
@@ -2696,6 +2758,26 @@ const PRESET_MENUS = [
       "opts": [
        "中杯 $30",
        "大杯 $35"
+      ]
+     },
+     {
+      "cat": "甜度",
+      "opts": [
+       "無糖",
+       "微糖",
+       "半糖",
+       "少糖",
+       "全糖"
+      ]
+     },
+     {
+      "cat": "冰塊",
+      "opts": [
+       "正常冰",
+       "少冰",
+       "微冰",
+       "去冰",
+       "溫熱飲"
       ]
      }
     ]
@@ -2720,6 +2802,26 @@ const PRESET_MENUS = [
        "中杯 $35",
        "大杯 $45"
       ]
+     },
+     {
+      "cat": "甜度",
+      "opts": [
+       "無糖",
+       "微糖",
+       "半糖",
+       "少糖",
+       "全糖"
+      ]
+     },
+     {
+      "cat": "冰塊",
+      "opts": [
+       "正常冰",
+       "少冰",
+       "微冰",
+       "去冰",
+       "溫熱飲"
+      ]
      }
     ]
    },
@@ -2742,6 +2844,26 @@ const PRESET_MENUS = [
       "opts": [
        "中杯 $35",
        "大杯 $45"
+      ]
+     },
+     {
+      "cat": "甜度",
+      "opts": [
+       "無糖",
+       "微糖",
+       "半糖",
+       "少糖",
+       "全糖"
+      ]
+     },
+     {
+      "cat": "冰塊",
+      "opts": [
+       "正常冰",
+       "少冰",
+       "微冰",
+       "去冰",
+       "溫熱飲"
       ]
      }
     ]
@@ -2766,6 +2888,26 @@ const PRESET_MENUS = [
       "opts": [
        "中杯 $35",
        "大杯 $45"
+      ]
+     },
+     {
+      "cat": "甜度",
+      "opts": [
+       "無糖",
+       "微糖",
+       "半糖",
+       "少糖",
+       "全糖"
+      ]
+     },
+     {
+      "cat": "冰塊",
+      "opts": [
+       "正常冰",
+       "少冰",
+       "微冰",
+       "去冰",
+       "溫熱飲"
       ]
      }
     ]
@@ -2799,6 +2941,26 @@ const PRESET_MENUS = [
        "燕麥（免費）",
        "椰果（免費）"
       ]
+     },
+     {
+      "cat": "甜度",
+      "opts": [
+       "無糖",
+       "微糖",
+       "半糖",
+       "少糖",
+       "全糖"
+      ]
+     },
+     {
+      "cat": "冰塊",
+      "opts": [
+       "正常冰",
+       "少冰",
+       "微冰",
+       "去冰",
+       "溫熱飲"
+      ]
      }
     ]
    },
@@ -2831,6 +2993,26 @@ const PRESET_MENUS = [
        "燕麥（免費）",
        "椰果（免費）"
       ]
+     },
+     {
+      "cat": "甜度",
+      "opts": [
+       "無糖",
+       "微糖",
+       "半糖",
+       "少糖",
+       "全糖"
+      ]
+     },
+     {
+      "cat": "冰塊",
+      "opts": [
+       "正常冰",
+       "少冰",
+       "微冰",
+       "去冰",
+       "溫熱飲"
+      ]
      }
     ]
    },
@@ -2855,6 +3037,26 @@ const PRESET_MENUS = [
        "珍珠（免費）",
        "燕麥（免費）",
        "椰果（免費）"
+      ]
+     },
+     {
+      "cat": "甜度",
+      "opts": [
+       "無糖",
+       "微糖",
+       "半糖",
+       "少糖",
+       "全糖"
+      ]
+     },
+     {
+      "cat": "冰塊",
+      "opts": [
+       "正常冰",
+       "少冰",
+       "微冰",
+       "去冰",
+       "溫熱飲"
       ]
      }
     ]
@@ -2881,6 +3083,26 @@ const PRESET_MENUS = [
        "燕麥（免費）",
        "椰果（免費）"
       ]
+     },
+     {
+      "cat": "甜度",
+      "opts": [
+       "無糖",
+       "微糖",
+       "半糖",
+       "少糖",
+       "全糖"
+      ]
+     },
+     {
+      "cat": "冰塊",
+      "opts": [
+       "正常冰",
+       "少冰",
+       "微冰",
+       "去冰",
+       "溫熱飲"
+      ]
      }
     ]
    },
@@ -2905,6 +3127,26 @@ const PRESET_MENUS = [
        "珍珠（免費）",
        "燕麥（免費）",
        "椰果（免費）"
+      ]
+     },
+     {
+      "cat": "甜度",
+      "opts": [
+       "無糖",
+       "微糖",
+       "半糖",
+       "少糖",
+       "全糖"
+      ]
+     },
+     {
+      "cat": "冰塊",
+      "opts": [
+       "正常冰",
+       "少冰",
+       "微冰",
+       "去冰",
+       "溫熱飲"
       ]
      }
     ]
@@ -2940,6 +3182,26 @@ const PRESET_MENUS = [
        "燕麥（免費）",
        "椰果（免費）"
       ]
+     },
+     {
+      "cat": "甜度",
+      "opts": [
+       "無糖",
+       "微糖",
+       "半糖",
+       "少糖",
+       "全糖"
+      ]
+     },
+     {
+      "cat": "冰塊",
+      "opts": [
+       "正常冰",
+       "少冰",
+       "微冰",
+       "去冰",
+       "溫熱飲"
+      ]
      }
     ]
    },
@@ -2964,6 +3226,25 @@ const PRESET_MENUS = [
        "珍珠（免費）",
        "燕麥（免費）",
        "椰果（免費）"
+      ]
+     },
+     {
+      "cat": "甜度",
+      "opts": [
+       "無糖",
+       "微糖",
+       "半糖",
+       "少糖",
+       "全糖"
+      ]
+     },
+     {
+      "cat": "冰塊",
+      "opts": [
+       "正常冰",
+       "少冰",
+       "微冰",
+       "去冰"
       ]
      }
     ]
@@ -2997,6 +3278,25 @@ const PRESET_MENUS = [
        "燕麥（免費）",
        "椰果（免費）"
       ]
+     },
+     {
+      "cat": "甜度",
+      "opts": [
+       "無糖",
+       "微糖",
+       "半糖",
+       "少糖",
+       "全糖"
+      ]
+     },
+     {
+      "cat": "冰塊",
+      "opts": [
+       "正常冰",
+       "少冰",
+       "微冰",
+       "去冰"
+      ]
      }
     ]
    },
@@ -3021,6 +3321,25 @@ const PRESET_MENUS = [
        "珍珠（免費）",
        "燕麥（免費）",
        "椰果（免費）"
+      ]
+     },
+     {
+      "cat": "甜度",
+      "opts": [
+       "無糖",
+       "微糖",
+       "半糖",
+       "少糖",
+       "全糖"
+      ]
+     },
+     {
+      "cat": "冰塊",
+      "opts": [
+       "正常冰",
+       "少冰",
+       "微冰",
+       "去冰"
       ]
      }
     ]
@@ -3047,6 +3366,26 @@ const PRESET_MENUS = [
        "燕麥（免費）",
        "椰果（免費）"
       ]
+     },
+     {
+      "cat": "甜度",
+      "opts": [
+       "無糖",
+       "微糖",
+       "半糖",
+       "少糖",
+       "全糖"
+      ]
+     },
+     {
+      "cat": "冰塊",
+      "opts": [
+       "正常冰",
+       "少冰",
+       "微冰",
+       "去冰",
+       "溫熱飲"
+      ]
      }
     ]
    },
@@ -3071,6 +3410,26 @@ const PRESET_MENUS = [
        "珍珠（免費）",
        "燕麥（免費）",
        "椰果（免費）"
+      ]
+     },
+     {
+      "cat": "甜度",
+      "opts": [
+       "無糖",
+       "微糖",
+       "半糖",
+       "少糖",
+       "全糖"
+      ]
+     },
+     {
+      "cat": "冰塊",
+      "opts": [
+       "正常冰",
+       "少冰",
+       "微冰",
+       "去冰",
+       "溫熱飲"
       ]
      }
     ]
@@ -3097,6 +3456,26 @@ const PRESET_MENUS = [
        "燕麥（免費）",
        "椰果（免費）"
       ]
+     },
+     {
+      "cat": "甜度",
+      "opts": [
+       "無糖",
+       "微糖",
+       "半糖",
+       "少糖",
+       "全糖"
+      ]
+     },
+     {
+      "cat": "冰塊",
+      "opts": [
+       "正常冰",
+       "少冰",
+       "微冰",
+       "去冰",
+       "溫熱飲"
+      ]
      }
     ]
    },
@@ -3121,6 +3500,26 @@ const PRESET_MENUS = [
        "珍珠（免費）",
        "燕麥（免費）",
        "椰果（免費）"
+      ]
+     },
+     {
+      "cat": "甜度",
+      "opts": [
+       "無糖",
+       "微糖",
+       "半糖",
+       "少糖",
+       "全糖"
+      ]
+     },
+     {
+      "cat": "冰塊",
+      "opts": [
+       "正常冰",
+       "少冰",
+       "微冰",
+       "去冰",
+       "溫熱飲"
       ]
      }
     ]
@@ -3147,6 +3546,26 @@ const PRESET_MENUS = [
        "燕麥（免費）",
        "椰果（免費）"
       ]
+     },
+     {
+      "cat": "甜度",
+      "opts": [
+       "無糖",
+       "微糖",
+       "半糖",
+       "少糖",
+       "全糖"
+      ]
+     },
+     {
+      "cat": "冰塊",
+      "opts": [
+       "正常冰",
+       "少冰",
+       "微冰",
+       "去冰",
+       "溫熱飲"
+      ]
      }
     ]
    },
@@ -3171,6 +3590,26 @@ const PRESET_MENUS = [
        "珍珠（免費）",
        "燕麥（免費）",
        "椰果（免費）"
+      ]
+     },
+     {
+      "cat": "甜度",
+      "opts": [
+       "無糖",
+       "微糖",
+       "半糖",
+       "少糖",
+       "全糖"
+      ]
+     },
+     {
+      "cat": "冰塊",
+      "opts": [
+       "正常冰",
+       "少冰",
+       "微冰",
+       "去冰",
+       "溫熱飲"
       ]
      }
     ]
@@ -3197,6 +3636,26 @@ const PRESET_MENUS = [
        "燕麥（免費）",
        "椰果（免費）"
       ]
+     },
+     {
+      "cat": "甜度",
+      "opts": [
+       "無糖",
+       "微糖",
+       "半糖",
+       "少糖",
+       "全糖"
+      ]
+     },
+     {
+      "cat": "冰塊",
+      "opts": [
+       "正常冰",
+       "少冰",
+       "微冰",
+       "去冰",
+       "溫熱飲"
+      ]
      }
     ]
    },
@@ -3221,6 +3680,26 @@ const PRESET_MENUS = [
        "珍珠（免費）",
        "燕麥（免費）",
        "椰果（免費）"
+      ]
+     },
+     {
+      "cat": "甜度",
+      "opts": [
+       "無糖",
+       "微糖",
+       "半糖",
+       "少糖",
+       "全糖"
+      ]
+     },
+     {
+      "cat": "冰塊",
+      "opts": [
+       "正常冰",
+       "少冰",
+       "微冰",
+       "去冰",
+       "溫熱飲"
       ]
      }
     ]
@@ -3247,6 +3726,26 @@ const PRESET_MENUS = [
        "燕麥（免費）",
        "椰果（免費）"
       ]
+     },
+     {
+      "cat": "甜度",
+      "opts": [
+       "無糖",
+       "微糖",
+       "半糖",
+       "少糖",
+       "全糖"
+      ]
+     },
+     {
+      "cat": "冰塊",
+      "opts": [
+       "正常冰",
+       "少冰",
+       "微冰",
+       "去冰",
+       "溫熱飲"
+      ]
      }
     ]
    },
@@ -3271,6 +3770,26 @@ const PRESET_MENUS = [
        "珍珠（免費）",
        "燕麥（免費）",
        "椰果（免費）"
+      ]
+     },
+     {
+      "cat": "甜度",
+      "opts": [
+       "無糖",
+       "微糖",
+       "半糖",
+       "少糖",
+       "全糖"
+      ]
+     },
+     {
+      "cat": "冰塊",
+      "opts": [
+       "正常冰",
+       "少冰",
+       "微冰",
+       "去冰",
+       "溫熱飲"
       ]
      }
     ]
@@ -3297,6 +3816,25 @@ const PRESET_MENUS = [
        "燕麥（免費）",
        "椰果（免費）"
       ]
+     },
+     {
+      "cat": "甜度",
+      "opts": [
+       "無糖",
+       "微糖",
+       "半糖",
+       "少糖",
+       "全糖"
+      ]
+     },
+     {
+      "cat": "冰塊",
+      "opts": [
+       "正常冰",
+       "少冰",
+       "微冰",
+       "去冰"
+      ]
      }
     ]
    },
@@ -3321,6 +3859,26 @@ const PRESET_MENUS = [
        "珍珠（免費）",
        "燕麥（免費）",
        "椰果（免費）"
+      ]
+     },
+     {
+      "cat": "甜度",
+      "opts": [
+       "無糖",
+       "微糖",
+       "半糖",
+       "少糖",
+       "全糖"
+      ]
+     },
+     {
+      "cat": "冰塊",
+      "opts": [
+       "正常冰",
+       "少冰",
+       "微冰",
+       "去冰",
+       "溫熱飲"
       ]
      }
     ]
@@ -3347,6 +3905,26 @@ const PRESET_MENUS = [
        "燕麥（免費）",
        "椰果（免費）"
       ]
+     },
+     {
+      "cat": "甜度",
+      "opts": [
+       "無糖",
+       "微糖",
+       "半糖",
+       "少糖",
+       "全糖"
+      ]
+     },
+     {
+      "cat": "冰塊",
+      "opts": [
+       "正常冰",
+       "少冰",
+       "微冰",
+       "去冰",
+       "溫熱飲"
+      ]
      }
     ]
    },
@@ -3371,6 +3949,26 @@ const PRESET_MENUS = [
        "珍珠（免費）",
        "燕麥（免費）",
        "椰果（免費）"
+      ]
+     },
+     {
+      "cat": "甜度",
+      "opts": [
+       "無糖",
+       "微糖",
+       "半糖",
+       "少糖",
+       "全糖"
+      ]
+     },
+     {
+      "cat": "冰塊",
+      "opts": [
+       "正常冰",
+       "少冰",
+       "微冰",
+       "去冰",
+       "溫熱飲"
       ]
      }
     ]
@@ -3397,6 +3995,26 @@ const PRESET_MENUS = [
        "燕麥（免費）",
        "椰果（免費）"
       ]
+     },
+     {
+      "cat": "甜度",
+      "opts": [
+       "無糖",
+       "微糖",
+       "半糖",
+       "少糖",
+       "全糖"
+      ]
+     },
+     {
+      "cat": "冰塊",
+      "opts": [
+       "正常冰",
+       "少冰",
+       "微冰",
+       "去冰",
+       "溫熱飲"
+      ]
      }
     ]
    },
@@ -3421,6 +4039,26 @@ const PRESET_MENUS = [
        "珍珠（免費）",
        "燕麥（免費）",
        "椰果（免費）"
+      ]
+     },
+     {
+      "cat": "甜度",
+      "opts": [
+       "無糖",
+       "微糖",
+       "半糖",
+       "少糖",
+       "全糖"
+      ]
+     },
+     {
+      "cat": "冰塊",
+      "opts": [
+       "正常冰",
+       "少冰",
+       "微冰",
+       "去冰",
+       "溫熱飲"
       ]
      }
     ]
@@ -3447,6 +4085,26 @@ const PRESET_MENUS = [
        "燕麥（免費）",
        "椰果（免費）"
       ]
+     },
+     {
+      "cat": "甜度",
+      "opts": [
+       "無糖",
+       "微糖",
+       "半糖",
+       "少糖",
+       "全糖"
+      ]
+     },
+     {
+      "cat": "冰塊",
+      "opts": [
+       "正常冰",
+       "少冰",
+       "微冰",
+       "去冰",
+       "溫熱飲"
+      ]
      }
     ]
    },
@@ -3471,6 +4129,26 @@ const PRESET_MENUS = [
        "珍珠（免費）",
        "燕麥（免費）",
        "椰果（免費）"
+      ]
+     },
+     {
+      "cat": "甜度",
+      "opts": [
+       "無糖",
+       "微糖",
+       "半糖",
+       "少糖",
+       "全糖"
+      ]
+     },
+     {
+      "cat": "冰塊",
+      "opts": [
+       "正常冰",
+       "少冰",
+       "微冰",
+       "去冰",
+       "溫熱飲"
       ]
      }
     ]
@@ -3497,6 +4175,26 @@ const PRESET_MENUS = [
        "燕麥（免費）",
        "椰果（免費）"
       ]
+     },
+     {
+      "cat": "甜度",
+      "opts": [
+       "無糖",
+       "微糖",
+       "半糖",
+       "少糖",
+       "全糖"
+      ]
+     },
+     {
+      "cat": "冰塊",
+      "opts": [
+       "正常冰",
+       "少冰",
+       "微冰",
+       "去冰",
+       "溫熱飲"
+      ]
      }
     ]
    },
@@ -3521,6 +4219,26 @@ const PRESET_MENUS = [
        "珍珠（免費）",
        "燕麥（免費）",
        "椰果（免費）"
+      ]
+     },
+     {
+      "cat": "甜度",
+      "opts": [
+       "無糖",
+       "微糖",
+       "半糖",
+       "少糖",
+       "全糖"
+      ]
+     },
+     {
+      "cat": "冰塊",
+      "opts": [
+       "正常冰",
+       "少冰",
+       "微冰",
+       "去冰",
+       "溫熱飲"
       ]
      }
     ]
@@ -3547,6 +4265,26 @@ const PRESET_MENUS = [
        "燕麥（免費）",
        "椰果（免費）"
       ]
+     },
+     {
+      "cat": "甜度",
+      "opts": [
+       "無糖",
+       "微糖",
+       "半糖",
+       "少糖",
+       "全糖"
+      ]
+     },
+     {
+      "cat": "冰塊",
+      "opts": [
+       "正常冰",
+       "少冰",
+       "微冰",
+       "去冰",
+       "溫熱飲"
+      ]
      }
     ]
    },
@@ -3571,6 +4309,26 @@ const PRESET_MENUS = [
        "珍珠（免費）",
        "燕麥（免費）",
        "椰果（免費）"
+      ]
+     },
+     {
+      "cat": "甜度",
+      "opts": [
+       "無糖",
+       "微糖",
+       "半糖",
+       "少糖",
+       "全糖"
+      ]
+     },
+     {
+      "cat": "冰塊",
+      "opts": [
+       "正常冰",
+       "少冰",
+       "微冰",
+       "去冰",
+       "溫熱飲"
       ]
      }
     ]
@@ -3597,6 +4355,26 @@ const PRESET_MENUS = [
        "燕麥（免費）",
        "椰果（免費）"
       ]
+     },
+     {
+      "cat": "甜度",
+      "opts": [
+       "無糖",
+       "微糖",
+       "半糖",
+       "少糖",
+       "全糖"
+      ]
+     },
+     {
+      "cat": "冰塊",
+      "opts": [
+       "正常冰",
+       "少冰",
+       "微冰",
+       "去冰",
+       "溫熱飲"
+      ]
      }
     ]
    },
@@ -3621,6 +4399,25 @@ const PRESET_MENUS = [
        "珍珠（免費）",
        "燕麥（免費）",
        "椰果（免費）"
+      ]
+     },
+     {
+      "cat": "甜度",
+      "opts": [
+       "無糖",
+       "微糖",
+       "半糖",
+       "少糖",
+       "全糖"
+      ]
+     },
+     {
+      "cat": "冰塊",
+      "opts": [
+       "正常冰",
+       "少冰",
+       "微冰",
+       "去冰"
       ]
      }
     ]
@@ -3647,6 +4444,26 @@ const PRESET_MENUS = [
        "燕麥（免費）",
        "椰果（免費）"
       ]
+     },
+     {
+      "cat": "甜度",
+      "opts": [
+       "無糖",
+       "微糖",
+       "半糖",
+       "少糖",
+       "全糖"
+      ]
+     },
+     {
+      "cat": "冰塊",
+      "opts": [
+       "正常冰",
+       "少冰",
+       "微冰",
+       "去冰",
+       "溫熱飲"
+      ]
      }
     ]
    },
@@ -3671,6 +4488,26 @@ const PRESET_MENUS = [
        "珍珠（免費）",
        "燕麥（免費）",
        "椰果（免費）"
+      ]
+     },
+     {
+      "cat": "甜度",
+      "opts": [
+       "無糖",
+       "微糖",
+       "半糖",
+       "少糖",
+       "全糖"
+      ]
+     },
+     {
+      "cat": "冰塊",
+      "opts": [
+       "正常冰",
+       "少冰",
+       "微冰",
+       "去冰",
+       "溫熱飲"
       ]
      }
     ]
@@ -3697,6 +4534,26 @@ const PRESET_MENUS = [
        "燕麥（免費）",
        "椰果（免費）"
       ]
+     },
+     {
+      "cat": "甜度",
+      "opts": [
+       "無糖",
+       "微糖",
+       "半糖",
+       "少糖",
+       "全糖"
+      ]
+     },
+     {
+      "cat": "冰塊",
+      "opts": [
+       "正常冰",
+       "少冰",
+       "微冰",
+       "去冰",
+       "溫熱飲"
+      ]
      }
     ]
    },
@@ -3721,6 +4578,26 @@ const PRESET_MENUS = [
        "珍珠（免費）",
        "燕麥（免費）",
        "椰果（免費）"
+      ]
+     },
+     {
+      "cat": "甜度",
+      "opts": [
+       "無糖",
+       "微糖",
+       "半糖",
+       "少糖",
+       "全糖"
+      ]
+     },
+     {
+      "cat": "冰塊",
+      "opts": [
+       "正常冰",
+       "少冰",
+       "微冰",
+       "去冰",
+       "溫熱飲"
       ]
      }
     ]
@@ -3747,6 +4624,26 @@ const PRESET_MENUS = [
        "燕麥（免費）",
        "椰果（免費）"
       ]
+     },
+     {
+      "cat": "甜度",
+      "opts": [
+       "無糖",
+       "微糖",
+       "半糖",
+       "少糖",
+       "全糖"
+      ]
+     },
+     {
+      "cat": "冰塊",
+      "opts": [
+       "正常冰",
+       "少冰",
+       "微冰",
+       "去冰",
+       "溫熱飲"
+      ]
      }
     ]
    },
@@ -3771,6 +4668,26 @@ const PRESET_MENUS = [
        "珍珠（免費）",
        "燕麥（免費）",
        "椰果（免費）"
+      ]
+     },
+     {
+      "cat": "甜度",
+      "opts": [
+       "無糖",
+       "微糖",
+       "半糖",
+       "少糖",
+       "全糖"
+      ]
+     },
+     {
+      "cat": "冰塊",
+      "opts": [
+       "正常冰",
+       "少冰",
+       "微冰",
+       "去冰",
+       "溫熱飲"
       ]
      }
     ]
@@ -3797,6 +4714,26 @@ const PRESET_MENUS = [
        "燕麥（免費）",
        "椰果（免費）"
       ]
+     },
+     {
+      "cat": "甜度",
+      "opts": [
+       "無糖",
+       "微糖",
+       "半糖",
+       "少糖",
+       "全糖"
+      ]
+     },
+     {
+      "cat": "冰塊",
+      "opts": [
+       "正常冰",
+       "少冰",
+       "微冰",
+       "去冰",
+       "溫熱飲"
+      ]
      }
     ]
    },
@@ -3822,6 +4759,26 @@ const PRESET_MENUS = [
        "燕麥（免費）",
        "椰果（免費）"
       ]
+     },
+     {
+      "cat": "甜度",
+      "opts": [
+       "無糖",
+       "微糖",
+       "半糖",
+       "少糖",
+       "全糖"
+      ]
+     },
+     {
+      "cat": "冰塊",
+      "opts": [
+       "正常冰",
+       "少冰",
+       "微冰",
+       "去冰",
+       "溫熱飲"
+      ]
      }
     ]
    },
@@ -3846,6 +4803,25 @@ const PRESET_MENUS = [
        "珍珠（免費）",
        "燕麥（免費）",
        "椰果（免費）"
+      ]
+     },
+     {
+      "cat": "甜度",
+      "opts": [
+       "無糖",
+       "微糖",
+       "半糖",
+       "少糖",
+       "全糖"
+      ]
+     },
+     {
+      "cat": "冰塊",
+      "opts": [
+       "正常冰",
+       "少冰",
+       "微冰",
+       "去冰"
       ]
      }
     ]
@@ -3879,6 +4855,25 @@ const PRESET_MENUS = [
        "燕麥（免費）",
        "椰果（免費）"
       ]
+     },
+     {
+      "cat": "甜度",
+      "opts": [
+       "無糖",
+       "微糖",
+       "半糖",
+       "少糖",
+       "全糖"
+      ]
+     },
+     {
+      "cat": "冰塊",
+      "opts": [
+       "正常冰",
+       "少冰",
+       "微冰",
+       "去冰"
+      ]
      }
     ]
    },
@@ -3903,6 +4898,25 @@ const PRESET_MENUS = [
        "珍珠（免費）",
        "燕麥（免費）",
        "椰果（免費）"
+      ]
+     },
+     {
+      "cat": "甜度",
+      "opts": [
+       "無糖",
+       "微糖",
+       "半糖",
+       "少糖",
+       "全糖"
+      ]
+     },
+     {
+      "cat": "冰塊",
+      "opts": [
+       "正常冰",
+       "少冰",
+       "微冰",
+       "去冰"
       ]
      }
     ]
@@ -3929,6 +4943,25 @@ const PRESET_MENUS = [
        "燕麥（免費）",
        "椰果（免費）"
       ]
+     },
+     {
+      "cat": "甜度",
+      "opts": [
+       "無糖",
+       "微糖",
+       "半糖",
+       "少糖",
+       "全糖"
+      ]
+     },
+     {
+      "cat": "冰塊",
+      "opts": [
+       "正常冰",
+       "少冰",
+       "微冰",
+       "去冰"
+      ]
      }
     ]
    },
@@ -3953,6 +4986,25 @@ const PRESET_MENUS = [
        "珍珠（免費）",
        "燕麥（免費）",
        "椰果（免費）"
+      ]
+     },
+     {
+      "cat": "甜度",
+      "opts": [
+       "無糖",
+       "微糖",
+       "半糖",
+       "少糖",
+       "全糖"
+      ]
+     },
+     {
+      "cat": "冰塊",
+      "opts": [
+       "正常冰",
+       "少冰",
+       "微冰",
+       "去冰"
       ]
      }
     ]
@@ -3979,6 +5031,25 @@ const PRESET_MENUS = [
        "燕麥（免費）",
        "椰果（免費）"
       ]
+     },
+     {
+      "cat": "甜度",
+      "opts": [
+       "無糖",
+       "微糖",
+       "半糖",
+       "少糖",
+       "全糖"
+      ]
+     },
+     {
+      "cat": "冰塊",
+      "opts": [
+       "正常冰",
+       "少冰",
+       "微冰",
+       "去冰"
+      ]
      }
     ]
    },
@@ -4003,6 +5074,25 @@ const PRESET_MENUS = [
        "珍珠（免費）",
        "燕麥（免費）",
        "椰果（免費）"
+      ]
+     },
+     {
+      "cat": "甜度",
+      "opts": [
+       "無糖",
+       "微糖",
+       "半糖",
+       "少糖",
+       "全糖"
+      ]
+     },
+     {
+      "cat": "冰塊",
+      "opts": [
+       "正常冰",
+       "少冰",
+       "微冰",
+       "去冰"
       ]
      }
     ]
@@ -4029,6 +5119,25 @@ const PRESET_MENUS = [
        "燕麥（免費）",
        "椰果（免費）"
       ]
+     },
+     {
+      "cat": "甜度",
+      "opts": [
+       "無糖",
+       "微糖",
+       "半糖",
+       "少糖",
+       "全糖"
+      ]
+     },
+     {
+      "cat": "冰塊",
+      "opts": [
+       "正常冰",
+       "少冰",
+       "微冰",
+       "去冰"
+      ]
      }
     ]
    },
@@ -4053,6 +5162,25 @@ const PRESET_MENUS = [
        "珍珠（免費）",
        "燕麥（免費）",
        "椰果（免費）"
+      ]
+     },
+     {
+      "cat": "甜度",
+      "opts": [
+       "無糖",
+       "微糖",
+       "半糖",
+       "少糖",
+       "全糖"
+      ]
+     },
+     {
+      "cat": "冰塊",
+      "opts": [
+       "正常冰",
+       "少冰",
+       "微冰",
+       "去冰"
       ]
      }
     ]
@@ -4270,7 +5398,8 @@ function hasUnsavedMenuWork(){
   return !!S.authed&&(
     S.parseStatus==='parsing'||
     getUnsavedMenuItemCount()>0||
-    !!window._pendingMainFile||!!window._pendingDrinkFile
+    !!window._pendingMainFile||!!window._pendingDrinkFile||
+    hasUnsavedSubsidyDraft()
   );
 }
 function confirmDiscardMenuWork(){
@@ -4311,7 +5440,7 @@ async function guardMenuWork(action){
   return true;
 }
 function switchEditingEvent(eid){
-  guardMenuWork(()=>{S.menuDraft=null;S.adminEid=eid;resetMenuEditorState();render();});
+  guardMenuWork(()=>{S.events.forEach(e=>delete e._subsidyDraft);S.menuDraft=null;S.adminEid=eid;resetMenuEditorState();render();});
 }
 function switchAdminEvent(eid){
   guardMenuWork(()=>{S.adminEid=eid;S.loadedHistoryKeys=[];render();});
@@ -4576,7 +5705,7 @@ function renderHome(){
   return html;
 }
 function openEvent(eid){
-  S.activeEventId=eid; S.sharedEventMode=false; S.cart={}; S.menuSearchQ='';
+  S.activeEventId=eid; S.sharedEventMode=false; S.cart={}; S.orderNote=''; S.menuSearchQ='';
   setEventUrl(eid);
   render();
 }
@@ -4705,7 +5834,7 @@ function openMenuImage(url,label='菜單原圖'){
 function renderOrderPage(){
   const ev=S.events.find(e=>e.id===S.activeEventId);
   if(!ev) return '<div class="empty"><span class="ei">❌</span><p>找不到此場次</p></div>';
-  const items=S.items[S.activeEventId]||[];
+  const items=dedupeMenuItemsForDisplay(S.items[S.activeEventId]||[]);
   const closed=isOrderingClosed(ev);
 
   let html=`
@@ -4728,7 +5857,6 @@ function renderOrderPage(){
   html+=`<div class="id-card">
     <div class="fld"><label>姓名</label><div class="name-url-row"><input class="inp" id="uName" placeholder="王小明" value="${esc(S.myName)}" oninput="S.myName=this.value">${S.sharedEventMode?'':'<button type="button" class="btn btn-out copy-event-url" onclick="copyEventUrl()">🔗 複製場次網址</button>'}</div></div>
     ${String(ev.activity_note||'').trim()?`<div class="activity-meal-help"><span style="font-size:1.15rem">📢</span><div><strong>活動說明</strong><div class="activity-note-text">${esc(String(ev.activity_note).trim())}</div></div></div>`:''}
-    <div class="activity-subsidy-help"><span style="font-size:1.15rem">💰</span><div><strong>本場次補助</strong><div>${esc(getSubsidyNoticeText(ev))}</div><div class="activity-subsidy-tip">請確認餐點規格與數量後再送出。</div></div></div>
     ${renderEventMenuImages(ev)}
   </div>`;
 
@@ -4798,6 +5926,13 @@ function renderOrderPage(){
     if(total>0) html+=`<div class="cart-total"><span>合計</span><span>$${total}</span></div>`;
     html+='</div>';
   }
+  // 整筆訂單備註（選填）
+  if(!isOrderingClosed(ev)){
+    html+=`<div class="order-note-box">
+      <label for="orderNote" class="order-note-lbl">📝 整筆備註 <span style="font-weight:600;color:var(--sll)">（選填）</span></label>
+      <textarea class="note-inp" id="orderNote" rows="2" maxlength="200" placeholder="例如：不要辣、不要香菜、餐具不用" oninput="S.orderNote=this.value">${esc(S.orderNote||'')}</textarea>
+    </div>`;
+  }
   return html;
 }
 
@@ -4812,6 +5947,53 @@ function splitFlavorName(name){
   if(m) return {flavor:m[2].trim(),main:m[1].trim()};
   return null;
 }
+/* ── 重複品項 ──
+   同一家店、同分類、同品名、同價格就算重複（例如同一張菜單解析了兩次） */
+function getMenuItemDupKey(item){
+  return [normalizeCompareText(item?.restaurant||''),item?.category||'',normalizeCompareText(item?.name||''),Number(item?.price)||0].join('__');
+}
+// 學生點餐頁只顯示第一筆，重複的不再出現（品項本身還在，舊的點餐紀錄不受影響）
+function dedupeMenuItemsForDisplay(items){
+  const seen=new Set();
+  return (items||[]).filter(item=>{
+    const key=getMenuItemDupKey(item);
+    if(seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+// 找出已儲存的重複品項：每組保留點餐數最多（一樣多就保留排前面）的那一筆，其餘沒有點餐的可以移除
+function findDuplicateSavedItems(eid){
+  const groups=new Map();
+  (S.items[eid]||[]).forEach(item=>{
+    const key=getMenuItemDupKey(item);
+    if(!groups.has(key)) groups.set(key,[]);
+    groups.get(key).push(item);
+  });
+  const removable=[],locked=[];
+  groups.forEach(list=>{
+    if(list.length<2) return;
+    const orderCount=item=>(S.orders[eid]||[]).reduce((sum,o)=>sum+(o.order_items||[]).filter(oi=>oi.item_id===item.id).length,0);
+    const keep=[...list].sort((a,b)=>orderCount(b)-orderCount(a))[0];
+    list.forEach(item=>{
+      if(item===keep) return;
+      (orderCount(item)?locked:removable).push(item);
+    });
+  });
+  return {removable,locked};
+}
+function removeDuplicateSavedItems(){
+  const {removable,locked}=findDuplicateSavedItems(S.adminEid);
+  if(!removable.length){toast(locked.length?'重複的品項都已經有人點了，不能移除':'沒有重複的品項','warn');return;}
+  if(!confirm(`找到 ${removable.length} 個重複品項（同店家、同品名、同價格），要移除嗎？\n每組會保留一筆；已經有人點的品項不會刪。\n按確定後，再按「💾 儲存場次」才會真正刪除。`)) return;
+  if(!(S.pendingItems||[]).some(item=>item._savedId)) editSavedItems(true);
+  const ids=new Set(removable.map(item=>item.id));
+  S.editRemovedIds=[...new Set([...(S.editRemovedIds||[]),...ids])];
+  S.pendingItems=(S.pendingItems||[]).filter(item=>!ids.has(item._savedId));
+  toast(`已標記移除 ${ids.size} 個重複品項，請按「💾 儲存場次」`,'ok');
+  render();
+}
+
 function groupFlavorItems(items){
   const groups=new Map();
   items.forEach(item=>{
@@ -4857,7 +6039,7 @@ function renderMenuCard(item,cat,opt={}){
           ${item.description?`<div class="m-desc">${esc(item.description)}</div>`:''}
           ${item.price>0?`<div class="m-price">$${item.price}</div>`:'<div class="m-price" style="color:var(--sll)">詢價</div>'}
           ${overage?`<div class="overage-tag">⚠️ ${cat==='點心'?'超額自付':'需補額'} $${overage}</div>`:''}
-          ${needsDetailSheet?`<div class="m-spec">${needsSugarIce(item)?(isBentoStoreDrink(item)?'可選不選擇糖冰':'需填甜度冰塊'):'點擊選規格'} ›</div>`:''}
+          ${needsDetailSheet?`<div class="m-spec">${needsSugarIce(item)?(isBentoStoreDrink(item)?'可選不選擇糖冰':'選甜度冰塊'):'點擊選規格'} ›</div>`:''}
           <div class="qty-row" onclick="event.stopPropagation()">
             <button class="qb" onclick="event.stopPropagation();adjCart('${item.id}',-1)">−</button>
             <span class="qn">${totalQty}</span>
@@ -4927,7 +6109,7 @@ function startCombo(id){
   if(!item) return;
   // 有規格的主餐先選規格，選完再進套餐流程
   if(item.specs&&item.specs.length>0){
-    S.specItem=item; S.specSel={}; S.specQty=1; S.specNote='';
+    S.specItem=item; S.specSel={}; S.specQty=1; S.specNote=''; resetSugarIceSelection();
     S.specSel=createInitialSpecSelection(item);
     S.specItem._comboMode=true;  // 標記為套餐模式
     renderSheet();
@@ -5050,7 +6232,7 @@ function renderComboSheet(){
           style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border:1.5px solid ${sel?'var(--or)':'var(--bo)'};border-radius:var(--rmd);background:${sel?'var(--orl)':'var(--ca)'};cursor:pointer">
           <div><span style="font-weight:600;font-size:.88rem">${esc(item.name)}</span>
             ${item.price>0?`<span style="color:var(--or);font-weight:700;font-size:.82rem;margin-left:6px">$${item.price}</span>`:''}
-            ${needsSugarIce(item)?`<span style="font-size:.65rem;color:${isBentoStoreDrink(item)?'var(--in)':'var(--rd)'};margin-left:4px">${isBentoStoreDrink(item)?'可選不選擇糖冰':'甜度冰塊必填'}</span>`:''}
+            ${needsSugarIce(item)?`<span style="font-size:.65rem;color:${isBentoStoreDrink(item)?'var(--in)':'var(--rd)'};margin-left:4px">${isBentoStoreDrink(item)?'可選不選擇糖冰':'甜度冰塊必選'}</span>`:''}
             ${sel?.note?`<div style="font-size:.68rem;color:var(--ord);margin:3px 0 0 30px">${esc(sel.note)}</div>`:''}
           </div>
           <div style="width:22px;height:22px;border-radius:50%;border:2px solid ${sel?'var(--or)':'var(--bo)'};background:${sel?'var(--or)':'transparent'};display:flex;align-items:center;justify-content:center;font-size:.75rem;color:#fff;flex-shrink:0">${sel?'✓':''}</div>
@@ -5078,7 +6260,7 @@ function selectComboMain(id){
   if(!item) return;
   if(item.specs&&item.specs.length){
     // 有規格彈出選規格，之後再設定 comboMain
-    S.specItem=item; S.specSel={}; S.specQty=1; S.specNote='';
+    S.specItem=item; S.specSel={}; S.specQty=1; S.specNote=''; resetSugarIceSelection();
     S.specSel=createInitialSpecSelection(item);
     S.specItem._comboMode=true;
     renderSheet();
@@ -5384,12 +6566,41 @@ async function adjCart(id,d){
 function removeKey(k){delete S.cart[k];render();}
 
 /* ── SPEC SHEET ── */
+/* ── 飲料甜度冰塊：用按鈕點選 ──
+   菜單有寫甜度／冰塊選項就用菜單的（AI 解析時放在規格「甜度」「冰塊」），沒有就用預設。
+   選好的甜度冰塊寫進品項備註 note（和以前手打的一樣），後台與 Excel 的「糖度冰塊」欄位不用改。 */
+const DEFAULT_SUGAR_OPTS=['無糖','微糖','半糖','少糖','全糖'];
+const DEFAULT_ICE_OPTS=['正常冰','少冰','微冰','去冰','常溫','熱'];
+function isSugarSpec(cat){return /甜度|糖度|糖量/.test(String(cat||''));}
+function isIceSpec(cat){return /冰塊|冰量|冰度|溫度/.test(String(cat||''));}
+function isSugarIceSpec(cat){return isSugarSpec(cat)||isIceSpec(cat);}
+function getSugarIceOptions(item){
+  const specs=item?.specs||[];
+  const clean=opts=>(opts||[]).map(o=>String(o).trim()).filter(Boolean);
+  const sugar=clean(specs.find(sp=>isSugarSpec(sp.cat))?.opts);
+  const ice=clean(specs.find(sp=>isIceSpec(sp.cat))?.opts);
+  return {sugar:sugar.length?sugar:DEFAULT_SUGAR_OPTS,ice:ice.length?ice:DEFAULT_ICE_OPTS};
+}
+function getSugarIceText(){
+  if(S.specNoSugarIce) return '不選擇糖冰';
+  return [S.specSugar,S.specIce].filter(Boolean).join('');
+}
+function pickSugarIce(kind,value){
+  if(kind==='sugar') S.specSugar=S.specSugar===value?'':value;
+  else S.specIce=S.specIce===value?'':value;
+  S.specNoSugarIce=false;
+  renderSheet();
+}
+function resetSugarIceSelection(){
+  S.specSugar='';S.specIce='';S.specNoSugarIce=false;
+}
+
 function openSpec(id){
   const ev=S.events.find(e=>e.id===S.activeEventId);
   if(isOrderingClosed(ev)){toast('此場次已截止','err');return;}
   S.specItem=(S.items[S.activeEventId]||[]).find(i=>i.id===id);
   S.specSel=createInitialSpecSelection(S.specItem);
-  S.specQty=1;S.specNote='';
+  S.specQty=1;S.specNote='';resetSugarIceSelection();
   renderSheet();
   document.getElementById('specOverlay').style.display='flex';
 }
@@ -5465,6 +6676,7 @@ function createInitialSpecSelection(item){
   const selection={};
   (item?.specs||[]).forEach(spec=>{
     if(spec?.showIf) return; // 套餐內容要等選了套餐、由學生自己選
+    if(isSugarIceSpec(spec?.cat)&&item?.category==='飲料') return; // 甜度冰塊另外用按鈕選
     const opts=getSpecOptions(spec,item);
     if(!opts.length) return;
     const empty=opts.find(isEmptyAddonOption);
@@ -5542,6 +6754,7 @@ function renderSheet(){
   let html='';
   (item.specs||[]).forEach(sp=>{
     if(!isSpecVisible(sp,S.specSel)) return;
+    if(item.category==='飲料'&&isSugarIceSpec(sp.cat)) return; // 下面的甜度冰塊區統一顯示
     const multi=isMultiAddonSpec(sp.cat,item);
     const pickMissing=sp.showIf&&!S.specSel[sp.cat];
     html+=`<div class="spec-sec"${sp.showIf?' style="background:#fff7ed;border-radius:10px;padding:8px 10px"':''}><div class="spec-lbl"${pickMissing?' style="color:var(--rd)"':''}>${esc(sp.cat)}${sp.showIf?'（套餐內容，請選一個）':''}</div><div class="spec-opts">
@@ -5564,9 +6777,16 @@ function renderSheet(){
       ${curPrice>0?`<span style="font-family:'Nunito',sans-serif;font-weight:800;color:var(--or);margin-left:6px">$${curPrice*S.specQty}</span>`:''}
     </div>
   </div>
-  <div class="spec-sec"><div class="spec-lbl"${isDrink?' style="color:var(--rd)"':''}>${isDrink?'甜度冰塊（請填寫或選擇）':'備註'}</div>
-    ${canSkipSugarIce?`<button type="button" class="spec-opt${S.specNote==='不選擇糖冰'?' on':''}" onclick="S.specNote='不選擇糖冰';renderSheet()" style="margin-bottom:6px">不選擇糖冰</button>`:''}
-    <textarea class="note-inp" id="specNoteInput" rows="2" aria-required="${isDrink}" placeholder="${isDrink?'例如：微糖微冰':'例：不要辣…'}" oninput="S.specNote=this.value"${isDrink?' style="border-color:#f59e0b"':''}>${esc(S.specNote)}</textarea>
+  ${isDrink?(()=>{
+    const opts=getSugarIceOptions(item);
+    const row=(kind,label,list,current)=>`<div class="spec-sec"><div class="spec-lbl"${!current&&!S.specNoSugarIce?' style="color:var(--rd)"':''}>${label}（必選）</div><div class="spec-opts">
+      ${list.map(o=>`<button type="button" class="spec-opt${current===o?' on':''}" aria-pressed="${current===o}" onclick="pickSugarIce('${kind}','${esc(o)}')">${esc(o)}</button>`).join('')}
+    </div></div>`;
+    return (canSkipSugarIce?`<div style="margin:-4px 0 10px"><button type="button" class="spec-opt${S.specNoSugarIce?' on':''}" aria-pressed="${!!S.specNoSugarIce}" onclick="S.specNoSugarIce=!S.specNoSugarIce;if(S.specNoSugarIce){S.specSugar='';S.specIce='';}renderSheet()">不選擇糖冰</button></div>`:'')
+      +(S.specNoSugarIce?'':row('sugar','🍯 甜度',opts.sugar,S.specSugar)+row('ice','🧊 冰塊',opts.ice,S.specIce));
+  })():''}
+  <div class="spec-sec"><div class="spec-lbl">備註（選填）</div>
+    <textarea class="note-inp" id="specNoteInput" rows="2" placeholder="${isDrink?'例如：珍珠少一點、分開裝':'例如：不要辣、不要蔥、飯少一點'}" oninput="S.specNote=this.value">${esc(S.specNote)}</textarea>
   </div>`;
   document.getElementById('sheetBody').innerHTML=html;
 }
@@ -5578,12 +6798,15 @@ async function confirmSpec(){
     toast(`請選擇套餐內容：${missingPicks.join('、')}`,'warn');
     return;
   }
-  const trimmedNote=String(S.specNote||'').trim();
-  if(needsSugarIce(item)&&!trimmedNote){
-    toast(isBentoStoreDrink(item)?'請填寫飲料甜度冰塊，或選擇「不選擇糖冰」':'請填寫飲料甜度冰塊，不能只輸入空格','warn');
-    const noteInput=document.getElementById('specNoteInput');
-    if(noteInput){noteInput.style.borderColor='var(--rd)';noteInput.focus();}
-    return;
+  let trimmedNote=String(S.specNote||'').trim();
+  if(needsSugarIce(item)){
+    if(!S.specNoSugarIce&&(!S.specSugar||!S.specIce)){
+      const missing=[!S.specSugar?'甜度':'',!S.specIce?'冰塊':''].filter(Boolean).join('和');
+      toast(isBentoStoreDrink(item)?`請選擇${missing}，或按「不選擇糖冰」`:`請選擇${missing}`,'warn');
+      return;
+    }
+    // 甜度冰塊放在備註最前面，例如「微糖去冰／珍珠少一點」
+    trimmedNote=[getSugarIceText(),trimmedNote].filter(Boolean).join('／');
   }
   S.specNote=trimmedNote;
   // 沒標價的加料也可以選，先以 $0 計算，紀錄上標示「待補價」，之後由承辦人補收
@@ -5823,7 +7046,7 @@ async function submitOrder(){
     if(cancelBtn) cancelBtn.disabled=false;
     return;
   }
-  S.cart={};
+  S.cart={};S.orderNote='';
   // 重新載入場次，讓「查看已送出的餐點」立即出現。
   await loadEventDetail(S.activeEventId);
   orderFlowBox.remove();
@@ -6106,20 +7329,20 @@ function renderEventMgmt(ev){
         <input class="mg-inp" id="evOrganizer" placeholder="其他姓名" value="${(['雨欣','微姍','梅青','曉臻','心榆','望謙'].includes(ev.organizer)?'':ev.organizer)||''}" oninput="updateEditingEventField('organizer',this.value)" style="width:90px">
       </div>
     </div>
-    ${(()=>{const sub=getEventSubsidy(ev);const combined=sub.mode==='combined';return `<div style="margin-bottom:10px" id="evSubsidyBox" data-mode="${sub.mode}">
+    ${(()=>{const sub=ev._subsidyDraft||getEventSubsidy(ev);const combined=sub.mode==='combined';return `<div style="margin-bottom:10px" id="evSubsidyBox" data-mode="${sub.mode}">
       <span class="mg-lbl" style="display:block;margin-bottom:6px">本場次補助金額（每人）</span>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
         <button type="button" class="btn ${combined?'btn-out':'btn-or'}" data-subsidy-mode="separate" onclick="setSubsidyMode('separate')" style="padding:7px 14px;font-weight:700">分開計算（便當＋點心／飲料）</button>
         <button type="button" class="btn ${combined?'btn-or':'btn-out'}" data-subsidy-mode="combined" onclick="setSubsidyMode('combined')" style="padding:7px 14px;font-weight:700">合併計算（全部只看總額）</button>
       </div>
       <div id="evSubsidySeparate" style="display:${combined?'none':'flex'};gap:10px;flex-wrap:wrap;align-items:center;font-size:.85rem;font-weight:700">
-        <label style="display:flex;align-items:center;gap:5px">🍱 便當＋點心 $<input class="mg-inp" type="number" min="1" step="1" inputmode="numeric" id="evSubsidyMeal" value="${sub.meal}" placeholder="${DEFAULT_SUBSIDY.meal}" style="width:84px"></label>
-        <label style="display:flex;align-items:center;gap:5px">🧋 飲料 $<input class="mg-inp" type="number" min="1" step="1" inputmode="numeric" id="evSubsidyDrink" value="${sub.drink}" placeholder="${DEFAULT_SUBSIDY.drink}" style="width:84px"></label>
-        <button type="button" class="btn btn-out btn-sm" onclick="document.getElementById('evSubsidyMeal').value=${DEFAULT_SUBSIDY.meal};document.getElementById('evSubsidyDrink').value=${DEFAULT_SUBSIDY.drink}">恢復 ${DEFAULT_SUBSIDY.meal}／${DEFAULT_SUBSIDY.drink}</button>
+        <label style="display:flex;align-items:center;gap:5px">🍱 便當＋點心 $<input class="mg-inp" type="number" min="1" step="1" inputmode="numeric" id="evSubsidyMeal" oninput="updateSubsidyDraft()" value="${sub.meal}" placeholder="${DEFAULT_SUBSIDY.meal}" style="width:84px"></label>
+        <label style="display:flex;align-items:center;gap:5px">🧋 飲料 $<input class="mg-inp" type="number" min="1" step="1" inputmode="numeric" id="evSubsidyDrink" oninput="updateSubsidyDraft()" value="${sub.drink}" placeholder="${DEFAULT_SUBSIDY.drink}" style="width:84px"></label>
+        <button type="button" class="btn btn-out btn-sm" onclick="document.getElementById('evSubsidyMeal').value=${DEFAULT_SUBSIDY.meal};document.getElementById('evSubsidyDrink').value=${DEFAULT_SUBSIDY.drink};updateSubsidyDraft()">恢復 ${DEFAULT_SUBSIDY.meal}／${DEFAULT_SUBSIDY.drink}</button>
       </div>
       <div id="evSubsidyCombined" style="display:${combined?'flex':'none'};gap:10px;flex-wrap:wrap;align-items:center;font-size:.85rem;font-weight:700">
-        <label style="display:flex;align-items:center;gap:5px">🍱＋🧋 便當、點心、飲料總額 $<input class="mg-inp" type="number" min="1" step="1" inputmode="numeric" id="evSubsidyTotal" value="${sub.total}" placeholder="${DEFAULT_SUBSIDY.total}" style="width:84px"></label>
-        <button type="button" class="btn btn-out btn-sm" onclick="document.getElementById('evSubsidyTotal').value=${DEFAULT_SUBSIDY.total}">恢復 ${DEFAULT_SUBSIDY.total}</button>
+        <label style="display:flex;align-items:center;gap:5px">🍱＋🧋 便當、點心、飲料總額 $<input class="mg-inp" type="number" min="1" step="1" inputmode="numeric" id="evSubsidyTotal" oninput="updateSubsidyDraft()" value="${sub.total}" placeholder="${DEFAULT_SUBSIDY.total}" style="width:84px"></label>
+        <button type="button" class="btn btn-out btn-sm" onclick="document.getElementById('evSubsidyTotal').value=${DEFAULT_SUBSIDY.total};updateSubsidyDraft()">恢復 ${DEFAULT_SUBSIDY.total}</button>
       </div>
       <div style="font-size:.66rem;color:var(--sll);margin-top:4px">分開計算：預設 $${DEFAULT_SUBSIDY.meal}／$${DEFAULT_SUBSIDY.drink}，同一家店各自累計，麥當勞是兩個金額相加。合併計算：便當、點心、飲料不分店家全部加起來，預設總額 $${DEFAULT_SUBSIDY.total}。改完按「💾 儲存場次」後生效。</div>
     </div>`;})()}
@@ -6178,7 +7401,19 @@ function renderEventMgmt(ev){
          +(editing?'<span style="font-size:.72rem;color:var(--in);margin-left:6px">✏️ 改完請按「💾 儲存場次」</span>':'<span style="font-size:.72rem;color:var(--slm);margin-left:6px">點這裡展開，直接修改或新增</span>')+'</span>'
          +'<button class="btn btn-sm '+(editing?'btn-out':'btn-or')+'" onclick="event.stopPropagation();toggleSavedItems()">'+(editing?'▲ 收合':'▼ 展開')+'</button>'
          +'<button onclick="event.stopPropagation();if(confirm(\'確定清空此場次所有品項？\'))clearItems()" style="font-size:.7rem;color:var(--rd);background:none;border:none;cursor:pointer">清空</button>'
-         +'</div></div>';
+         +'</div>'
+         +(()=>{
+           const dup=findDuplicateSavedItems(S.adminEid);
+           const pendingRemoved=new Set(S.editRemovedIds||[]);
+           const left=dup.removable.filter(item=>!pendingRemoved.has(item.id));
+           if(!left.length&&!dup.locked.length) return '';
+           return '<div style="margin-top:8px;padding:8px 10px;border-radius:8px;background:#fff7ed;color:#9a3412;font-weight:700;display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
+             +'<span style="flex:1;min-width:160px">⚠️ 有 '+(left.length+dup.locked.length)+' 個重複品項（同店家、同品名、同價格），學生點餐頁只會顯示一筆'
+             +(dup.locked.length?'；其中 '+dup.locked.length+' 個已經有人點，會保留':'')+'</span>'
+             +(left.length?'<button class="btn btn-sm btn-or" onclick="event.stopPropagation();removeDuplicateSavedItems()">🧹 移除重複品項</button>':'')
+             +'</div>';
+         })()
+         +'</div>';
     })()}
       <span class="mg-lbl">${S.pendingItems.some(item=>item._savedId)?'修改品項（改完按「💾 儲存場次」）':(S.pendingItems.length?'本次解析品項（確認後按儲存場次）':'尚未解析品項')}</span>
       ${S.pendingItems.length?`<button class="btn btn-out btn-sm" onclick="clearPending()">${S.pendingItems.some(item=>item._savedId)?'✕ 取消修改':'✕ 清除解析'}</button>`:''}
@@ -6471,6 +7706,32 @@ function setSubsidyMode(mode){
   box.querySelectorAll('[data-subsidy-mode]').forEach(btn=>{btn.className='btn '+(btn.dataset.subsidyMode===mode?'btn-or':'btn-out');});
   document.getElementById('evSubsidySeparate').style.display=mode==='combined'?'none':'flex';
   document.getElementById('evSubsidyCombined').style.display=mode==='combined'?'flex':'none';
+  updateSubsidyDraft();
+}
+/* 補助設定改到一半先記在編輯中的場次上：畫面重畫（上傳圖片、解析、改品項）時不會被洗回舊值，
+   按「💾 儲存場次」才真正寫入。 */
+function readSubsidyForm(base){
+  const box=document.getElementById('evSubsidyBox');
+  if(!box) return null;
+  const num=(id,fallback)=>{const n=Math.round(Number(document.getElementById(id)?.value));return Number.isFinite(n)&&n>0?n:fallback;};
+  return {
+    mode:box.dataset.mode==='combined'?'combined':'separate',
+    meal:num('evSubsidyMeal',base.meal),
+    drink:num('evSubsidyDrink',base.drink),
+    total:num('evSubsidyTotal',base.total)
+  };
+}
+function updateSubsidyDraft(){
+  const ev=S.menuDraft||S.events.find(e=>e.id===S.adminEid);
+  if(!ev) return;
+  const form=readSubsidyForm(getEventSubsidy(ev));
+  if(!form) return;
+  if(JSON.stringify(form)===JSON.stringify(getEventSubsidy(ev))) delete ev._subsidyDraft;
+  else ev._subsidyDraft=form;
+}
+function hasUnsavedSubsidyDraft(){
+  const ev=S.menuDraft||S.events.find(e=>e.id===S.adminEid);
+  return !!ev?._subsidyDraft;
 }
 
 function updateEditingEventField(field,value){
@@ -7094,14 +8355,8 @@ async function saveMenu(){
   if(!deadline_date||!deadline){toast('請選擇點餐截止日期與時間','err');return;}
   if(!title){toast('請填場次標題','err');return;}
   // 補助金額：空白或不合理就用預設 120／40
-  const subsidyInput=id=>{const n=Math.round(Number(document.getElementById(id)?.value));return Number.isFinite(n)&&n>0?n:null;};
   const currentSubsidy=getEventSubsidy(evNow);
-  const subsidy={
-    mode:document.getElementById('evSubsidyBox')?.dataset.mode==='combined'?'combined':(document.getElementById('evSubsidyBox')?'separate':currentSubsidy.mode),
-    meal:subsidyInput('evSubsidyMeal')??currentSubsidy.meal,
-    drink:subsidyInput('evSubsidyDrink')??currentSubsidy.drink,
-    total:subsidyInput('evSubsidyTotal')??currentSubsidy.total
-  };
+  const subsidy=readSubsidyForm(currentSubsidy)||evNow?._subsidyDraft||currentSubsidy;
   const imgData=parseEventMenuImages(evNow?.img_url||'');
   if(JSON.stringify(subsidy)===JSON.stringify(DEFAULT_SUBSIDY)) delete imgData.subsidy;
   else imgData.subsidy=subsidy;
@@ -7135,6 +8390,7 @@ async function saveMenu(){
     }
     if(evNow) Object.assign(evNow,{date,title,activity_note,organizer,store_name,deadline_date,deadline,...imgPatch});
   }
+  if(evNow) delete evNow._subsidyDraft;
   try{
     const savedImageValue=await persistPendingMenuImages(eid,evNow?.img_url||'');
     if(savedImageValue!==null&&evNow) evNow.img_url=savedImageValue;
@@ -7604,7 +8860,8 @@ const MENU_PARSE_PROMPT=`你是菜單資料輸入員。請把圖片中的菜單�
 3-1. 飲料品名用「/」列出可選的茶底（例如「椰果紅/綠」「燕麥紅/綠/青」「梅子青/烏」「多多綠/紅」），代表同一杯飲料可選不同茶：只輸出一個品項，name 照菜單寫（例如「椰果紅/綠」），並加上規格 {"cat":"茶底","opts":["紅茶","綠茶"]}（紅＝紅茶、綠＝綠茶、青＝青茶、烏＝烏龍茶）。絕對不可以拆成只有一兩個字的品項（例如「綠」「青」「紅」）。
 3-2. 兩個完整、不同的品項共用同一個價格，用「/」隔開（例如「茉莉綠茶/阿薩姆紅茶」「滑蛋 / 溏心蛋」），要拆成各自獨立的品項，價格相同。
 4. 品名旁邊的小字註記（例如「最低微冰」「固定糖量」「綠茶/紅茶」「含脆梅粒」）放進 description，不要放進 name。
-5. 價格看不清楚填 0。忽略優惠活動、營業時間、地址、電話、咖啡因說明、甜度冰塊表等不是品項的文字。
+5. 價格看不清楚填 0。忽略優惠活動、營業時間、地址、電話、咖啡因說明等不是品項的文字。
+5-1. 飲料菜單上的「甜度／糖度」「冰塊／冰量／溫度」選項表不要輸出成品項；改把它們照菜單寫法加到每一杯飲料的 specs：{"cat":"甜度","opts":["無糖","微糖","半糖","少糖","全糖"]}、{"cat":"冰塊","opts":["正常冰","少冰","微冰","去冰","溫熱飲"]}。菜單沒有寫甜度冰塊就不用輸出（系統會自動補上預設選項）。某些飲料標示不能做熱的、或固定甜度，照樣輸出同一組選項即可。
 
 【店家與分類】
 6. restaurant 填該品項所屬的店家名稱。同一張圖若出現另一家店的區塊（例如底部其他店的廣告），那些品項的 restaurant 要填那家店的名稱，不要混在一起。
@@ -7761,12 +9018,21 @@ function normalizeComboName(name){
   if(m) text=m[1].toUpperCase()+' '+m[2].trim();
   return text;
 }
+function isUpgradeName(name){
+  return /^加[^\s]{1,6}$|加量|加大|升級|加價/.test(String(name||'').trim());
+}
 function isComboItem(item){
-  if(!item||item.category==='飲料'||!item._isAddon) return false;
-  return item.category==='其他'||/套餐|配餐|組合|套$/.test(String(item.name||''));
+  if(!item||item.category==='飲料') return false;
+  const name=String(item.name||'');
+  if(item.category==='其他'&&!item._isAddon) return /套餐|配餐|組合|套$/.test(name); // AI 漏標 is_addon 時，用名稱判斷
+  if(!item._isAddon) return false;
+  if(item.category==='其他'&&isUpgradeName(name)&&!/套餐|配餐|組合/.test(name)) return false;
+  return item.category==='其他'||/套餐|配餐|組合|套$/.test(name);
 }
 function isMainUpgradeItem(item){
-  return !!item&&item._isAddon&&item.category!=='飲料'&&!isComboItem(item);
+  if(!item||item.category==='飲料'||isComboItem(item)) return false;
+  if(item._isAddon) return true;
+  return item.category==='其他'&&isUpgradeName(item.name); // 「加蛋」「豬肉加量」被分到其他、又沒標 is_addon
 }
 function mergeMainCombos(newItems,existingItems=[]){
   const combos=newItems.filter(isComboItem);
@@ -7835,6 +9101,37 @@ function mergeMainCombos(newItems,existingItems=[]){
     mainCount:touched.size,upgradeMainCount:upgradeTouched.size,
     orphan:combos.some(c=>!removeIds.has(c.id))
   };
+}
+
+// 解析完：飲料店的飲料都要有「甜度」「冰塊」規格（學生點餐時用按鈕選）。
+// 同一家店有些飲料解析到菜單上的甜度冰塊選項，就套用到同店其他飲料；都沒有就用預設。
+// 便當店附的飲料（可樂、紅茶…）和麥當勞不加。
+function ensureDrinkSugarIceSpecs(newItems,existingItems=[]){
+  const all=[...existingItems,...newItems];
+  const storeKey=it=>normalizeCompareText(it.restaurant||'');
+  const bentoStores=new Set(all.filter(it=>it.category==='便當'||it.category==='點心').map(storeKey));
+  const storeSpecs={};
+  newItems.forEach(it=>{
+    if(it.category!=='飲料') return;
+    const key=storeKey(it);
+    storeSpecs[key]=storeSpecs[key]||{};
+    (it.specs||[]).forEach(sp=>{
+      if(isSugarSpec(sp.cat)&&sp.opts?.length&&!storeSpecs[key].sugar) storeSpecs[key].sugar={cat:'甜度',opts:[...sp.opts]};
+      if(isIceSpec(sp.cat)&&sp.opts?.length&&!storeSpecs[key].ice) storeSpecs[key].ice={cat:'冰塊',opts:[...sp.opts]};
+    });
+  });
+  let count=0;
+  newItems.forEach(it=>{
+    if(it.category!=='飲料'||it._isAddon) return;
+    const key=storeKey(it);
+    if(bentoStores.has(key)||NO_SUGAR_ICE_STORES.test(it.restaurant||'')) return;
+    it.specs=Array.isArray(it.specs)?it.specs:[];
+    let added=false;
+    if(!it.specs.some(sp=>isSugarSpec(sp.cat))){it.specs.push(storeSpecs[key]?.sugar?JSON.parse(JSON.stringify(storeSpecs[key].sugar)):{cat:'甜度',opts:[...DEFAULT_SUGAR_OPTS]});added=true;}
+    if(!it.specs.some(sp=>isIceSpec(sp.cat))){it.specs.push(storeSpecs[key]?.ice?JSON.parse(JSON.stringify(storeSpecs[key].ice)):{cat:'冰塊',opts:[...DEFAULT_ICE_OPTS]});added=true;}
+    if(added||it.specs.some(sp=>isSugarIceSpec(sp.cat))) count++;
+  });
+  return count;
 }
 
 async function aiParseImages(images,uploadType='main'){
@@ -8003,7 +9300,26 @@ async function aiParseImages(images,uploadType='main'){
     // 加價套餐（A/B/C 套餐）與加價升級（加蛋、加起司…）併入每個主餐的選項
     const comboMerge=mergeMainCombos(newItems,S.pendingItems);
     newItems.splice(0,newItems.length,...comboMerge.items);
+    // 每杯飲料都加上「甜度」「冰塊」點選按鈕
+    const sugarIceCount=ensureDrinkSugarIceSpecs(newItems,S.pendingItems);
     // 累加：把本次解析結果加入 pendingItems（支援主餐+飲料分開上傳）
+    // 同一張菜單再解析一次時，不要重複加入：
+    //   跟已儲存品項一樣（同店家、同分類、同品名、同價格）→ 略過；跟待確認清單裡的一樣 → 用新的取代舊的
+    const savedKeys=new Set((S.items[S.adminEid]||[]).map(getMenuItemDupKey));
+    const pendingIndex=new Map();
+    (S.pendingItems||[]).forEach((item,index)=>{if(!item._savedId) pendingIndex.set(getMenuItemDupKey(item),index);});
+    let skippedDup=0,replacedDup=0;
+    const freshItems=[];
+    const seenNew=new Set();
+    newItems.forEach(item=>{
+      const key=getMenuItemDupKey(item);
+      if(seenNew.has(key)){skippedDup++;return;}
+      seenNew.add(key);
+      if(savedKeys.has(key)){skippedDup++;return;}
+      if(pendingIndex.has(key)){S.pendingItems[pendingIndex.get(key)]=item;replacedDup++;return;}
+      freshItems.push(item);
+    });
+    newItems.splice(0,newItems.length,...freshItems);
     S.pendingItems=[...S.pendingItems, ...newItems];
     // 解析完後更新膠囊顯示（讓「本次解析」區塊出現）
     const capsDiv=document.getElementById('storeCapsules');
@@ -8016,7 +9332,10 @@ async function aiParseImages(images,uploadType='main'){
     const addonNote=(addonMerge.merged.length?`；已將 ${addonMerge.merged.length} 種加料（${esc(addonMerge.merged.join('、'))}）併入 ${addonMerge.drinkCount} 杯飲料的「加料」選項`:'')
       +(comboMerge.combos.length?`；已將 ${comboMerge.combos.length} 種套餐（${esc(comboMerge.combos.join('、'))}）加到 ${comboMerge.mainCount} 個主餐的「套餐」選項`:'')
       +(comboMerge.upgrades.length?`；已將加價升級（${esc(comboMerge.upgrades.join('、'))}）加到 ${comboMerge.mainCount||comboMerge.upgradeMainCount} 個主餐`:'')
-      +(comboMerge.orphan?`；⚠️ 找不到主餐可以掛上套餐，套餐先列成品項，請手動調整`:'');
+      +(comboMerge.orphan?`；⚠️ 找不到主餐可以掛上套餐，套餐先列成品項，請手動調整`:'')
+      +(sugarIceCount?`；已在 ${sugarIceCount} 杯飲料加上甜度、冰塊選項`:'')
+      +(typeof skippedDup!=='undefined'&&skippedDup?`；略過 ${skippedDup} 個重複品項（已經在場次裡）`:'')
+      +(typeof replacedDup!=='undefined'&&replacedDup?`；${replacedDup} 個和待確認清單重複的品項已用新結果取代`:'');
     const doneHtml=`<div style="font-size:.75rem;color:var(--gr);margin-top:7px">✅ 解析完成 ${newItems.length} 個品項（${cats}）${addonNote}${dupNote}，確認後按「💾 儲存場次」加入場次</div>`;
     // 解析完成訊息存起來，畫面重畫後仍會顯示
     S.parseStatusHtml={...(S.parseStatusHtml||{}),[uploadType==='drink'?'drink':'main']:doneHtml};
