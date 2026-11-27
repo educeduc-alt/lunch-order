@@ -228,6 +228,9 @@ body:has(#subBar:not([style*="display: none"])) .developer-card{bottom:82px}
 .cart-day-title{font-size:.76rem;font-weight:900;color:var(--in);margin:8px 0 2px;padding-top:6px;border-top:1px dashed var(--bo)}
 .cart-day-title:first-of-type{border-top:none;padding-top:0}
 .day-chip{display:inline-block;font-size:.64rem;font-weight:800;color:var(--in);background:var(--inl);border-radius:999px;padding:1px 7px;margin-right:5px;vertical-align:1px}
+.web-parse-box{background:#f8faff;border:1.5px dashed #a5b4fc;border-radius:var(--rmd);padding:10px 12px;margin:-4px 0 13px}
+.web-parse-title{display:block;font-size:.82rem;font-weight:900;color:#3730a3;margin-bottom:6px}
+.web-parse-sub{font-size:.66rem;color:var(--sll);margin-top:5px;line-height:1.5}
 .parse-day-pick{display:flex;align-items:center;gap:6px;flex-wrap:wrap;background:#eef2ff;border:1.5px solid #a5b4fc;border-radius:var(--rmd);padding:8px 10px;margin:0 0 8px;font-size:.78rem;font-weight:800;color:#3730a3}
 .activity-group{border:1.5px solid var(--bo);border-radius:var(--rmd);background:#fff;margin-bottom:8px;overflow:hidden}
 .activity-group.open{border-color:#a5b4fc;background:#f8faff}
@@ -357,6 +360,10 @@ body:has(#subBar:not([style*="display: none"])) .developer-card{bottom:82px}
   window._geminiCloudflareProxyUrl = isLocalPreview
     ? 'https://lunch-order-2bw.pages.dev/gemini-proxy'
     : (window._cfPages ? '/gemini-proxy' : '/.netlify/functions/gemini-proxy');
+  // 網頁菜單解析：由 Cloudflare 讀取店家網頁（functions/fetch-page.js）
+  window._fetchPageProxyUrl = (isLocalPreview || !window._cfPages)
+    ? 'https://lunch-order-2bw.pages.dev/fetch-page'
+    : '/fetch-page';
 </script>
 </head>
 <body>
@@ -5836,6 +5843,7 @@ function openMenuImage(url,label='菜單原圖'){
    ・學生點的每一項屬於哪一天，存在 order_items 原本沒用到的 item_emoji 欄位
    單天場次這些欄位都是空的，行為跟以前一樣。 */
 const DAY_ID_RE=/^d\d+$/;
+const MEAL_OPTIONS=['早餐','午餐','晚餐','點心'];
 function getItemDayId(item){
   const value=String(item?.emoji??item?.item_emoji??'').trim();
   return DAY_ID_RE.test(value)?value:'';
@@ -5848,14 +5856,21 @@ function getOrderItemDayId(orderItem,menuItems){
 }
 function getEventDays(ev){
   const raw=ev?._daysDraft||parseEventMenuImages(ev?.img_url).days;
-  if(Array.isArray(raw)&&raw.length>1) return raw.map((day,index)=>({
-    id:DAY_ID_RE.test(String(day?.id||''))?day.id:'d'+(index+1),
-    label:String(day?.label||'').trim()||`第${index+1}天`,
-    date:String(day?.date||'')
-  }));
+  if(Array.isArray(raw)&&raw.length>1) return raw.map((day,index)=>{
+    const meal=MEAL_OPTIONS.includes(day?.meal)?day.meal:'';
+    const own=String(day?.label||'').trim();
+    return {
+      id:DAY_ID_RE.test(String(day?.id||''))?day.id:'d'+(index+1),
+      rawLabel:own,
+      meal,
+      // 顯示名稱：「Day1 午餐」；沒填名稱就只顯示餐別，兩個都沒有才用「第 N 餐」
+      label:[own,meal].filter(Boolean).join(' ')||`第${index+1}餐`,
+      date:String(day?.date||'')
+    };
+  });
   // 天數設定還沒載入時，先從品項標記推回來
   const ids=[...new Set((S.items[ev?.id]||[]).map(getItemDayId).filter(Boolean))].sort();
-  return ids.length>1?ids.map(id=>({id,label:`第${id.slice(1)}天`,date:''})):[];
+  return ids.length>1?ids.map(id=>({id,rawLabel:'',meal:'',label:`第${id.slice(1)}餐`,date:''})):[];
 }
 function isMultiDayEvent(ev){return getEventDays(ev).length>1;}
 function fmtDayShortDate(date){
@@ -5889,7 +5904,7 @@ function renderOrderPage(){
     <div class="order-page-header">
       ${S.sharedEventMode?'':'<button class="back-btn" onclick="closeEvent()">← 返回場次</button>'}
       <div class="event-info-banner">
-        ${days.length>1?`<span style="display:block;font-size:.7rem;font-weight:800;color:var(--or);margin-bottom:2px">📅 ${esc(days.map(day=>day.label+(day.date?' '+fmtDayShortDate(day.date):'')).join('、'))}（共 ${days.length} 天）</span>`
+        ${days.length>1?`<span style="display:block;font-size:.7rem;font-weight:800;color:var(--or);margin-bottom:2px">📅 ${esc(days.map(day=>day.label+(day.date?' '+fmtDayShortDate(day.date):'')).join('、'))}（共 ${days.length} 餐）</span>`
           :(ev.date?`<span style="display:block;font-size:.7rem;font-weight:800;color:var(--or);margin-bottom:2px">📅 ${esc(fmtEventDate(ev.date))}</span>`:'')}
         <span style="display:block;font-size:.66rem;font-weight:700;color:var(--rd);margin-bottom:3px">截止：${esc(fmtEventDeadline(ev))}</span>
         <strong>${esc(ev.title)}</strong>
@@ -5914,7 +5929,7 @@ function renderOrderPage(){
 
   // 多天活動：每一天一個分頁，同一張清單一次送出
   if(days.length>1){
-    html+=`<div class="day-tabs" role="tablist" aria-label="選擇活動日">
+    html+=`<div class="day-tabs" role="tablist" aria-label="選擇餐次">
       ${days.map(day=>{
         const count=Object.values(S.cart).filter(ci=>(ci.day||days[0].id)===day.id).reduce((sum,ci)=>sum+(ci.qty||0),0);
         const on=day.id===S.activeDay;
@@ -5923,7 +5938,7 @@ function renderOrderPage(){
         </button>`;
       }).join('')}
     </div>
-    <div class="day-tabs-hint">每一天要吃的分別點，點完所有天數再一起送出。</div>`;
+    <div class="day-tabs-hint">每一餐分別點，全部點好再一起送出。</div>`;
   }
 
 
@@ -7094,7 +7109,7 @@ function renderEventMgmt(ev){
 
     <!-- 圖片 + AI -->
     ${(()=>{const days=getEventDays(ev);if(days.length<2) return '';const cur=getCurrentEditDayId();return `<div class="parse-day-pick">
-      <span>📅 接下來上傳、解析、新增的品項屬於：</span>
+      <span>📅 接下來上傳、解析、新增的品項屬於哪一餐：</span>
       ${days.map(day=>`<button type="button" class="btn btn-sm ${day.id===cur?'btn-or':'btn-out'}" onclick="S.parseDayId='${day.id}';render()">${esc(day.label)}${day.date?' '+esc(fmtDayShortDate(day.date)):''}</button>`).join('')}
     </div>`;})()}
     <div style="display:flex;justify-content:flex-end;align-items:center;margin:2px 0 7px">
@@ -7126,6 +7141,17 @@ function renderEventMgmt(ev){
         <div id="aiStatusDrink">${(S.parseStatusHtml||{}).drink||''}</div>
       </div>
 
+    </div>
+
+    <!-- 網頁菜單 -->
+    <div class="web-parse-box">
+      <label for="menuUrlInput" class="web-parse-title">🌐 網頁菜單（貼上店家菜單網址）</label>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <input class="mg-inp" id="menuUrlInput" type="url" inputmode="url" placeholder="https://… 店家官網菜單頁、菜單圖片網址" value="${esc(S.menuUrl||'')}" oninput="S.menuUrl=this.value" onkeydown="if(event.key==='Enter'){event.preventDefault();parseMenuFromUrl();}" style="flex:1;min-width:200px">
+        <button type="button" class="btn btn-in btn-sm" id="menuUrlBtn" onclick="parseMenuFromUrl()" style="background:var(--in);color:#fff;border:none;padding:8px 14px;font-weight:800">🔍 解析網頁</button>
+      </div>
+      <div class="web-parse-sub">會讀網頁上的文字和菜單圖片交給 AI 整理。需要登入的網頁、外送平台（foodpanda、Uber Eats）、Facebook／Instagram 通常讀不到，請改用截圖上傳。</div>
+      <div id="aiStatusWeb">${(S.parseStatusHtml||{}).web||''}</div>
     </div>
 
     <!-- 動作按鈕 -->
@@ -7461,23 +7487,47 @@ function renderEventDaysEditor(ev){
   const days=getEventDays(ev);
   const multi=days.length>1;
   return `<div style="margin-bottom:10px">
-    <span class="mg-lbl" style="display:block;margin-bottom:6px">活動天數</span>
+    <span class="mg-lbl" style="display:block;margin-bottom:6px">活動天數／餐別</span>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
-      <button type="button" class="btn ${multi?'btn-out':'btn-or'}" onclick="setEventMultiDay(false)" style="padding:7px 14px;font-weight:700">單天</button>
-      <button type="button" class="btn ${multi?'btn-or':'btn-out'}" onclick="setEventMultiDay(true)" style="padding:7px 14px;font-weight:700">多天（同一個連結點好幾天）</button>
+      <button type="button" class="btn ${multi?'btn-out':'btn-or'}" onclick="setEventMultiDay(false)" style="padding:7px 14px;font-weight:700">只有一餐</button>
+      <button type="button" class="btn ${multi?'btn-or':'btn-out'}" onclick="setEventMultiDay(true)" style="padding:7px 14px;font-weight:700">多天或多餐（午餐＋晚餐、Day1＋Day2）</button>
     </div>
-    ${multi?`<div style="display:flex;flex-direction:column;gap:6px">
+    ${multi?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;font-size:.72rem;font-weight:800;color:var(--slm);align-items:center">快速套用：
+      <button type="button" class="btn btn-out btn-sm" onclick="applyMealTemplate(1,['午餐','晚餐'])">一天 午餐＋晚餐</button>
+      <button type="button" class="btn btn-out btn-sm" onclick="applyMealTemplate(2,['午餐'])">兩天 午餐</button>
+      <button type="button" class="btn btn-out btn-sm" onclick="applyMealTemplate(2,['午餐','晚餐'])">兩天 午餐＋晚餐</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:6px">
       ${days.map((day,index)=>`<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
         <span style="font-size:.76rem;font-weight:800;color:var(--in);width:22px">${index+1}.</span>
-        <input class="mg-inp" value="${esc(day.label)}" placeholder="例如 Day1" oninput="updateEventDay(${index},'label',this.value)" style="width:110px">
+        <input class="mg-inp" value="${esc(day.rawLabel)}" placeholder="例如 Day1（可空白）" oninput="updateEventDay(${index},'label',this.value)" style="width:120px">
+        <select class="mg-inp" onchange="updateEventDay(${index},'meal',this.value)" style="width:86px">
+          <option value=""${day.meal?'':' selected'}>不指定</option>
+          ${MEAL_OPTIONS.map(meal=>`<option value="${meal}"${day.meal===meal?' selected':''}>${meal}</option>`).join('')}
+        </select>
         <input class="mg-inp" type="date" value="${esc(day.date)}" onchange="updateEventDay(${index},'date',this.value)" style="width:150px">
         ${days.length>2?`<button type="button" class="btn btn-rd btn-sm" onclick="removeEventDay(${index})">刪</button>`:''}
       </div>`).join('')}
-      <div><button type="button" class="btn btn-out btn-sm" onclick="addEventDay()">＋ 新增一天</button></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap"><button type="button" class="btn btn-out btn-sm" onclick="addEventDay(false)">＋ 同一天再加一餐</button><button type="button" class="btn btn-out btn-sm" onclick="addEventDay(true)">＋ 新增一天</button></div>
     </div>
-    <div style="font-size:.66rem;color:var(--sll);margin-top:4px">學生在同一個連結用「Day1／Day2」分頁分別點餐，一次送出；補助每一天各自計算；後台與 Excel 會標出每一項是哪一天。上傳菜單時要先選「這是哪一天的菜單」。改完按「💾 儲存場次」後生效。</div>`
-    :'<div style="font-size:.66rem;color:var(--sll)">兩天以上的活動可以選「多天」，學生用同一個連結把每一天的餐一起點好。</div>'}
+    <div style="font-size:.66rem;color:var(--sll);margin-top:4px">學生在同一個連結用分頁（例如「Day1 午餐」「Day1 晚餐」）分別點餐，一次送出；補助每一餐各自計算；後台與 Excel 會標出每一項是哪一餐。上傳菜單時要先選「這是哪一餐的菜單」。改完按「💾 儲存場次」後生效。</div>`
+    :'<div style="font-size:.66rem;color:var(--sll)">同一個活動要點午餐和晚餐、或好幾天的餐，選「多天或多餐」，學生用同一個連結一起點好。</div>'}
   </div>`;
+}
+// 快速建立餐次：例如兩天 × 午餐、晚餐
+function applyMealTemplate(dayCount,meals){
+  const ev=getEditingEvent();
+  if(!ev) return;
+  const used=(S.items[ev.id]||[]).some(item=>getItemDayId(item))||(S.pendingItems||[]).some(item=>getItemDayId(item));
+  if(used&&!confirm('套用後會重新編排餐次，已經分好的品項可能要重新選餐次。確定嗎？')) return;
+  const addDays=(date,n)=>{if(!date) return '';const d=new Date(date+'T00:00:00Z');d.setUTCDate(d.getUTCDate()+n);return d.toISOString().slice(0,10);};
+  const list=[];
+  for(let dayIndex=0;dayIndex<dayCount;dayIndex++){
+    meals.forEach(meal=>list.push({id:'d'+(list.length+1),label:dayCount>1?`Day${dayIndex+1}`:'',meal,date:addDays(ev.date,dayIndex)}));
+  }
+  ev._daysDraft=list;
+  S.parseDayId='';
+  render();
 }
 function getEditingEvent(){return S.menuDraft||S.events.find(e=>e.id===S.adminEid);}
 function setEventMultiDay(on){
@@ -7489,7 +7539,7 @@ function setEventMultiDay(on){
     ev._daysDraft=[];
   }else if(!isMultiDayEvent(ev)){
     const next=date=>{if(!date) return '';const d=new Date(date+'T00:00:00Z');d.setUTCDate(d.getUTCDate()+1);return d.toISOString().slice(0,10);};
-    ev._daysDraft=[{id:'d1',label:'Day1',date:ev.date||''},{id:'d2',label:'Day2',date:next(ev.date)}];
+    ev._daysDraft=[{id:'d1',label:'',meal:'午餐',date:ev.date||''},{id:'d2',label:'',meal:'晚餐',date:ev.date||''}];
   }
   S.parseDayId='';
   render();
@@ -7497,19 +7547,22 @@ function setEventMultiDay(on){
 function updateEventDay(index,field,value){
   const ev=getEditingEvent();
   if(!ev) return;
-  ev._daysDraft=getEventDays(ev).map(day=>({...day}));
+  ev._daysDraft=getEventDays(ev).map(day=>({id:day.id,label:day.rawLabel,meal:day.meal,date:day.date}));
   if(ev._daysDraft[index]) ev._daysDraft[index][field]=value;
-  if(field==='date') render();
+  if(field!=='label') render();
 }
-function addEventDay(){
+function addEventDay(nextDay=true){
   const ev=getEditingEvent();
   if(!ev) return;
-  const days=getEventDays(ev).map(day=>({...day}));
+  const days=getEventDays(ev).map(day=>({id:day.id,label:day.rawLabel,meal:day.meal,date:day.date}));
   const maxId=Math.max(0,...days.map(day=>Number(day.id.slice(1))||0));
-  const last=days[days.length-1]?.date;
-  let date='';
-  if(last){const d=new Date(last+'T00:00:00Z');d.setUTCDate(d.getUTCDate()+1);date=d.toISOString().slice(0,10);}
-  days.push({id:'d'+(maxId+1),label:'Day'+(days.length+1),date});
+  const last=days[days.length-1]||{};
+  let date=last.date||'';
+  if(nextDay&&date){const d=new Date(date+'T00:00:00Z');d.setUTCDate(d.getUTCDate()+1);date=d.toISOString().slice(0,10);}
+  const dayNo=new Set(days.map(day=>day.date||day.label)).size+(nextDay?1:0);
+  days.push(nextDay
+    ?{id:'d'+(maxId+1),label:/^Day\d+$/.test(last.label||'')?'Day'+dayNo:last.label||'',meal:last.meal||'',date}
+    :{id:'d'+(maxId+1),label:last.label||'',meal:last.meal==='午餐'?'晚餐':(last.meal==='早餐'?'午餐':''),date});
   ev._daysDraft=days;
   render();
 }
@@ -7521,7 +7574,7 @@ function removeEventDay(index){
   if(!day) return;
   const used=[...(S.items[ev.id]||[]),...(S.pendingItems||[])].some(item=>getItemDayId(item)===day.id);
   if(used&&!confirm(`「${day.label}」已經有品項，刪掉這一天後，這些品項會歸到第一天。確定嗎？`)) return;
-  ev._daysDraft=days.filter((_,i)=>i!==index);
+  ev._daysDraft=days.filter((_,i)=>i!==index).map(day=>({id:day.id,label:day.rawLabel,meal:day.meal,date:day.date}));
   render();
 }
 // 上傳／新增品項時，目前選的是哪一天
@@ -8206,7 +8259,7 @@ async function saveMenu(){
   else imgData.subsidy=subsidy;
   // 多天活動設定
   if(evNow?._daysDraft){
-    if(evNow._daysDraft.length>1) imgData.days=evNow._daysDraft.map(({id,label,date})=>({id,label,date}));
+    if(evNow._daysDraft.length>1) imgData.days=evNow._daysDraft.map(({id,label,meal,date})=>({id,label:label||'',meal:meal||'',date:date||''}));
     else delete imgData.days;
   }
   const img_url=Object.keys(imgData).length?JSON.stringify(imgData):'';
@@ -8402,6 +8455,48 @@ function previewFile(e, uploadType){
 }
 
 // 開始解析：用之前選好的檔案
+/* ── 網頁菜單解析 ── */
+function makeBlankPngBase64(){
+  const canvas=document.createElement('canvas');
+  canvas.width=canvas.height=16;
+  const ctx=canvas.getContext('2d');
+  ctx.fillStyle='#fff';ctx.fillRect(0,0,16,16);
+  return canvas.toDataURL('image/png').split(',')[1];
+}
+async function parseMenuFromUrl(){
+  const input=document.getElementById('menuUrlInput');
+  let url=String(input?.value||S.menuUrl||'').trim();
+  if(!url){toast('請先貼上菜單網址','warn');input?.focus();return;}
+  if(!/^https?:\/\//i.test(url)) url='https://'+url;
+  try{new URL(url);}catch(e){toast('網址格式不正確','err');return;}
+  S.menuUrl=url;
+  const statusEl=document.getElementById('aiStatusWeb');
+  const btn=document.getElementById('menuUrlBtn');
+  if(btn) btn.disabled=true;
+  if(statusEl) statusEl.innerHTML='<div class="scan-ldr"><div class="spin"></div>正在讀取網頁…</div>';
+  let page;
+  try{
+    const res=await fetch(window._fetchPageProxyUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url})});
+    const text=await res.text();
+    try{page=JSON.parse(text);}catch(e){throw new Error(res.ok?'網頁讀取服務回應格式錯誤':`網頁讀取服務錯誤（${res.status}），請確認 functions/fetch-page.js 已上傳到 GitHub`);}
+    if(!res.ok) throw new Error(page?.error||`網頁讀取失敗（${res.status}）`);
+  }catch(error){
+    if(statusEl) statusEl.innerHTML=`<div style="font-size:.75rem;color:var(--rd);margin-top:7px">❌ ${esc(error.message||'網頁讀取失敗')}</div>`;
+    S.parseStatusHtml={...(S.parseStatusHtml||{}),web:statusEl?.innerHTML||''};
+    if(btn) btn.disabled=false;
+    return {success:false,error:error.message};
+  }
+  const pageImages=(page.images||[]).map((img,index)=>({data:img.data,mime:img.mime,role:`網頁圖片 ${index+1}`}));
+  const blankImage=!pageImages.length;
+  const images=blankImage?[{data:makeBlankPngBase64(),mime:'image/png',role:'空白圖'}]:pageImages;
+  if(statusEl) statusEl.innerHTML=`<div style="font-size:.72rem;color:var(--slm);margin-top:6px">已讀到網頁：${esc(page.title||page.finalUrl||url)}（文字 ${String(page.text||'').length} 字、圖片 ${pageImages.length} 張）</div>`;
+  try{
+    return await aiParseImages(images,'web',{pageText:page.text||'',pageTitle:page.title||'',pageUrl:page.finalUrl||url,blankImage});
+  }finally{
+    if(btn) btn.disabled=false;
+  }
+}
+
 function startParse(uploadType){
   const file=uploadType==='drink'?window._pendingDrinkFile:window._pendingMainFile;
   if(!file) return;
@@ -8734,9 +8829,16 @@ const MENU_PARSE_PROMPT=`你是菜單資料輸入員。請把圖片中的菜單�
 15. 飲料菜單的「加料區／配料區」每一種料（例如椰果、波霸、布丁、仙草、QQ、奶精改鮮奶）各輸出一個品項，"is_addon":true，category 填「飲料」，name 只寫料名，price 填加價金額。一般品項的 is_addon 填 false。
 
 只回傳 JSON 陣列，不要有任何其他文字或 markdown。整張圖都無法辨識時回傳 []。`;
-function buildMenuParseContent(images){
+function buildMenuParseContent(images,options={}){
   const content=images.map(img=>({type:'image',source:{type:'base64',media_type:img.mime||'image/jpeg',data:img.data}}));
   let guide='';
+  if(options.pageText!==undefined){
+    // 網頁解析：附上網頁文字；沒有菜單圖片時會放一張空白圖（代理規定一定要有圖），請 AI 忽略
+    guide+=`\n\n【網頁菜單】以下是從網頁「${options.pageTitle||options.pageUrl||''}」（${options.pageUrl||''}）讀到的內容。`
+      +(options.blankImage?'附上的圖片是空白圖，請忽略，只根據網頁文字整理菜單。':`附上的 ${images.length} 張圖片是網頁上找到的圖片，可能是菜單、也可能是裝飾照片；是菜單的話請一起整理，不是就忽略。`)
+      +'網頁文字裡可能混有導覽列、營業時間、地址、評論等，只整理真正的餐點與價格。網頁文字和圖片重複的品項只輸出一次。'
+      +`\n----- 網頁文字開始 -----\n${String(options.pageText||'').slice(0,40000)}\n----- 網頁文字結束 -----`;
+  }
   if(images.length>1){
     guide=`\n\n【圖片說明】本次共 ${images.length} 張圖，依序為：${images.map((img,i)=>`第 ${i+1} 張「${img.role}」`).join('、')}。`
       +(images.some(img=>/放大/.test(img.role))
@@ -8981,11 +9083,11 @@ function ensureDrinkSugarIceSpecs(newItems,existingItems=[]){
   return count;
 }
 
-async function aiParseImages(images,uploadType='main'){
-  const statusEl=document.getElementById(uploadType==='drink'?'aiStatusDrink':'aiStatusMain')||document.getElementById('aiStatus');
+async function aiParseImages(images,uploadType='main',options={}){
+  const statusEl=document.getElementById(uploadType==='drink'?'aiStatusDrink':(uploadType==='web'?'aiStatusWeb':'aiStatusMain'))||document.getElementById('aiStatus');
   if(statusEl) statusEl.innerHTML=`<div class="scan-ldr"><div class="spin"></div>AI 正在解析菜單，請稍候…（大張菜單約需 30～60 秒）</div>`;
   try{
-    const requestBody=JSON.stringify({schema:'menu_items',messages:[{role:'user',content:buildMenuParseContent(images)}]});
+    const requestBody=JSON.stringify({schema:'menu_items',messages:[{role:'user',content:buildMenuParseContent(images,options)}]});
     const retryableStatuses=new Set([429,500,502,503,504,524]);
     // 外層 controller 只負責「使用者取消」；每個代理各自有逾時，
     // 這樣 Supabase 忙碌或逾時後，Cloudflare 備援仍有完整的等待時間。
@@ -9185,7 +9287,7 @@ async function aiParseImages(images,uploadType='main'){
       +(typeof replacedDup!=='undefined'&&replacedDup?`；${replacedDup} 個和待確認清單重複的品項已用新結果取代`:'');
     const doneHtml=`<div style="font-size:.75rem;color:var(--gr);margin-top:7px">✅ 解析完成 ${newItems.length} 個品項（${cats}）${addonNote}${dupNote}，確認後按「💾 儲存場次」加入場次</div>`;
     // 解析完成訊息存起來，畫面重畫後仍會顯示
-    S.parseStatusHtml={...(S.parseStatusHtml||{}),[uploadType==='drink'?'drink':'main']:doneHtml};
+    S.parseStatusHtml={...(S.parseStatusHtml||{}),[uploadType==='drink'?'drink':(uploadType==='web'?'web':'main')]:doneHtml};
     if(statusEl) statusEl.innerHTML=doneHtml;
     render();
     window._lastParseCats=(window._lastParseCats?window._lastParseCats+'、':'')+cats;
