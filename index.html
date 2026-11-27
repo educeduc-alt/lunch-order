@@ -218,6 +218,25 @@ body:has(#subBar:not([style*="display: none"])) .developer-card{bottom:82px}
 .btn-save-event{background:#4f46e5;color:#fff;box-shadow:0 2px 9px rgba(79,70,229,.3)}.btn-save-event:hover{background:#4338ca}
 .btn-sm{padding:4px 10px;font-size:.7rem}
 .btn-full{width:100%;padding:10px;font-size:.86rem}
+.day-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 4px}
+.day-tab{flex:1 1 120px;display:flex;flex-direction:column;align-items:center;gap:1px;border:2px solid var(--bo);background:#fff;border-radius:var(--rmd);padding:9px 10px;cursor:pointer;font:inherit;color:var(--sl)}
+.day-tab strong{font-size:.92rem}
+.day-tab span{font-size:.7rem;color:var(--slm);font-weight:700}
+.day-tab em{font-style:normal;font-size:.66rem;font-weight:800;color:#fff;background:var(--or);border-radius:999px;padding:1px 8px;margin-top:2px}
+.day-tab.on{border-color:var(--or);background:var(--orl);color:var(--ord)}
+.day-tabs-hint{font-size:.7rem;color:var(--slm);margin:0 0 12px;text-align:center}
+.cart-day-title{font-size:.76rem;font-weight:900;color:var(--in);margin:8px 0 2px;padding-top:6px;border-top:1px dashed var(--bo)}
+.cart-day-title:first-of-type{border-top:none;padding-top:0}
+.day-chip{display:inline-block;font-size:.64rem;font-weight:800;color:var(--in);background:var(--inl);border-radius:999px;padding:1px 7px;margin-right:5px;vertical-align:1px}
+.parse-day-pick{display:flex;align-items:center;gap:6px;flex-wrap:wrap;background:#eef2ff;border:1.5px solid #a5b4fc;border-radius:var(--rmd);padding:8px 10px;margin:0 0 8px;font-size:.78rem;font-weight:800;color:#3730a3}
+.activity-group{border:1.5px solid var(--bo);border-radius:var(--rmd);background:#fff;margin-bottom:8px;overflow:hidden}
+.activity-group.open{border-color:#a5b4fc;background:#f8faff}
+.activity-group-head{width:100%;display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:none;border:none;padding:10px 12px;text-align:left;cursor:pointer;font:inherit;color:var(--sl)}
+.activity-group-head:hover{background:#f1f5f9}
+.activity-group-arrow{font-size:.7rem;color:var(--in);width:12px}
+.activity-group-name{font-size:.86rem;font-weight:900}
+.activity-group-meta{font-size:.7rem;color:var(--sll);font-weight:700;margin-left:auto}
+.activity-group-body{padding:0 12px 12px 32px}
 .event-picker-group{display:flex;align-items:flex-start;gap:7px;flex-wrap:wrap;margin-bottom:10px}
 .organizer-capsule{background:var(--inl);color:var(--in);border-radius:999px;padding:6px 13px;font-size:.78rem;font-weight:800;flex:0 0 auto;line-height:1.25}
 .event-capsule-list{display:flex;align-items:center;gap:7px;row-gap:8px;flex:1 1 260px;min-width:0;flex-wrap:wrap}
@@ -5428,7 +5447,7 @@ async function guardMenuWork(action){
   return true;
 }
 function switchEditingEvent(eid){
-  guardMenuWork(()=>{S.events.forEach(e=>delete e._subsidyDraft);S.menuDraft=null;S.adminEid=eid;resetMenuEditorState();render();});
+  guardMenuWork(()=>{S.events.forEach(e=>{delete e._subsidyDraft;delete e._daysDraft;});S.menuDraft=null;S.adminEid=eid;S.parseDayId='';resetMenuEditorState();render();});
 }
 function switchAdminEvent(eid){
   guardMenuWork(()=>{S.adminEid=eid;S.loadedHistoryKeys=[];render();});
@@ -5684,7 +5703,7 @@ function renderHome(){
   return html;
 }
 function openEvent(eid){
-  S.activeEventId=eid; S.sharedEventMode=false; S.cart={}; S.orderNote=''; S.menuSearchQ='';
+  S.activeEventId=eid; S.sharedEventMode=false; S.cart={}; S.orderNote=''; S.activeDay=''; S.menuSearchQ='';
   setEventUrl(eid);
   render();
 }
@@ -5810,17 +5829,68 @@ function openMenuImage(url,label='菜單原圖'){
 }
 
 /* ── ORDER PAGE ── */
+/* ══ 多天活動：一個場次包含好幾天（例如 Day1、Day2） ══
+   不用改資料庫欄位：
+   ・天數設定存在場次 img_url 的 JSON：{"days":[{"id":"d1","label":"Day1","date":"2026-10-17"},…]}
+   ・每個品項屬於哪一天，存在 menu_items 原本沒用到的 emoji 欄位（例如 "d1"）
+   ・學生點的每一項屬於哪一天，存在 order_items 原本沒用到的 item_emoji 欄位
+   單天場次這些欄位都是空的，行為跟以前一樣。 */
+const DAY_ID_RE=/^d\d+$/;
+function getItemDayId(item){
+  const value=String(item?.emoji??item?.item_emoji??'').trim();
+  return DAY_ID_RE.test(value)?value:'';
+}
+function getOrderItemDayId(orderItem,menuItems){
+  const own=String(orderItem?.item_emoji||'').trim();
+  if(DAY_ID_RE.test(own)) return own;
+  const source=(menuItems||[]).find(item=>item.id===orderItem?.item_id);
+  return getItemDayId(source);
+}
+function getEventDays(ev){
+  const raw=ev?._daysDraft||parseEventMenuImages(ev?.img_url).days;
+  if(Array.isArray(raw)&&raw.length>1) return raw.map((day,index)=>({
+    id:DAY_ID_RE.test(String(day?.id||''))?day.id:'d'+(index+1),
+    label:String(day?.label||'').trim()||`第${index+1}天`,
+    date:String(day?.date||'')
+  }));
+  // 天數設定還沒載入時，先從品項標記推回來
+  const ids=[...new Set((S.items[ev?.id]||[]).map(getItemDayId).filter(Boolean))].sort();
+  return ids.length>1?ids.map(id=>({id,label:`第${id.slice(1)}天`,date:''})):[];
+}
+function isMultiDayEvent(ev){return getEventDays(ev).length>1;}
+function fmtDayShortDate(date){
+  const text=fmtEventDate(date);
+  return text?text.replace(/^\d{4}\//,''):'';
+}
+function getDayLabel(ev,dayId,withDate=true){
+  const days=getEventDays(ev);
+  if(days.length<2) return '';
+  const day=days.find(d=>d.id===dayId)||days[0];
+  return day.label+(withDate&&day.date?` ${fmtDayShortDate(day.date)}`:'');
+}
+// 品項屬於哪一天（多天場次沒標記的品項算第一天）
+function getItemDayFor(ev,item){
+  const days=getEventDays(ev);
+  if(days.length<2) return '';
+  const own=getItemDayId(item);
+  return days.some(d=>d.id===own)?own:days[0].id;
+}
+
 function renderOrderPage(){
   const ev=S.events.find(e=>e.id===S.activeEventId);
   if(!ev) return '<div class="empty"><span class="ei">❌</span><p>找不到此場次</p></div>';
-  const items=dedupeMenuItemsForDisplay(S.items[S.activeEventId]||[]);
+  const days=getEventDays(ev);
+  if(days.length>1&&!days.some(d=>d.id===S.activeDay)) S.activeDay=days[0].id;
+  const allItems=dedupeMenuItemsForDisplay(S.items[S.activeEventId]||[]);
+  const items=days.length>1?allItems.filter(item=>getItemDayFor(ev,item)===S.activeDay):allItems;
   const closed=isOrderingClosed(ev);
 
   let html=`
     <div class="order-page-header">
       ${S.sharedEventMode?'':'<button class="back-btn" onclick="closeEvent()">← 返回場次</button>'}
       <div class="event-info-banner">
-        ${ev.date?`<span style="display:block;font-size:.7rem;font-weight:800;color:var(--or);margin-bottom:2px">📅 ${esc(fmtEventDate(ev.date))}</span>`:''}
+        ${days.length>1?`<span style="display:block;font-size:.7rem;font-weight:800;color:var(--or);margin-bottom:2px">📅 ${esc(days.map(day=>day.label+(day.date?' '+fmtDayShortDate(day.date):'')).join('、'))}（共 ${days.length} 天）</span>`
+          :(ev.date?`<span style="display:block;font-size:.7rem;font-weight:800;color:var(--or);margin-bottom:2px">📅 ${esc(fmtEventDate(ev.date))}</span>`:'')}
         <span style="display:block;font-size:.66rem;font-weight:700;color:var(--rd);margin-bottom:3px">截止：${esc(fmtEventDeadline(ev))}</span>
         <strong>${esc(ev.title)}</strong>
         ${ev.organizer?`負責老師：${esc(ev.organizer)}`:''}
@@ -5841,6 +5911,20 @@ function renderOrderPage(){
 
   // 分享頁只在橘色場次資訊後顯示姓名與點餐內容；不提供返回或管理入口。
   if(S.sharedEventMode) html+=closedNotice+submittedNotice;
+
+  // 多天活動：每一天一個分頁，同一張清單一次送出
+  if(days.length>1){
+    html+=`<div class="day-tabs" role="tablist" aria-label="選擇活動日">
+      ${days.map(day=>{
+        const count=Object.values(S.cart).filter(ci=>(ci.day||days[0].id)===day.id).reduce((sum,ci)=>sum+(ci.qty||0),0);
+        const on=day.id===S.activeDay;
+        return `<button type="button" role="tab" aria-selected="${on}" class="day-tab${on?' on':''}" onclick="S.activeDay='${day.id}';render()">
+          <strong>📅 ${esc(day.label)}</strong>${day.date?`<span>${esc(fmtDayShortDate(day.date))}</span>`:''}${count?`<em>已選 ${count}</em>`:''}
+        </button>`;
+      }).join('')}
+    </div>
+    <div class="day-tabs-hint">每一天要吃的分別點，點完所有天數再一起送出。</div>`;
+  }
 
 
   // 菜單品項 — 按分類顯示
@@ -5887,7 +5971,11 @@ function renderOrderPage(){
   if(cartKeys.length){
     let total=0;
     html+=`<div class="cart-panel"><div class="fbe" style="margin-bottom:9px"><span style="font-weight:700;font-size:.85rem">📋 確認清單</span><button class="btn btn-out btn-sm" onclick="S.cart={};render()">清空</button></div>`;
-    cartKeys.forEach(k=>{
+    const cartDays=days.length>1?days:[{id:''}];
+    cartDays.forEach(day=>{
+    const keysOfDay=cartKeys.filter(k=>days.length<2||(S.cart[k]?.day||days[0].id)===day.id);
+    if(days.length>1&&keysOfDay.length) html+=`<div class="cart-day-title">📅 ${esc(getDayLabel(ev,day.id))}</div>`;
+    keysOfDay.forEach(k=>{
       const ci=S.cart[k]; if(!ci) return;
       total+=ci.price*ci.qty;
       html+=`<div class="cart-row">
@@ -5900,6 +5988,7 @@ function renderOrderPage(){
           <button class="qb" onclick="removeKey('${k}')" style="border-color:transparent;color:var(--sll)">✕</button>
         </div>
       </div>`;
+    });
     });
     if(total>0) html+=`<div class="cart-total"><span>合計</span><span>$${total}</span></div>`;
     html+='</div>';
@@ -5928,7 +6017,7 @@ function splitFlavorName(name){
 /* ── 重複品項 ──
    同一家店、同分類、同品名、同價格就算重複（例如同一張菜單解析了兩次） */
 function getMenuItemDupKey(item){
-  return [normalizeCompareText(item?.restaurant||''),item?.category||'',normalizeCompareText(item?.name||''),Number(item?.price)||0].join('__');
+  return [getItemDayId(item),normalizeCompareText(item?.restaurant||''),item?.category||'',normalizeCompareText(item?.name||''),Number(item?.price)||0].join('__');
 }
 // 學生點餐頁只顯示第一筆，重複的不再出現（品項本身還在，舊的點餐紀錄不受影響）
 function dedupeMenuItemsForDisplay(items){
@@ -6123,7 +6212,8 @@ function getSubsidyStoreName(restaurant,ev){
 }
 function getStoreCategoryKey(item){
   const ev=findSubsidyEvent(item);
-  return `${getSubsidyGroup(item?.category,item?.restaurant,ev)||item?.category||''}__${getSubsidyStoreName(item?.restaurant,ev)}`;
+  // 多天活動每一天各自算補助
+  return `${getItemDayFor(ev,item)}::${getSubsidyGroup(item?.category,item?.restaurant,ev)||item?.category||''}__${getSubsidyStoreName(item?.restaurant,ev)}`;
 }
 
 function getCartStoreCategoryTotal(item){
@@ -6142,7 +6232,8 @@ function getStoreTotalNotice(item, addedTotal){
   const total=before+(Number(addedTotal)||0);
   if(total<=limit) return null;
   const ev=findSubsidyEvent(item);
-  return {kind:'store-total',category:getSubsidyGroup(item.category,item.restaurant,ev)||item.category,store:getSubsidyStoreName(item.restaurant,ev),before,addedTotal:Number(addedTotal)||0,total,limit,overage:total-limit};
+  const dayLabel=getDayLabel(ev,getItemDayFor(ev,item));
+  return {kind:'store-total',category:getSubsidyGroup(item.category,item.restaurant,ev)||item.category,store:(dayLabel?`【${dayLabel}】`:'')+getSubsidyStoreName(item.restaurant,ev),before,addedTotal:Number(addedTotal)||0,total,limit,overage:total-limit};
 }
 
 function showOverageNotice(lines){
@@ -6154,7 +6245,7 @@ function showOverageNotice(lines){
       <div class="modal-title" style="text-align:center;color:#92400e">本場次活動餐費補助與補額提醒</div>
       <p class="modal-sub" style="text-align:center;line-height:1.6">${getSubsidyNoticeText(findSubsidyEvent())}</p>
       <div style="background:#fffbeb;border:1.5px solid #fbbf24;border-radius:var(--rmd);padding:10px 12px;margin-bottom:14px">
-        ${lines.map(x=>`<div style="font-size:.8rem;color:#78350f;padding:5px 0;border-bottom:1px dashed #fde68a"><strong>${x.category==='飲料'?'🧋':(x.category==='點心'?'🍰':'🍱')} ${esc(x.store)}</strong><br>本次${x.store===ALL_STORES_LABEL?'':'同店'}${x.category}累計 $${x.total}－補助上限 $${x.limit}＝<strong style="color:var(--rd)">${x.category==='點心'?'超額自付':'需補額'} $${x.overage}</strong></div>`).join('')}
+        ${lines.map(x=>`<div style="font-size:.8rem;color:#78350f;padding:5px 0;border-bottom:1px dashed #fde68a"><strong>${x.category==='飲料'?'🧋':(x.category==='點心'?'🍰':'🍱')} ${esc(x.store)}</strong><br>本次${String(x.store).endsWith(ALL_STORES_LABEL)?'':'同店'}${x.category}累計 $${x.total}－補助上限 $${x.limit}＝<strong style="color:var(--rd)">${x.category==='點心'?'超額自付':'需補額'} $${x.overage}</strong></div>`).join('')}
       </div>
       <button class="btn btn-or btn-full" id="overageConfirm">了解，仍要加入</button>
       <button class="btn btn-out btn-full" style="margin-top:7px" id="overageCancel">返回重新選擇</button>
@@ -6179,7 +6270,7 @@ async function quickAdd(id){
   const notices=[getStoreTotalNotice(item,item?.price)].filter(Boolean);
   if(notices.length && !(await showOverageNotice(notices))) return;
   const key=id+'__';
-  if(!S.cart[key]){S.cart[key]={itemId:id,name:item.name,emoji:item.emoji,category:item.category,qty:0,price:item.price,specsStr:'',note:''};}
+  if(!S.cart[key]){S.cart[key]={itemId:id,name:item.name,day:getItemDayFor(S.events.find(e=>e.id===S.activeEventId),item),category:item.category,qty:0,price:item.price,specsStr:'',note:''};}
   S.cart[key].qty++;render();
 }
 async function adjCart(id,d){
@@ -6455,7 +6546,7 @@ async function confirmSpec(){
   const notices=[getStoreTotalNotice(item,finalPrice*S.specQty)].filter(Boolean);
   if(notices.length && !(await showOverageNotice(notices))) return;
   const key=item.id+'__'+specsStr+'__'+Date.now();
-  S.cart[key]={itemId:item.id,name:item.name,emoji:item.emoji,category:item.category,qty:S.specQty,price:finalPrice,specsStr,note:S.specNote};
+  S.cart[key]={itemId:item.id,name:item.name,day:getItemDayFor(S.events.find(e=>e.id===S.activeEventId),item),category:item.category,qty:S.specQty,price:finalPrice,specsStr,note:S.specNote};
   closeSpec();render();toast('已加入清單 ✓','ok');
 }
 function closeSpec(){document.getElementById('specOverlay').style.display='none';}
@@ -6490,7 +6581,7 @@ function getPersonNameMatchKind(a,b){
 function groupOrderItems(items){
   const grouped=new Map();
   (items||[]).forEach(item=>{
-    const key=[item.item_name,item.specs_str||'',item.note||'',Number(item.unit_price)||0].join('__');
+    const key=[getOrderItemDayId(item),item.item_name,item.specs_str||'',item.note||'',Number(item.unit_price)||0].join('__');
     if(!grouped.has(key)) grouped.set(key,{...item,quantity:0});
     grouped.get(key).quantity+=Number(item.quantity)||0;
   });
@@ -6505,7 +6596,8 @@ function summarizeOrderItems(items){
   return groupOrderItems(items).map(item=>{
     const note=String(item.note||'').trim();
     const noteText=note?`［${orderItemNeedsSugarIce(item)?'糖冰':'備註'}：${note}］`:'';
-    return `${item.item_name}${item.specs_str?' ('+item.specs_str+')':''}${noteText}×${item.quantity}`;
+    const dayLabel=getDayLabel(S.events.find(e=>e.id===S.adminEid),getOrderItemDayId(item,S.items[S.adminEid]));
+    return `${dayLabel?'【'+dayLabel+'】':''}${item.item_name}${item.specs_str?' ('+item.specs_str+')':''}${noteText}×${item.quantity}`;
   }).join('、');
 }
 // 後台點餐紀錄表格：每個品項一行，飲料的甜度冰塊用藍色標籤標出
@@ -6516,7 +6608,8 @@ function renderOrderItemsCell(items){
     const noteHtml=note
       ?`<span class="oi-note${isDrink?' is-drink':''}">${isDrink?'🧊 ':'📝 '}${esc(note)}</span>`
       :(isDrink?'<span class="oi-note is-missing">未填糖冰</span>':'');
-    return `<div class="oi-line">${esc(item.item_name)}${item.specs_str?` <span class="oi-spec">(${esc(item.specs_str)})</span>`:''} ×${item.quantity}${noteHtml}</div>`;
+    const dayLabel=getDayLabel(S.events.find(e=>e.id===S.adminEid),getOrderItemDayId(item,S.items[S.adminEid]));
+    return `<div class="oi-line">${dayLabel?`<span class="day-chip">${esc(dayLabel)}</span>`:''}${esc(item.item_name)}${item.specs_str?` <span class="oi-spec">(${esc(item.specs_str)})</span>`:''} ×${item.quantity}${noteHtml}</div>`;
   }).join('');
 }
 
@@ -6560,7 +6653,7 @@ function showFinalOrderConfirmation(ev, name, cartKeys, orderNote){
           const item=S.cart[key];
           const subtotal=(Number(item.price)||0)*(Number(item.qty)||0);
           return `<div style="display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px dashed var(--bo)">
-            <div style="min-width:0"><div style="font-size:.84rem;font-weight:800;color:var(--sl)">${esc(item.name)} × ${item.qty}</div>
+            <div style="min-width:0"><div style="font-size:.84rem;font-weight:800;color:var(--sl)">${item.day&&getDayLabel(ev,item.day)?`<span class="day-chip">${esc(getDayLabel(ev,item.day))}</span>`:''}${esc(item.name)} × ${item.qty}</div>
               ${item.specsStr?`<div style="font-size:.7rem;color:var(--in);margin-top:2px">規格：${esc(item.specsStr)}</div>`:''}
               ${item.note?`<div style="font-size:.7rem;color:var(--ord);margin-top:2px">備註：${esc(item.note)}</div>`:''}
             </div>
@@ -6612,7 +6705,7 @@ function showSubmittedOrderNotice(orderId){
         ${items.map(item=>{
           const subtotal=(Number(item.unit_price)||0)*(Number(item.quantity)||0);
           return `<div style="display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px dashed var(--bo)">
-            <div><div style="font-size:.84rem;font-weight:800">${esc(item.item_name)} × ${item.quantity}</div>
+            <div><div style="font-size:.84rem;font-weight:800">${getOrderItemDayId(item)&&getDayLabel(ev,getOrderItemDayId(item))?`<span class="day-chip">${esc(getDayLabel(ev,getOrderItemDayId(item)))}</span>`:''}${esc(item.item_name)} × ${item.quantity}</div>
               ${item.specs_str?`<div style="font-size:.7rem;color:var(--in);margin-top:2px">規格：${esc(item.specs_str)}</div>`:''}
               ${item.note?`<div style="font-size:.7rem;color:var(--ord);margin-top:2px">備註：${esc(item.note)}</div>`:''}
             </div>
@@ -6657,7 +6750,7 @@ async function submitOrder(){
   const orderFlowBox=await showFinalOrderConfirmation(ev,S.myName,cartKeys,orderNote);
   if(!orderFlowBox) return;
   const orderPayload={menu_id:S.activeEventId,user_name:S.myName,class_name:S.myClass,note:orderNote,total};
-  const itemsPayload=cartKeys.map(k=>{const ci=S.cart[k];return{item_id:ci.itemId,item_name:ci.name,item_emoji:'',quantity:ci.qty,unit_price:ci.price,specs_str:ci.specsStr,note:ci.note};});
+  const itemsPayload=cartKeys.map(k=>{const ci=S.cart[k];return{item_id:ci.itemId,item_name:ci.name,item_emoji:ci.day||'',quantity:ci.qty,unit_price:ci.price,specs_str:ci.specsStr,note:ci.note};});
   document.getElementById('subBtn').disabled=true;
   const{error}=await dbInsertOrder(orderPayload,itemsPayload);
   if(error){
@@ -6680,10 +6773,64 @@ async function submitOrder(){
 /* ═══ RECORDS ═══ */
 
 /* ═══ ADMIN ═══ */
+/* ── 歷史場次依「活動」分類 ──
+   從場次標題去掉日期、星期、第幾天、場次編號，剩下的當活動名稱：
+   「身心障礙體驗活動11/26（四）場」「身心障礙體驗活動11/25（三）場」→ 身心障礙體驗活動
+   「藝起探索．享文化-資源教室雙北FUN假趣 Day1／day2」→ 同一個活動
+   「10/7(三)PODCAST玩家養成班」「PODCAST玩家養成班」→ 同一個活動（英文不分大小寫） */
+function getActivityBaseName(title){
+  let text=String(title||'')
+    .replace(/[０-９]/g,ch=>String.fromCharCode(ch.charCodeAt(0)-0xFEE0))
+    .replace(/\d{1,4}\s*[-–~～至]\s*\d{1,2}\s*月/g,' ')                       // 9-11月
+    .replace(/\d{1,2}\s*[\/.]\s*\d{1,2}(?:\s*[-–~～]\s*\d{1,2}(?:\s*[\/.]\s*\d{1,2})?)?/g,' ') // 11/26、10/17-18
+    .replace(/\d{1,2}\s*月\s*\d{1,2}\s*日?/g,' ')
+    .replace(/[（(]\s*[一二三四五六日天]\s*[)）]/g,' ')                            // （四）
+    .replace(/\b(?:day|Day|DAY)\s*\d+\b/g,' ')
+    .replace(/第\s*[一二三四五六七八九十\d]+\s*(?:天|場|梯|次|週)/g,' ')
+    .replace(/(?:上午|下午|晚上)?場$/,' ')
+    .replace(/\s+\d{1,3}\s*$/,' ')                                              // Podcast 21
+    .replace(/^[\s\-–_·・．.、,，:：]+|[\s\-–_·・．.、,，:：]+$/g,'')
+    .replace(/\s+/g,' ')
+    .trim();
+  return text||String(title||'').trim()||'未命名活動';
+}
+function getActivityGroupKey(name){
+  return String(name||'').toUpperCase().replace(/[\s\-–_·・．.、,，:：]/g,'');
+}
+// 把場次分成活動群組；名稱是另一個的開頭（例如 PODCAST ⊂ PODCAST玩家養成班）也併在一起
+function groupEventsByActivity(events){
+  const groups=[];
+  events.forEach(event=>{
+    const name=getActivityBaseName(event.title);
+    const key=getActivityGroupKey(name);
+    let group=groups.find(g=>g.key===key||(Math.min(g.key.length,key.length)>=4&&(g.key.startsWith(key)||key.startsWith(g.key))));
+    if(!group){group={key,name,events:[]};groups.push(group);}
+    else if(name.length>group.name.length) {group.name=name;group.key=key.length>group.key.length?key:group.key;}
+    group.events.push(event);
+  });
+  groups.forEach(group=>group.events.sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))));
+  return groups.sort((a,b)=>String(b.events[0]?.date||'').localeCompare(String(a.events[0]?.date||'')));
+}
+function toggleActivityGroup(key){
+  S.openActivityGroups=S.openActivityGroups||{};
+  S.openActivityGroups[key]=!isActivityGroupOpen(key);
+  render();
+}
+function isActivityGroupOpen(key,containsSelected){
+  const state=(S.openActivityGroups||{})[key];
+  return state===undefined?!!containsSelected:state;
+}
+function setAllActivityGroups(open){
+  S.openActivityGroups={};
+  groupEventsByActivity(S.events.filter(isEventClosed)).forEach(group=>{S.openActivityGroups[group.key]=open;});
+  render();
+}
+
 function setAdminView(view){
   S.adminView=view==='history'?'history':'current';
   S.adminTeacherFilter='all';
-  const candidates=S.events.filter(event=>S.adminView==='history'?isEventClosed(event):!isEventClosed(event));
+  const candidates=S.events.filter(event=>S.adminView==='history'?isEventClosed(event):!isEventClosed(event))
+    .sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))); // 預設選最近的場次
   if(!candidates.some(event=>event.id===S.adminEid)) S.adminEid=candidates[0]?.id||null;
   S.loadedHistoryKeys=[];
   render();
@@ -6724,13 +6871,38 @@ function renderAdmin(){
       <button class="btn ${view==='current'?'btn-or':'btn-out'}" onclick="setAdminView('current')">目前場次 <span style="opacity:.75">${activeEvents.length}</span></button>
       <button class="btn ${view==='history'?'btn-or':'btn-out'}" onclick="setAdminView('history')">歷史場次 <span style="opacity:.75">${archivedEvents.length}</span></button>
     </div>
-    <div style="font-size:.72rem;color:var(--sll);margin-bottom:7px">${view==='history'?'選擇管理老師，查看已封存的過去場次':'依管理老師分類目前可點餐的場次'}</div>
+    <div style="font-size:.72rem;color:var(--sll);margin-bottom:7px">${view==='history'?'可先選管理老師篩選，再點活動展開查看已封存的場次':'依管理老師分類目前可點餐的場次'}</div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:13px">
       <button class="btn btn-sm ${S.adminTeacherFilter==='all'?'btn-or':'btn-out'}" onclick="setAdminTeacherFilterByIndex(-1)">全部老師</button>
       ${teacherOptions.map((teacher,index)=>`<button class="btn btn-sm ${S.adminTeacherFilter===teacher?'btn-or':'btn-out'}" onclick="setAdminTeacherFilterByIndex(${index})">${esc(teacher)}</button>`).join('')}
     </div>`;
 
-  Object.entries(byOrganizer).forEach(([organizer,events])=>{
+  if(view==='history'){
+    // 歷史場次：依活動分類，每個活動可以折疊收合
+    const groups=groupEventsByActivity(visibleEvents);
+    html+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+      <span style="font-size:.78rem;font-weight:800;color:var(--sl)">🗂️ 依活動分類（${groups.length} 個活動、${visibleEvents.length} 個場次）</span>
+      <span style="display:flex;gap:6px"><button class="btn btn-sm btn-out" onclick="setAllActivityGroups(true)">全部展開</button><button class="btn btn-sm btn-out" onclick="setAllActivityGroups(false)">全部收合</button></span>
+    </div>`;
+    groups.forEach(group=>{
+      const open=isActivityGroupOpen(group.key,group.events.some(event=>event.id===S.adminEid));
+      const teachers=[...new Set(group.events.map(event=>String(event.organizer||'未指定老師').trim()||'未指定老師'))].join('、');
+      const dates=group.events.map(event=>event.date).filter(Boolean).sort();
+      const range=dates.length?(dates[0]===dates[dates.length-1]?fmtEventDate(dates[0]):`${fmtEventDate(dates[0])} ～ ${fmtEventDate(dates[dates.length-1])}`):'';
+      html+=`<div class="activity-group${open?' open':''}">
+        <button type="button" class="activity-group-head" aria-expanded="${open}" onclick="toggleActivityGroup('${esc(group.key).replace(/'/g,"\\'")}')">
+          <span class="activity-group-arrow">${open?'▼':'▶'}</span>
+          <span class="activity-group-name">📁 ${esc(group.name)}</span>
+          <span class="activity-group-meta">${group.events.length} 場 · 👤 ${esc(teachers)}${range?` · ${esc(range)}`:''}</span>
+        </button>
+        ${open?`<div class="event-capsule-list activity-group-body">
+          ${group.events.map(event=>`<button class="btn event-capsule ${S.adminEid===event.id?'btn-or':'btn-out'}"
+            onclick="switchAdminEvent('${event.id}')">📦 ${esc(event.title)}${event.date?` · ${esc(fmtEventDate(event.date))}`:''}</button>`).join('')}
+        </div>`:''}
+      </div>`;
+    });
+  }
+  else Object.entries(byOrganizer).forEach(([organizer,events])=>{
     html+=`<div class="event-picker-group">
       <span class="organizer-capsule">👤 管理老師：${esc(organizer)}</span>
       <div class="event-capsule-list">
@@ -6917,9 +7089,14 @@ function renderEventMgmt(ev){
       <div style="font-size:.66rem;color:var(--sll);margin-top:4px">分開計算：預設 $${DEFAULT_SUBSIDY.meal}／$${DEFAULT_SUBSIDY.drink}，同一家店各自累計，麥當勞是兩個金額相加。合併計算：便當、點心、飲料不分店家全部加起來，預設總額 $${DEFAULT_SUBSIDY.total}。改完按「💾 儲存場次」後生效。</div>
       <div id="evSubsidyHint" style="font-size:.72rem;font-weight:800;color:var(--gr);margin-top:4px">${!parseEventMenuImages(ev.img_url).subsidy&&detectSubsidyFromNote(ev.activity_note)?'✅ 目前依活動說明的金額設定，學生看到的補額提醒會用這個金額':''}</div>
     </div>`;})()}
+    ${renderEventDaysEditor(ev)}
 
 
     <!-- 圖片 + AI -->
+    ${(()=>{const days=getEventDays(ev);if(days.length<2) return '';const cur=getCurrentEditDayId();return `<div class="parse-day-pick">
+      <span>📅 接下來上傳、解析、新增的品項屬於：</span>
+      ${days.map(day=>`<button type="button" class="btn btn-sm ${day.id===cur?'btn-or':'btn-out'}" onclick="S.parseDayId='${day.id}';render()">${esc(day.label)}${day.date?' '+esc(fmtDayShortDate(day.date)):''}</button>`).join('')}
+    </div>`;})()}
     <div style="display:flex;justify-content:flex-end;align-items:center;margin:2px 0 7px">
       <button class="btn btn-out btn-sm" onclick="addSavedItemExpanded()">＋ 新增品項</button>
     </div>
@@ -7013,6 +7190,7 @@ function renderEventMgmt(ev){
             <input class="mg-inp mi-rest" value="${esc(it.restaurant)}" id="mr-${i}" placeholder="店家" oninput="updatePendingItem(${i},'restaurant',this.value)" onchange="moveNewItemToGroup(${i})" style="width:110px">
             <input class="mg-inp" value="${esc(it.name)}" id="mn-${i}" placeholder="品項名稱" oninput="updatePendingItem(${i},'name',this.value)" style="flex:1;min-width:90px">
             <input class="mg-inp mi-price" type="number" value="${it.price}" id="mp-${i}" placeholder="價格" oninput="updatePendingItem(${i},'price',this.value)" style="width:62px">
+            ${(()=>{const days=getEventDays(getEditingEvent());if(days.length<2) return '';const cur=getItemDayFor(getEditingEvent(),it);return `<select class="mg-inp" title="這個品項是哪一天" onchange="updatePendingItem(${i},'emoji',this.value);render()" style="width:92px">${days.map(day=>`<option value="${day.id}"${day.id===cur?' selected':''}>📅 ${esc(day.label)}</option>`).join('')}</select>`;})()}
             <button class="btn btn-rd btn-sm" onclick="removeItem(${i})">${it._historyMissing?'不保留':'刪'}</button>
           </div>
           ${getTeaBaseVariants(it.name)&&!hasTeaBaseSpec(it)?`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:4px 0;padding:6px 9px;border-radius:8px;background:#fffbeb;border:1.5px solid #f59e0b;font-size:.74rem;font-weight:800;color:#92400e"><span style="flex:1;min-width:180px">⚠️ 這杯可選不同茶底，點餐時分不出是哪一種</span><button type="button" class="btn btn-sm" style="background:#f59e0b;color:#fff;border:none" onclick="addTeaBaseSpecToPending(${i})">加上茶底選項（${getTeaBaseVariants(it.name).opts.join('／')}）</button></div>`:''}
@@ -7037,23 +7215,27 @@ function renderEventMgmt(ev){
 // 只改變顯示順序，各品項仍用原本的索引編輯。
 function renderPendingItemGroups(items,renderRow){
   const groups=new Map();
+  const editEv=getEditingEvent();
+  const days=getEventDays(editEv);
   (items||[]).forEach((item,index)=>{
     const type=item.category==='飲料'?'飲料':'便當';
     const store=String(item.restaurant||'').trim()||'未填店家';
-    const key=type+'__'+normalizeCompareText(store);
-    if(!groups.has(key)) groups.set(key,{type,store,newRows:[],rows:[]});
+    const day=getItemDayFor(editEv,item);
+    const key=day+'__'+type+'__'+normalizeCompareText(store);
+    if(!groups.has(key)) groups.set(key,{type,store,day,newRows:[],rows:[]});
     // 手動新增、還沒儲存的品項放在「所屬店家」分區的最上面：
     // 新增飲料就在飲料最上方，新增便當就在便當最上方，不會互相影響
     const isNew=item._manual&&!item._savedId;
     groups.get(key)[isNew?'newRows':'rows'].push(renderRow(item,index));
   });
-  const ordered=[...groups.values()].sort((a,b)=>(a.type===b.type?0:(a.type==='便當'?-1:1)));
+  const dayIndex=id=>Math.max(0,days.findIndex(day=>day.id===id));
+  const ordered=[...groups.values()].sort((a,b)=>dayIndex(a.day)-dayIndex(b.day)||(a.type===b.type?0:(a.type==='便當'?-1:1)));
   return ordered.map(group=>{
     const isDrink=group.type==='飲料';
     const storeArg=esc(JSON.stringify(group.store==='未填店家'?'':group.store));
     const total=group.newRows.length+group.rows.length;
     const newNote=group.newRows.length?`<span style="font-size:.74rem;font-weight:800;color:#fff;background:${isDrink?'#6366f1':'#ea580c'};border-radius:999px;padding:2px 9px;margin-left:8px">🆕 新增 ${group.newRows.length} 項</span>`:'';
-    return `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:14px 0 8px;padding:9px 12px;border-radius:10px;font-size:1.02rem;font-weight:900;background:${isDrink?'#eef2ff':'#fff7ed'};color:${isDrink?'#3730a3':'#9a3412'}"><span style="flex:1;min-width:180px">${isDrink?'🧋 飲料':'🍱 便當・點心'} · ${esc(group.store)}<span style="font-weight:900;margin-left:8px">${total} 項</span>${newNote}</span><button type="button" onclick="addItem('${isDrink?'飲料':'便當'}',${storeArg})" style="border:2px solid currentColor;background:#fff;color:inherit;border-radius:999px;padding:4px 12px;font-size:.84rem;font-weight:900;cursor:pointer">＋ 在這家店新增</button></div>`
+    return `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:14px 0 8px;padding:9px 12px;border-radius:10px;font-size:1.02rem;font-weight:900;background:${isDrink?'#eef2ff':'#fff7ed'};color:${isDrink?'#3730a3':'#9a3412'}"><span style="flex:1;min-width:180px">${group.day?`📅 ${esc(getDayLabel(editEv,group.day))} · `:''}${isDrink?'🧋 飲料':'🍱 便當・點心'} · ${esc(group.store)}<span style="font-weight:900;margin-left:8px">${total} 項</span>${newNote}</span><button type="button" onclick="addItem('${isDrink?'飲料':'便當'}',${storeArg})" style="border:2px solid currentColor;background:#fff;color:inherit;border-radius:999px;padding:4px 12px;font-size:.84rem;font-weight:900;cursor:pointer">＋ 在這家店新增</button></div>`
       +group.newRows.join('')
       +group.rows.join('');
   }).join('');
@@ -7274,6 +7456,82 @@ function loadCachedMenu(idx){
   requestHistoryAddition(entry,true);
 }
 
+/* ── 多天活動設定（後台） ── */
+function renderEventDaysEditor(ev){
+  const days=getEventDays(ev);
+  const multi=days.length>1;
+  return `<div style="margin-bottom:10px">
+    <span class="mg-lbl" style="display:block;margin-bottom:6px">活動天數</span>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+      <button type="button" class="btn ${multi?'btn-out':'btn-or'}" onclick="setEventMultiDay(false)" style="padding:7px 14px;font-weight:700">單天</button>
+      <button type="button" class="btn ${multi?'btn-or':'btn-out'}" onclick="setEventMultiDay(true)" style="padding:7px 14px;font-weight:700">多天（同一個連結點好幾天）</button>
+    </div>
+    ${multi?`<div style="display:flex;flex-direction:column;gap:6px">
+      ${days.map((day,index)=>`<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+        <span style="font-size:.76rem;font-weight:800;color:var(--in);width:22px">${index+1}.</span>
+        <input class="mg-inp" value="${esc(day.label)}" placeholder="例如 Day1" oninput="updateEventDay(${index},'label',this.value)" style="width:110px">
+        <input class="mg-inp" type="date" value="${esc(day.date)}" onchange="updateEventDay(${index},'date',this.value)" style="width:150px">
+        ${days.length>2?`<button type="button" class="btn btn-rd btn-sm" onclick="removeEventDay(${index})">刪</button>`:''}
+      </div>`).join('')}
+      <div><button type="button" class="btn btn-out btn-sm" onclick="addEventDay()">＋ 新增一天</button></div>
+    </div>
+    <div style="font-size:.66rem;color:var(--sll);margin-top:4px">學生在同一個連結用「Day1／Day2」分頁分別點餐，一次送出；補助每一天各自計算；後台與 Excel 會標出每一項是哪一天。上傳菜單時要先選「這是哪一天的菜單」。改完按「💾 儲存場次」後生效。</div>`
+    :'<div style="font-size:.66rem;color:var(--sll)">兩天以上的活動可以選「多天」，學生用同一個連結把每一天的餐一起點好。</div>'}
+  </div>`;
+}
+function getEditingEvent(){return S.menuDraft||S.events.find(e=>e.id===S.adminEid);}
+function setEventMultiDay(on){
+  const ev=getEditingEvent();
+  if(!ev) return;
+  if(!on){
+    const used=(S.items[ev.id]||[]).some(item=>getItemDayId(item));
+    if(used&&!confirm('這個場次的品項已經分好天數，改回單天後，學生會在同一頁看到所有天的品項。確定嗎？')) return;
+    ev._daysDraft=[];
+  }else if(!isMultiDayEvent(ev)){
+    const next=date=>{if(!date) return '';const d=new Date(date+'T00:00:00Z');d.setUTCDate(d.getUTCDate()+1);return d.toISOString().slice(0,10);};
+    ev._daysDraft=[{id:'d1',label:'Day1',date:ev.date||''},{id:'d2',label:'Day2',date:next(ev.date)}];
+  }
+  S.parseDayId='';
+  render();
+}
+function updateEventDay(index,field,value){
+  const ev=getEditingEvent();
+  if(!ev) return;
+  ev._daysDraft=getEventDays(ev).map(day=>({...day}));
+  if(ev._daysDraft[index]) ev._daysDraft[index][field]=value;
+  if(field==='date') render();
+}
+function addEventDay(){
+  const ev=getEditingEvent();
+  if(!ev) return;
+  const days=getEventDays(ev).map(day=>({...day}));
+  const maxId=Math.max(0,...days.map(day=>Number(day.id.slice(1))||0));
+  const last=days[days.length-1]?.date;
+  let date='';
+  if(last){const d=new Date(last+'T00:00:00Z');d.setUTCDate(d.getUTCDate()+1);date=d.toISOString().slice(0,10);}
+  days.push({id:'d'+(maxId+1),label:'Day'+(days.length+1),date});
+  ev._daysDraft=days;
+  render();
+}
+function removeEventDay(index){
+  const ev=getEditingEvent();
+  if(!ev) return;
+  const days=getEventDays(ev);
+  const day=days[index];
+  if(!day) return;
+  const used=[...(S.items[ev.id]||[]),...(S.pendingItems||[])].some(item=>getItemDayId(item)===day.id);
+  if(used&&!confirm(`「${day.label}」已經有品項，刪掉這一天後，這些品項會歸到第一天。確定嗎？`)) return;
+  ev._daysDraft=days.filter((_,i)=>i!==index);
+  render();
+}
+// 上傳／新增品項時，目前選的是哪一天
+function getCurrentEditDayId(){
+  const days=getEventDays(getEditingEvent());
+  if(days.length<2) return '';
+  if(!days.some(day=>day.id===S.parseDayId)) S.parseDayId=days[0].id;
+  return S.parseDayId;
+}
+
 function setSubsidyMode(mode){
   const box=document.getElementById('evSubsidyBox');
   if(!box) return;
@@ -7306,7 +7564,7 @@ function updateSubsidyDraft(){
 }
 function hasUnsavedSubsidyDraft(){
   const ev=S.menuDraft||S.events.find(e=>e.id===S.adminEid);
-  return !!ev?._subsidyDraft;
+  return !!ev?._subsidyDraft||!!ev?._daysDraft;
 }
 
 function updateEditingEventField(field,value){
@@ -7589,7 +7847,7 @@ async function requestHistoryAddition(entry,closeCache){
   }
   const ev=S.events.find(e=>e.id===S.adminEid);
   if(ev) ev.store_name=entry.store||'';
-  const loaded=(entry.items||[]).map((it,i)=>({...it,id:'cache-'+Date.now()+'-'+i,menu_id:S.adminEid,ai_parsed:false,_historyKey:entry.key}));
+  const loaded=(entry.items||[]).map((it,i)=>({...it,emoji:getCurrentEditDayId(),id:'cache-'+Date.now()+'-'+i,menu_id:S.adminEid,ai_parsed:false,_historyKey:entry.key}));
   S.pendingItems=[...S.pendingItems,...loaded];
   if(closeCache&&window._cacheOverlay){window._cacheOverlay.remove();window._cacheOverlay=null;}
   render();
@@ -7756,7 +8014,7 @@ function addItem(category,restaurant){
     id:'new-'+Date.now(),
     menu_id:S.adminEid||'',
     restaurant:restaurant??(last?.restaurant||ev?.store_name||''),
-    emoji:'',name:'',description:'',price:0,specs:[],
+    emoji:getCurrentEditDayId(),name:'',description:'',price:0,specs:[],
     sort_order:S.pendingItems.length,
     ai_parsed:false,
     category:category||last?.category||'便當',
@@ -7821,6 +8079,7 @@ function isSavedCopyChanged(item){
     ||norm(item.name)!==norm(original.name)
     ||Number(item.price)!==Number(original.price)
     ||norm(item.description)!==norm(original.description)
+    ||norm(item.emoji)!==norm(original.emoji)
     ||JSON.stringify(item.specs||[])!==JSON.stringify(parseSpecs(original.specs));
 }
 function getUnsavedMenuItemCount(){
@@ -7945,9 +8204,16 @@ async function saveMenu(){
   const sameAs=(a,b)=>a.mode===b.mode&&(a.mode==='combined'?a.total===b.total:a.meal===b.meal&&a.drink===b.drink);
   if(sameAs(subsidy,fallbackSubsidy)) delete imgData.subsidy;
   else imgData.subsidy=subsidy;
+  // 多天活動設定
+  if(evNow?._daysDraft){
+    if(evNow._daysDraft.length>1) imgData.days=evNow._daysDraft.map(({id,label,date})=>({id,label,date}));
+    else delete imgData.days;
+  }
   const img_url=Object.keys(imgData).length?JSON.stringify(imgData):'';
-  // 補助金額沒改就不動 img_url，避免動到菜單原圖
-  const subsidyChanged=JSON.stringify(imgData.subsidy||null)!==JSON.stringify(parseEventMenuImages(evNow?.img_url||'').subsidy||null);
+  // 補助金額、天數都沒改就不動 img_url，避免動到菜單原圖
+  const savedData=parseEventMenuImages(evNow?.img_url||'');
+  const subsidyChanged=JSON.stringify(imgData.subsidy||null)!==JSON.stringify(savedData.subsidy||null)
+    ||JSON.stringify(imgData.days||null)!==JSON.stringify(savedData.days||null);
   const imgPatch=subsidyChanged?{img_url}:{};
   if(isNewDraft){
     const{data:newEvent,error:createError}=await sb.from('menus')
@@ -7976,7 +8242,7 @@ async function saveMenu(){
     }
     if(evNow) Object.assign(evNow,{date,title,activity_note,organizer,store_name,deadline_date,deadline,...imgPatch});
   }
-  if(evNow) delete evNow._subsidyDraft;
+  if(evNow){delete evNow._subsidyDraft;delete evNow._daysDraft;}
   try{
     const savedImageValue=await persistPendingMenuImages(eid,evNow?.img_url||'');
     if(savedImageValue!==null&&evNow) evNow.img_url=savedImageValue;
@@ -8002,7 +8268,7 @@ async function saveMenu(){
   // 新品項排在所有已儲存品項之後（用最大的排序號碼往後接，避免刪除過品項時順序重疊）
   const nextSortOrder=Math.max(existingCount,...(S.items[eid]||[]).map(item=>(Number(item.sort_order)||0)+1));
   const formRows=S.pendingItems.map((it,i)=>({
-    emoji:'',
+    emoji:getItemDayId(it),  // 多天活動：品項屬於哪一天
     category:document.getElementById('mc-'+i)?.value||it.category||'其他',
     restaurant:document.getElementById('mr-'+i)?.value||it.restaurant,
     name:document.getElementById('mn-'+i)?.value||it.name,
@@ -8217,6 +8483,7 @@ function pullMissingHistoryItemsForReview(groups,runId){
         menu_id:S.adminEid,
         restaurant:item.restaurant||group.store,
         category:item.category||(group.type==='飲料'?'飲料':'便當'),
+        emoji:getCurrentEditDayId(),
         specs:parseSpecs(item.specs),
         ai_parsed:false,
         _parseRunId:runId,
@@ -8856,7 +9123,7 @@ async function aiParseImages(images,uploadType='main'){
         menu_id:S.adminEid||'',
         restaurant:it.restaurant||'本日菜單',
         category:it.category||'其他',
-        emoji:'',
+        emoji:getCurrentEditDayId(),
         name:cleanAiMenuName(it.name),
         description:document.getElementById('md-'+i)?.value||it.description||'',
         price:Number(it.price)||0,
@@ -8980,7 +9247,8 @@ function getOrderShortfallSummary(order,menuItems,ev){
     const limit=getSubsidyLimit({category,restaurant,menu_id:ev?.id},ev);
     if(!limit) return;
     const group=getSubsidyGroup(category,restaurant,ev)||category;
-    const storeName=getSubsidyStoreName(restaurant,ev);
+    const dayLabel=getDayLabel(ev,getOrderItemDayId(orderItem,items)||getEventDays(ev)[0]?.id);
+    const storeName=(dayLabel?`【${dayLabel}】`:'')+getSubsidyStoreName(restaurant,ev);
     const key=group+'__'+storeName;
     if(!groups[key]) groups[key]={category:group,restaurant:storeName,limit,total:0};
     groups[key].total+=(Number(orderItem.unit_price)||0)*(Number(orderItem.quantity)||0);
@@ -9048,7 +9316,8 @@ function buildOrderExportData(){
     const shortfall=getOrderShortfallSummary(o,menuItems,ev);
     (o.order_items||[]).forEach((oi,itemIndex)=>{
       const source=itemMap[oi.item_id]||menuItems.find(item=>item.name===oi.item_name)||{};
-      const restaurant=source.restaurant||ev?.store_name||'未設定店家';
+      const dayLabel=getDayLabel(ev,getOrderItemDayId(oi,menuItems)||getEventDays(ev)[0]?.id);
+      const restaurant=(dayLabel?`【${dayLabel}】`:'')+(source.restaurant||ev?.store_name||'未設定店家');
       const category=source.category||'其他';
       const workType=category==='飲料'?'飲料':'便當';
       const qty=Number(oi.quantity)||0;
@@ -9072,7 +9341,8 @@ function buildOrderExportData(){
     .forEach(x=>{
       const names=sortBySimilarPersonName([...x.diners.values()],name=>name);
       // [餐點, 點餐人數, 點餐姓名, 份數]
-      const row=[formatMealSummary(x.name,x.specs,x.itemNote),names.length,names.join('、'),x.qty];
+      const dayPrefix=(x.restaurant.match(/^【[^】]+】/)||[''])[0];
+      const row=[dayPrefix+formatMealSummary(x.name,x.specs,x.itemNote),names.length,names.join('、'),x.qty];
       (x.workType==='飲料'?drinkSummaryRows:mealSummaryRows).push(row);
     });
   grand.people=sortedOrders.length;
@@ -9202,7 +9472,7 @@ async function exportExcel(){
     style(ws.getCell(r,1),{bold:true,size:16,align:'center'});
     ws.getRow(r).height=30;r++;
     ws.mergeCells(r,1,r,N);
-    ws.getCell(r,1).value=[ev?.date&&`日期：${fmtEventDate(ev.date)}`,ev?.organizer&&`管理老師：${ev.organizer}`,`匯出時間：${new Date().toLocaleString('zh-TW',{hour12:false})}`].filter(Boolean).join('　　');
+    ws.getCell(r,1).value=[isMultiDayEvent(ev)?`日期：${getEventDays(ev).map(day=>day.label+(day.date?' '+fmtDayShortDate(day.date):'')).join('、')}`:(ev?.date&&`日期：${fmtEventDate(ev.date)}`),ev?.organizer&&`管理老師：${ev.organizer}`,`匯出時間：${new Date().toLocaleString('zh-TW',{hour12:false})}`].filter(Boolean).join('　　');
     style(ws.getCell(r,1),{align:'center'});
     ws.getRow(r).height=20;r+=2;
   };
